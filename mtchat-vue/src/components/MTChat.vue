@@ -549,11 +549,10 @@ defineExpose({
         </div>
 
         <template v-for="(message, index) in chat.messages.value" :key="message.id">
-          <!-- Date divider (in-flow, hidden when sticky is showing same date) -->
+          <!-- Date divider (in-flow, faded when sticky is showing same date) -->
           <div
             v-if="shouldShowDateDivider(message, index)"
-            v-show="formatDateDivider(message.sent_at) !== hiddenDividerDate"
-            class="mtchat__date-divider"
+            :class="['mtchat__date-divider', { 'mtchat__date-divider--hidden': formatDateDivider(message.sent_at) === hiddenDividerDate }]"
           >
             <span>{{ formatDateDivider(message.sent_at) }}</span>
           </div>
@@ -985,6 +984,10 @@ defineExpose({
   justify-content: center;
   padding: 8px 0;
   margin: 8px 0;
+}
+
+.mtchat__date-divider--hidden {
+  visibility: hidden;
 }
 
 .mtchat__date-divider span {
