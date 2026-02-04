@@ -248,6 +248,16 @@ function formatTime(dateString: string): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+function formatDateTime(dateString: string): string {
+  const date = new Date(dateString)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${day}.${month}.${year} ${hours}:${minutes}`
+}
+
 // File handling
 function handleFileSelect() {
   fileInputRef.value?.click()
@@ -478,41 +488,9 @@ defineExpose({
 
           <div
             :data-message-id="message.id"
-            :class="['mtchat__message-row', { 'mtchat__message-row--own': message.sender_id === config.userId }]"
+            class="mtchat__message"
           >
-            <!-- Message bubble -->
-            <div :class="['mtchat__message', { 'mtchat__message--own': message.sender_id === config.userId }]">
-              <!-- Quoted message (if reply) -->
-              <div
-                v-if="message.reply_to_id"
-                class="mtchat__quoted-message"
-                @click.stop="scrollToMessage(message.reply_to_id)"
-              >
-                <div class="mtchat__quoted-indicator"></div>
-                <div class="mtchat__quoted-content">
-                  <div class="mtchat__quoted-author">
-                    {{ getMessageAuthor(message.reply_to_id) }}
-                  </div>
-                  <div class="mtchat__quoted-text">
-                    {{ getQuotedText(message.reply_to_id) }}
-                  </div>
-                </div>
-              </div>
-
-              <div class="mtchat__message-sender">
-                {{ message.sender_id === config.userId ? 'You' : message.sender_id.slice(0, 8) }}
-              </div>
-              <div v-if="message.content" class="mtchat__message-content">{{ message.content }}</div>
-              <AttachmentList
-                v-if="message.attachments && message.attachments.length > 0"
-                :attachments="message.attachments"
-                @open-gallery="(index) => openGalleryAtIndex(message, index)"
-                @open-file="openFileViewer"
-              />
-              <div class="mtchat__message-time">{{ formatTime(message.sent_at) }}</div>
-            </div>
-
-            <!-- Message actions (visible on hover) -->
+            <!-- Message actions (top-right, visible on hover) -->
             <div class="mtchat__message-actions">
               <button
                 class="mtchat__action-btn"
@@ -524,8 +502,43 @@ defineExpose({
                   <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
                 </svg>
               </button>
-              <!-- Future: edit, delete, more actions -->
             </div>
+
+            <!-- Quoted message (if reply) -->
+            <div
+              v-if="message.reply_to_id"
+              class="mtchat__quoted-message"
+              @click.stop="scrollToMessage(message.reply_to_id)"
+            >
+              <div class="mtchat__quoted-indicator"></div>
+              <div class="mtchat__quoted-content">
+                <div class="mtchat__quoted-author">
+                  {{ getMessageAuthor(message.reply_to_id) }}
+                </div>
+                <div class="mtchat__quoted-text">
+                  {{ getQuotedText(message.reply_to_id) }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Header: sender name + datetime -->
+            <div class="mtchat__message-header">
+              <span class="mtchat__message-sender">
+                {{ message.sender_id === config.userId ? 'Вы' : message.sender_id.slice(0, 8) }}
+              </span>
+              <span class="mtchat__message-time">{{ formatDateTime(message.sent_at) }}</span>
+            </div>
+
+            <!-- Content -->
+            <div v-if="message.content" class="mtchat__message-content">{{ message.content }}</div>
+
+            <!-- Attachments -->
+            <AttachmentList
+              v-if="message.attachments && message.attachments.length > 0"
+              :attachments="message.attachments"
+              @open-gallery="(index) => openGalleryAtIndex(message, index)"
+              @open-file="openFileViewer"
+            />
           </div>
         </template>
 
@@ -854,93 +867,108 @@ defineExpose({
 /* Messages */
 .mtchat__messages {
   flex: 1;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   position: relative;
 }
 
-/* Message row (bubble + actions) */
-.mtchat__message-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  align-self: flex-start;
-  max-width: 80%;
-}
-
-.mtchat__message-row--own {
-  align-self: flex-end;
-  flex-direction: row-reverse;
-}
-
+/* Message (list-style, full width) */
 .mtchat__message {
-  max-width: 100%;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: var(--mtchat-message-other);
   position: relative;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: background 0.15s;
 }
 
-.mtchat__message--own {
-  background: var(--mtchat-message-own);
+.mtchat__message:hover {
+  background: rgba(0, 0, 0, 0.03);
 }
 
-/* Message actions (reply, edit, delete) */
+/* Message header: sender + datetime */
+.mtchat__message-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.mtchat__message-sender {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--mtchat-text);
+}
+
+.mtchat__message-time {
+  font-size: 12px;
+  color: var(--mtchat-text-secondary);
+}
+
+/* Message content */
+.mtchat__message-content {
+  color: var(--mtchat-text);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Message actions (top-right, visible on hover) */
 .mtchat__message-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   display: flex;
   gap: 4px;
   opacity: 0;
   transition: opacity 0.15s;
-  padding-top: 4px;
 }
 
-.mtchat__message-row:hover .mtchat__message-actions {
+.mtchat__message:hover .mtchat__message-actions {
   opacity: 1;
 }
 
 .mtchat__action-btn {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: 4px;
-  background: transparent;
+  background: var(--mtchat-bg);
   color: var(--mtchat-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.6;
-  transition: opacity 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 
 .mtchat__action-btn:hover {
-  opacity: 1;
+  background: var(--mtchat-bg-secondary);
   color: var(--mtchat-primary);
 }
 
-/* Quoted message in message */
+/* Quoted message */
 .mtchat__quoted-message {
   display: flex;
   gap: 8px;
-  padding: 6px 10px;
-  margin-bottom: 6px;
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--mtchat-bg-secondary);
+  border-left: 3px solid var(--mtchat-primary);
+  border-radius: 0 4px 4px 0;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
 .mtchat__quoted-message:hover {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--mtchat-border);
 }
 
 .mtchat__quoted-indicator {
-  width: 2px;
-  background: var(--mtchat-primary);
-  border-radius: 1px;
+  display: none;
 }
 
 .mtchat__quoted-content {
@@ -949,13 +977,14 @@ defineExpose({
 }
 
 .mtchat__quoted-author {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--mtchat-primary);
+  margin-bottom: 2px;
 }
 
 .mtchat__quoted-text {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--mtchat-text-secondary);
   white-space: nowrap;
   overflow: hidden;
