@@ -172,11 +172,17 @@ function handleScroll() {
   // Update sticky date - find date divider that's scrolled past 40px
   const dateDividers = container.querySelectorAll('.mtchat__date-divider')
   let activeDateText: string | null = null
+  let hasVisibleDivider = false
 
   dateDividers.forEach((divider) => {
     const rect = divider.getBoundingClientRect()
     const containerRect = container.getBoundingClientRect()
     const relativeTop = rect.top - containerRect.top
+
+    // Check if any divider is visible near the top (within 50px)
+    if (relativeTop >= -10 && relativeTop < 50) {
+      hasVisibleDivider = true
+    }
 
     // If divider is scrolled above container top by more than 40px
     if (relativeTop < -40) {
@@ -184,7 +190,8 @@ function handleScroll() {
     }
   })
 
-  stickyDate.value = activeDateText
+  // Hide sticky date if another date divider is visible near top
+  stickyDate.value = hasVisibleDivider ? null : activeDateText
 
   // Mark as read logic
   if (chat.firstUnreadMessageId.value) {
