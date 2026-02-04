@@ -913,22 +913,23 @@ defineExpose({
 /* Date divider (sticky) */
 .mtchat__date-divider {
   position: sticky;
-  top: 0;
+  top: 8px;
   z-index: 10;
   display: flex;
   justify-content: center;
   padding: 8px 0;
   margin: 8px 0;
-  background: var(--mtchat-bg);
 }
 
 .mtchat__date-divider span {
   padding: 4px 12px;
   background: var(--mtchat-bg-secondary);
+  border: 1px solid var(--mtchat-border);
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
   color: var(--mtchat-text-secondary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* Message (list-style, full width) */
