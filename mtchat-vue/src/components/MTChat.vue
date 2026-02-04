@@ -248,14 +248,40 @@ function formatTime(dateString: string): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatDateTime(dateString: string): string {
+function getDateKey(dateString: string): string {
   const date = new Date(dateString)
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+}
+
+function formatDateDivider(dateString: string): string {
+  const date = new Date(dateString)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const isToday = date.toDateString() === today.toDateString()
+  const isYesterday = date.toDateString() === yesterday.toDateString()
+
+  if (isToday) return 'Сегодня'
+  if (isYesterday) return 'Вчера'
+
+  const day = date.getDate()
+  const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+                  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+  const month = months[date.getMonth()]
   const year = date.getFullYear()
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${day}.${month}.${year} ${hours}:${minutes}`
+  const currentYear = today.getFullYear()
+
+  if (year === currentYear) {
+    return `${day} ${month}`
+  }
+  return `${day} ${month} ${year}`
+}
+
+function shouldShowDateDivider(message: Message, index: number): boolean {
+  if (index === 0) return true
+  const prevMessage = chat.messages.value[index - 1]
+  return getDateKey(message.sent_at) !== getDateKey(prevMessage.sent_at)
 }
 
 // File handling
@@ -477,7 +503,15 @@ defineExpose({
 
       <!-- Messages -->
       <div v-else ref="messagesContainer" class="mtchat__messages" @scroll="handleScroll">
-        <template v-for="message in chat.messages.value" :key="message.id">
+        <template v-for="(message, index) in chat.messages.value" :key="message.id">
+          <!-- Date divider (sticky) -->
+          <div
+            v-if="shouldShowDateDivider(message, index)"
+            class="mtchat__date-divider"
+          >
+            <span>{{ formatDateDivider(message.sent_at) }}</span>
+          </div>
+
           <!-- Unread divider -->
           <div
             v-if="message.id === chat.firstUnreadMessageId.value"
@@ -521,12 +555,12 @@ defineExpose({
               </div>
             </div>
 
-            <!-- Header: sender name + datetime -->
+            <!-- Header: sender name + time -->
             <div class="mtchat__message-header">
               <span class="mtchat__message-sender">
                 {{ message.sender_id === config.userId ? 'Вы' : message.sender_id.slice(0, 8) }}
               </span>
-              <span class="mtchat__message-time">{{ formatDateTime(message.sent_at) }}</span>
+              <span class="mtchat__message-time">{{ formatTime(message.sent_at) }}</span>
             </div>
 
             <!-- Content -->
@@ -874,6 +908,27 @@ defineExpose({
   flex-direction: column;
   gap: 4px;
   position: relative;
+}
+
+/* Date divider (sticky) */
+.mtchat__date-divider {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+  margin: 8px 0;
+  background: var(--mtchat-bg);
+}
+
+.mtchat__date-divider span {
+  padding: 4px 12px;
+  background: var(--mtchat-bg-secondary);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mtchat-text-secondary);
 }
 
 /* Message (list-style, full width) */
