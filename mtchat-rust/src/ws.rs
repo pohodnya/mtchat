@@ -23,6 +23,12 @@ pub enum WsEvent {
         content: String,
         sent_at: DateTime<Utc>,
     },
+    #[serde(rename = "message.read")]
+    MessageRead {
+        dialog_id: Uuid,
+        user_id: Uuid,
+        last_read_message_id: Uuid,
+    },
     Pong,
     Error { message: String },
 }
@@ -115,6 +121,29 @@ pub async fn broadcast_message(
         sender_id: message.sender_id,
         content: message.content.clone(),
         sent_at: message.sent_at,
+    };
+
+    let json = match serde_json::to_string(&event) {
+        Ok(j) => j,
+        Err(_) => return,
+    };
+
+    let conns = connections.read().await;
+    for (_, tx) in conns.iter() {
+        let _ = tx.send(json.clone()).await;
+    }
+}
+
+pub async fn broadcast_read(
+    connections: &Connections,
+    dialog_id: Uuid,
+    user_id: Uuid,
+    last_read_message_id: Uuid,
+) {
+    let event = WsEvent::MessageRead {
+        dialog_id,
+        user_id,
+        last_read_message_id,
     };
 
     let json = match serde_json::to_string(&event) {

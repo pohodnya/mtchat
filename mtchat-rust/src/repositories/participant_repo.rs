@@ -125,7 +125,7 @@ impl ParticipantRepository {
         Ok(result.rows_affected() > 0)
     }
 
-    /// Update last read message
+    /// Update last read message (legacy - use mark_as_read instead)
     pub async fn update_last_read(
         &self,
         dialog_id: Uuid,
@@ -140,6 +140,62 @@ impl ParticipantRepository {
         .bind(dialog_id)
         .bind(user_id)
         .bind(message_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Mark messages as read: reset unread_count and update last_read_message_id
+    pub async fn mark_as_read(
+        &self,
+        dialog_id: Uuid,
+        user_id: Uuid,
+        last_read_message_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            r#"UPDATE dialog_participants
+               SET unread_count = 0, last_read_message_id = $3
+               WHERE dialog_id = $1 AND user_id = $2"#,
+        )
+        .bind(dialog_id)
+        .bind(user_id)
+        .bind(last_read_message_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Increment unread_count for all participants except the author
+    pub async fn increment_unread(
+        &self,
+        dialog_id: Uuid,
+        exclude_user_id: Uuid,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            r#"UPDATE dialog_participants
+               SET unread_count = unread_count + 1
+               WHERE dialog_id = $1 AND user_id != $2"#,
+        )
+        .bind(dialog_id)
+        .bind(exclude_user_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// Set unread_count to message count when user joins existing dialog
+    pub async fn set_unread_count_from_messages(
+        &self,
+        dialog_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            r#"UPDATE dialog_participants
+               SET unread_count = (SELECT COUNT(*) FROM messages WHERE dialog_id = $1)
+               WHERE dialog_id = $1 AND user_id = $2"#,
+        )
+        .bind(dialog_id)
+        .bind(user_id)
         .execute(&self.pool)
         .await?;
         Ok(result.rows_affected() > 0)

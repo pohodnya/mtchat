@@ -15,6 +15,7 @@ import type {
   ScopeConfig,
   PresignUploadResponse,
   AttachmentInput,
+  MessagesResponse,
 } from '../types'
 
 /**
@@ -189,18 +190,34 @@ export class MTChatApi {
 
   /**
    * Get messages in a dialog
+   * Returns messages and first_unread_message_id for divider positioning
    */
-  async getMessages(dialogId: string, options?: PaginationOptions): Promise<Message[]> {
+  async getMessages(dialogId: string, options?: PaginationOptions): Promise<MessagesResponse> {
     const params: Record<string, string> = {}
     if (options?.limit) params.limit = String(options.limit)
     if (options?.before) params.before = options.before
 
-    const response = await this.request<ApiResponse<Message[]>>(
+    const response = await this.request<ApiResponse<MessagesResponse>>(
       'GET',
       `/api/v1/dialogs/${dialogId}/messages`,
       { params }
     )
     return response.data
+  }
+
+  /**
+   * Mark messages as read up to specified message
+   */
+  async markAsRead(dialogId: string, lastReadMessageId: string): Promise<void> {
+    await this.request<{ success: boolean }>(
+      'POST',
+      `/api/v1/dialogs/${dialogId}/read`,
+      {
+        body: {
+          last_read_message_id: lastReadMessageId,
+        },
+      }
+    )
   }
 
   /**

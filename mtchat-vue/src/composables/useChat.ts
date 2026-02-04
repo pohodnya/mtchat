@@ -34,6 +34,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const isConnected: Ref<boolean> = ref(false)
   const isLoading: Ref<boolean> = ref(false)
   const error: Ref<Error | null> = ref(null)
+  const firstUnreadMessageId: Ref<string | null> = ref(null)
 
   // Track subscribed dialog
   let subscribedDialogId: string | null = null
@@ -199,19 +200,47 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     try {
       isLoading.value = true
       error.value = null
-      const loaded = await client.api.getMessages(currentDialog.value.id, opts)
+      const response = await client.api.getMessages(currentDialog.value.id, opts)
 
       if (opts?.before) {
         // Prepend older messages
-        messages.value = [...loaded, ...messages.value]
+        messages.value = [...response.messages, ...messages.value]
       } else {
-        messages.value = loaded
+        messages.value = response.messages
+        // Set first unread message ID for divider
+        firstUnreadMessageId.value = response.first_unread_message_id || null
       }
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
       isLoading.value = false
+    }
+  }
+
+  async function markAsRead(messageId?: string): Promise<void> {
+    if (!currentDialog.value) return
+
+    // Use provided messageId or last message
+    const lastReadId = messageId || messages.value[messages.value.length - 1]?.id
+    if (!lastReadId) return
+
+    try {
+      await client.api.markAsRead(currentDialog.value.id, lastReadId)
+
+      // Update unread count in dialog list (but keep divider until next visit)
+      const dialog = participatingDialogs.value.find((d) => d.id === currentDialog.value?.id)
+      if (dialog) {
+        dialog.unread_count = 0
+      }
+      if (currentDialog.value) {
+        currentDialog.value.unread_count = 0
+      }
+      // NOTE: firstUnreadMessageId is NOT cleared here
+      // Divider stays visible until user leaves and re-enters the chat
+    } catch (e) {
+      // Non-critical, just log
+      console.warn('Failed to mark as read:', e)
     }
   }
 
@@ -251,6 +280,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       } else {
         messages.value = [...messages.value, message]
       }
+
+      // Sending a message marks all previous as read - clear divider
+      firstUnreadMessageId.value = null
+
       return message
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
@@ -348,6 +381,28 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  function handleMessageRead(event: { dialog_id?: string; user_id?: string; payload?: { dialog_id?: string; user_id?: string } }): void {
+    // Support both flat and payload formats
+    const dialog_id = event.dialog_id || event.payload?.dialog_id
+    const readByUserId = event.user_id || event.payload?.user_id
+    if (!dialog_id || !readByUserId) return
+
+    // Only handle if it's the current user's read receipt
+    if (readByUserId === config.userId) {
+      // Update unread count in dialog list
+      const dialog = participatingDialogs.value.find((d) => d.id === dialog_id)
+      if (dialog) {
+        dialog.unread_count = 0
+      }
+      // Update current dialog unread count (but keep divider)
+      if (currentDialog.value?.id === dialog_id) {
+        currentDialog.value.unread_count = 0
+        // NOTE: firstUnreadMessageId is NOT cleared
+        // Divider stays visible until user re-enters the chat
+      }
+    }
+  }
+
   // ============ Lifecycle ============
 
   onMounted(async () => {
@@ -360,9 +415,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       isConnected.value = false
     })
 
-    client.on('message.new', handleMessageNew)
-    client.on('participant.joined', handleParticipantJoined)
-    client.on('participant.left', handleParticipantLeft)
+    client.on('message.new', handleMessageNew as any)
+    client.on('message.read', handleMessageRead as any)
+    client.on('participant.joined', handleParticipantJoined as any)
+    client.on('participant.left', handleParticipantLeft as any)
 
     // Auto-connect
     if (autoConnect) {
@@ -401,6 +457,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     isConnected,
     isLoading,
     error,
+    firstUnreadMessageId,
 
     // API access for file uploads
     api: client.api,
@@ -418,6 +475,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     leaveDialog,
     subscribe,
     unsubscribe,
+    markAsRead,
   }
 }
 

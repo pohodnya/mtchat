@@ -7,7 +7,7 @@
  * - Inline mode: Single chat for a business object
  */
 
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, onUnmounted } from 'vue'
 import { useChat } from '../composables/useChat'
 import { useFileUpload } from '../composables/useFileUpload'
 import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment } from '../types'
@@ -68,6 +68,9 @@ const messageInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const activeTab = ref<'participating' | 'available'>('participating')
+
+// Read tracking state
+let readTimeout: ReturnType<typeof setTimeout> | null = null
 
 // File viewer state
 const showFileViewer = ref(false)
@@ -148,6 +151,30 @@ watch(
     scrollToBottom()
   }
 )
+
+// Check if scrolled to bottom and mark as read
+function handleScroll() {
+  if (!messagesContainer.value || !chat.firstUnreadMessageId.value) return
+
+  const container = messagesContainer.value
+  const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50
+
+  if (isAtBottom) {
+    // Start timer to mark as read after 1 second
+    if (!readTimeout) {
+      readTimeout = setTimeout(() => {
+        chat.markAsRead()
+        readTimeout = null
+      }, 1000)
+    }
+  } else {
+    // Cancel if scrolled away
+    if (readTimeout) {
+      clearTimeout(readTimeout)
+      readTimeout = null
+    }
+  }
+}
 
 // Methods
 function scrollToBottom() {
@@ -253,6 +280,14 @@ function closeFileViewer() {
   showFileViewer.value = false
 }
 
+// Cleanup
+onUnmounted(() => {
+  if (readTimeout) {
+    clearTimeout(readTimeout)
+    readTimeout = null
+  }
+})
+
 // Expose for parent access
 defineExpose({
   client: chat,
@@ -314,6 +349,9 @@ defineExpose({
           <div v-if="dialog.can_join && !dialog.i_am_participant" class="mtchat__dialog-badge">
             Can Join
           </div>
+          <span v-if="dialog.unread_count && dialog.unread_count > 0" class="mtchat__unread-badge">
+            {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
+          </span>
         </div>
 
         <div v-if="currentDialogsList.length === 0" class="mtchat__empty">
@@ -364,24 +402,32 @@ defineExpose({
       </div>
 
       <!-- Messages -->
-      <div v-else ref="messagesContainer" class="mtchat__messages">
-        <div
-          v-for="message in chat.messages.value"
-          :key="message.id"
-          :class="['mtchat__message', { 'mtchat__message--own': message.sender_id === config.userId }]"
-        >
-          <div class="mtchat__message-sender">
-            {{ message.sender_id === config.userId ? 'You' : message.sender_id.slice(0, 8) }}
+      <div v-else ref="messagesContainer" class="mtchat__messages" @scroll="handleScroll">
+        <template v-for="message in chat.messages.value" :key="message.id">
+          <!-- Unread divider -->
+          <div
+            v-if="message.id === chat.firstUnreadMessageId.value"
+            class="mtchat__unread-divider"
+          >
+            <span>Новые сообщения</span>
           </div>
-          <div v-if="message.content" class="mtchat__message-content">{{ message.content }}</div>
-          <AttachmentList
-            v-if="message.attachments && message.attachments.length > 0"
-            :attachments="message.attachments"
-            @open-gallery="(index) => openGalleryAtIndex(message, index)"
-            @open-file="openFileViewer"
-          />
-          <div class="mtchat__message-time">{{ formatTime(message.sent_at) }}</div>
-        </div>
+
+          <div
+            :class="['mtchat__message', { 'mtchat__message--own': message.sender_id === config.userId }]"
+          >
+            <div class="mtchat__message-sender">
+              {{ message.sender_id === config.userId ? 'You' : message.sender_id.slice(0, 8) }}
+            </div>
+            <div v-if="message.content" class="mtchat__message-content">{{ message.content }}</div>
+            <AttachmentList
+              v-if="message.attachments && message.attachments.length > 0"
+              :attachments="message.attachments"
+              @open-gallery="(index) => openGalleryAtIndex(message, index)"
+              @open-file="openFileViewer"
+            />
+            <div class="mtchat__message-time">{{ formatTime(message.sent_at) }}</div>
+          </div>
+        </template>
 
         <div v-if="chat.messages.value.length === 0" class="mtchat__empty">
           No messages yet
@@ -606,6 +652,21 @@ defineExpose({
   border-radius: 4px;
 }
 
+.mtchat__unread-badge {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  background: #007AFF;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
 /* Main Area */
 .mtchat__main {
   flex: 1;
@@ -698,6 +759,29 @@ defineExpose({
   color: var(--mtchat-text-secondary);
   text-align: right;
   margin-top: 4px;
+}
+
+/* Unread Divider */
+.mtchat__unread-divider {
+  display: flex;
+  align-items: center;
+  margin: 16px 0;
+  gap: 12px;
+}
+
+.mtchat__unread-divider::before,
+.mtchat__unread-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 122, 255, 0.3);
+}
+
+.mtchat__unread-divider span {
+  color: #007AFF;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 /* Input Area */

@@ -262,6 +262,15 @@ export interface PaginationOptions {
 }
 
 /**
+ * Messages response with unread tracking
+ */
+export interface MessagesResponse {
+  messages: Message[]
+  /** ID of the first unread message (for divider positioning) */
+  first_unread_message_id?: string
+}
+
+/**
  * Dialog list filter type
  */
 export type DialogListType = 'participating' | 'available'
@@ -274,6 +283,7 @@ export type DialogListType = 'participating' | 'available'
 export type WsEventType =
   | 'connected'
   | 'message.new'
+  | 'message.read'
   | 'message.edited'
   | 'message.deleted'
   | 'participant.joined'
@@ -398,6 +408,8 @@ export interface UseChatReturn {
   isConnected: import('vue').Ref<boolean>
   isLoading: import('vue').Ref<boolean>
   error: import('vue').Ref<Error | null>
+  /** ID of the first unread message (for divider) */
+  firstUnreadMessageId: import('vue').Ref<string | null>
 
   // API access for file uploads
   api: import('../sdk/api').MTChatApi
@@ -415,4 +427,6 @@ export interface UseChatReturn {
   leaveDialog: (dialogId: string) => Promise<void>
   subscribe: (dialogId: string) => void
   unsubscribe: (dialogId: string) => void
+  /** Mark messages as read up to specified message */
+  markAsRead: (messageId?: string) => Promise<void>
 }

@@ -65,7 +65,8 @@
 │  user_id            │        │  tenant_uid                     │
 │  joined_at          │        │  scope_level1[]  (departments)  │
 │  notifications      │        │  scope_level2[]  (permissions)  │
-│  last_read_msg      │        │                                 │
+│  last_read_msg_id   │        │                                 │
+│  unread_count       │        │                                 │
 └─────────────────────┘        └─────────────────────────────────┘
 ```
 
@@ -138,14 +139,15 @@ DELETE /api/v1/management/dialogs/{id}    # Delete dialog
 ### Chat API (User Token)
 
 ```
-GET  /api/v1/dialogs?type=participating   # My chats
+GET  /api/v1/dialogs?type=participating   # My chats (includes unread_count)
 GET  /api/v1/dialogs?type=available       # Can join
 GET  /api/v1/dialogs/by-object/{type}/{id}  # Inline mode
 POST /api/v1/dialogs/{id}/join            # Join chat
 POST /api/v1/dialogs/{id}/leave           # Leave chat
-GET  /api/v1/dialogs/{id}/messages        # Get messages
+POST /api/v1/dialogs/{id}/read            # Mark messages as read
+GET  /api/v1/dialogs/{id}/messages        # Get messages (includes first_unread_message_id)
 POST /api/v1/dialogs/{id}/messages        # Send message
-WS   /api/v1/ws                           # Real-time
+WS   /api/v1/ws                           # Real-time (message.new, message.read)
 ```
 
 ### File Upload API
@@ -255,8 +257,19 @@ docker-compose up -d
 | Demo App (Dev Playground) | ✅ |
 | File attachments | ✅ |
 | Unified FileViewer (images/PDF) | ✅ |
+| Unread message tracking | ✅ |
 
 ## Changelog
+
+### 2025-02-04 (v3.3) - Unread Message Tracking
+- Unread message counter per dialog (stored in dialog_participants.unread_count)
+- "Новые сообщения" divider between read and unread messages
+- Atomic increment on new message for all participants (except author)
+- Mark as read API endpoint: POST /dialogs/{id}/read
+- Auto-mark-as-read when scrolled to bottom (1 second delay)
+- WebSocket message.read event for real-time updates across devices
+- Unread badge in dialog list UI (99+ cap)
+- first_unread_message_id in messages response for divider positioning
 
 ### 2025-02-04 (v3.2) - File Attachments
 - Full file attachment support with S3/MinIO storage

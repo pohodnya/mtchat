@@ -132,6 +132,11 @@ struct DialogsQuery {
 }
 
 #[derive(Debug, Deserialize)]
+struct MarkAsReadRequest {
+    last_read_message_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
 struct PaginationQuery {
     #[serde(default = "default_limit")]
     limit: i64,
@@ -139,6 +144,13 @@ struct PaginationQuery {
 }
 
 fn default_limit() -> i64 { 50 }
+
+#[derive(Debug, Serialize)]
+struct MessagesResponse {
+    messages: Vec<MessageWithAttachments>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    first_unread_message_id: Option<Uuid>,
+}
 
 #[derive(Debug, Serialize)]
 struct ApiResponse<T> {
@@ -374,12 +386,20 @@ async fn list_dialogs(
     for dialog in dialogs {
         let participants_count = state.dialogs.count_participants(dialog.id).await?;
 
+        // Get unread count for participating dialogs
+        let unread_count = if dialog_type == "participating" {
+            state.participants.find(dialog.id, user_id).await?
+                .map(|p| p.unread_count as i64)
+        } else {
+            None
+        };
+
         responses.push(DialogResponse {
             dialog,
             participants_count,
             i_am_participant: Some(dialog_type == "participating"),
             can_join: Some(dialog_type == "available"),
-            unread_count: None, // TODO: implement
+            unread_count,
         });
     }
 
@@ -462,6 +482,9 @@ async fn join_dialog(
     // Join
     let participant = state.participants.add(dialog_id, user_id, JoinedAs::Joined).await?;
 
+    // Set unread count to total messages in dialog
+    state.participants.set_unread_count_from_messages(dialog_id, user_id).await?;
+
     // Send webhook
     state.webhooks.send(WebhookEvent::participant_joined(&dialog, &participant)).await;
 
@@ -504,10 +527,44 @@ async fn get_dialog(
 
 async fn list_messages(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(dialog_id): Path<Uuid>,
     Query(pagination): Query<PaginationQuery>,
-) -> Result<Json<ApiResponse<Vec<MessageWithAttachments>>>, ApiError> {
+) -> Result<Json<ApiResponse<MessagesResponse>>, ApiError> {
     let messages = state.messages.list_by_dialog(dialog_id, pagination.limit, pagination.before).await?;
+
+    // Get participant to find first unread message
+    let participant = state.participants.find(dialog_id, user_id).await?;
+    let first_unread_message_id = if let Some(ref p) = participant {
+        if let Some(last_read_id) = p.last_read_message_id {
+            // Find the last read message to get its sent_at
+            let last_read_msg = messages.iter().find(|m| m.id == last_read_id);
+            let last_read_sent_at = if let Some(msg) = last_read_msg {
+                Some(msg.sent_at)
+            } else {
+                // Last read message not in current page - fetch from DB
+                state.messages.find_by_id(last_read_id).await?
+                    .map(|m| m.sent_at)
+            };
+
+            if let Some(sent_at) = last_read_sent_at {
+                // Find first message sent AFTER the last read message
+                messages.iter()
+                    .find(|m| m.sent_at > sent_at)
+                    .map(|m| m.id)
+            } else {
+                // Last read message doesn't exist - treat as never read
+                messages.first().map(|m| m.id)
+            }
+        } else if !messages.is_empty() {
+            // Never read - first message is unread
+            Some(messages[0].id)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
 
     // Batch fetch attachments for all messages
     let message_ids: Vec<Uuid> = messages.iter().map(|m| m.id).collect();
@@ -520,7 +577,7 @@ async fn list_messages(
     }
 
     // Build response with attachments and presigned URLs
-    let mut response = Vec::with_capacity(messages.len());
+    let mut messages_with_attachments = Vec::with_capacity(messages.len());
     for message in messages {
         let attachments = attachments_map.remove(&message.id).unwrap_or_default();
 
@@ -546,13 +603,18 @@ async fn list_messages(
             attachment_responses.push(domain::AttachmentResponse::from_attachment(att, url, thumbnail_url));
         }
 
-        response.push(MessageWithAttachments {
+        messages_with_attachments.push(MessageWithAttachments {
             message,
             attachments: attachment_responses,
         });
     }
 
-    Ok(Json(ApiResponse { data: response }))
+    Ok(Json(ApiResponse {
+        data: MessagesResponse {
+            messages: messages_with_attachments,
+            first_unread_message_id,
+        }
+    }))
 }
 
 async fn send_message(
@@ -646,6 +708,12 @@ async fn send_message(
             attachment_responses.push(domain::AttachmentResponse::from_attachment(att, url, thumbnail_url));
         }
     }
+
+    // Increment unread count for all participants except the sender
+    state.participants.increment_unread(dialog_id, sender_id).await?;
+
+    // Mark sender's own message as read (so divider doesn't appear before own messages)
+    state.participants.mark_as_read(dialog_id, sender_id, message.id).await?;
 
     // Broadcast to WebSocket connections
     ws::broadcast_message(&state.connections, dialog_id, &message).await;
@@ -770,6 +838,32 @@ async fn list_participants(
     Ok(Json(ApiResponse { data: participants }))
 }
 
+async fn mark_as_read(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+    Path(dialog_id): Path<Uuid>,
+    Json(req): Json<MarkAsReadRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // Check dialog exists
+    state.dialogs.find_by_id(dialog_id).await?
+        .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
+
+    // Check user is participant
+    if !state.participants.exists(dialog_id, user_id).await? {
+        return Err(ApiError::Forbidden("Not a participant".into()));
+    }
+
+    // Mark as read
+    state.participants.mark_as_read(dialog_id, user_id, req.last_read_message_id).await?;
+
+    // Broadcast WebSocket event
+    ws::broadcast_read(&state.connections, dialog_id, user_id, req.last_read_message_id).await;
+
+    Ok(Json(serde_json::json!({
+        "success": true
+    })))
+}
+
 // WebSocket
 async fn ws_handler(
     ws: WebSocketUpgrade,
@@ -865,6 +959,7 @@ async fn main() {
         .route("/api/v1/dialogs/by-object/{object_type}/{object_id}", get(get_dialog_by_object))
         .route("/api/v1/dialogs/{id}/join", post(join_dialog))
         .route("/api/v1/dialogs/{id}/leave", post(leave_dialog))
+        .route("/api/v1/dialogs/{id}/read", post(mark_as_read))
         .route("/api/v1/dialogs/{id}/participants", get(list_participants))
 
         // Chat API - Messages

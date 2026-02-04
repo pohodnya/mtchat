@@ -61,6 +61,8 @@ pub struct DialogParticipant {
     pub notifications_enabled: bool,
     /// Last message the user has read
     pub last_read_message_id: Option<Uuid>,
+    /// Number of unread messages for this participant
+    pub unread_count: i32,
 }
 
 impl DialogParticipant {
@@ -72,6 +74,7 @@ impl DialogParticipant {
             joined_as: joined_as.as_str().to_string(),
             notifications_enabled: true,
             last_read_message_id: None,
+            unread_count: 0,
         }
     }
 
