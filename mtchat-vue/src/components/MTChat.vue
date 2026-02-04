@@ -186,13 +186,13 @@ function handleScroll() {
     if (relativeTop < -40) {
       activeDateText = divider.textContent?.trim() || null
 
-      // Check if NEXT divider is close to top (within 60px)
+      // Check if NEXT divider is close to top (between -40px and 60px)
       const nextDivider = dividerArray[i + 1]
       if (nextDivider) {
         const nextRect = nextDivider.getBoundingClientRect()
         const nextRelativeTop = nextRect.top - containerRect.top
-        // If next divider is near top, hide sticky to avoid overlap
-        if (nextRelativeTop >= -10 && nextRelativeTop < 60) {
+        // If next divider is near top (visible or about to be), hide sticky
+        if (nextRelativeTop >= -40 && nextRelativeTop < 60) {
           hideSticky = true
         }
       }
