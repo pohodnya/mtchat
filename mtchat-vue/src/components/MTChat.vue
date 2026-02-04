@@ -79,6 +79,9 @@ const fileViewerIndex = ref(0)
 // Scroll button state
 const showScrollButton = ref(false)
 
+// Sticky date state
+const stickyDate = ref<string | null>(null)
+
 // Collect all attachments from all messages
 const allAttachments = computed(() => {
   const attachments: Attachment[] = []
@@ -165,6 +168,23 @@ function handleScroll() {
 
   // Show/hide scroll to bottom button
   showScrollButton.value = distanceFromBottom > 200
+
+  // Update sticky date - find date divider that's scrolled past 40px
+  const dateDividers = container.querySelectorAll('.mtchat__date-divider')
+  let activeDateText: string | null = null
+
+  dateDividers.forEach((divider) => {
+    const rect = divider.getBoundingClientRect()
+    const containerRect = container.getBoundingClientRect()
+    const relativeTop = rect.top - containerRect.top
+
+    // If divider is scrolled above container top by more than 40px
+    if (relativeTop < -40) {
+      activeDateText = divider.textContent?.trim() || null
+    }
+  })
+
+  stickyDate.value = activeDateText
 
   // Mark as read logic
   if (chat.firstUnreadMessageId.value) {
@@ -503,8 +523,13 @@ defineExpose({
 
       <!-- Messages -->
       <div v-else ref="messagesContainer" class="mtchat__messages" @scroll="handleScroll">
+        <!-- Floating sticky date (appears when scrolled 40px+) -->
+        <div v-if="stickyDate" class="mtchat__sticky-date">
+          <span>{{ stickyDate }}</span>
+        </div>
+
         <template v-for="(message, index) in chat.messages.value" :key="message.id">
-          <!-- Date divider (sticky) -->
+          <!-- Date divider (in-flow) -->
           <div
             v-if="shouldShowDateDivider(message, index)"
             class="mtchat__date-divider"
@@ -910,11 +935,31 @@ defineExpose({
   position: relative;
 }
 
-/* Date divider (sticky) */
-.mtchat__date-divider {
+/* Floating sticky date (fixed at top when scrolled) */
+.mtchat__sticky-date {
   position: sticky;
-  top: 8px;
-  z-index: 10;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+  pointer-events: none;
+}
+
+.mtchat__sticky-date span {
+  padding: 4px 12px;
+  background: var(--mtchat-bg);
+  border: 1px solid var(--mtchat-border);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mtchat-text-secondary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+}
+
+/* Date divider (in-flow) */
+.mtchat__date-divider {
   display: flex;
   justify-content: center;
   padding: 8px 0;
@@ -924,12 +969,10 @@ defineExpose({
 .mtchat__date-divider span {
   padding: 4px 12px;
   background: var(--mtchat-bg-secondary);
-  border: 1px solid var(--mtchat-border);
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
   color: var(--mtchat-text-secondary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* Message (list-style, full width) */
