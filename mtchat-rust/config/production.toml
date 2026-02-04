@@ -1,0 +1,27 @@
+# Production configuration overrides
+
+[app]
+environment = "production"
+
+[server]
+request_timeout_secs = 60
+
+[database]
+pool_min = 20
+pool_max = 100
+
+[redis]
+pool_size = 50
+
+[websocket]
+broadcast_buffer_size = 5000
+
+[telemetry]
+log_level = "info"
+log_format = "json"
+sentry_traces_sample_rate = 0.01
+
+[rate_limit]
+requests_per_minute = 300
+burst = 50
+websocket_messages_per_second = 20

@@ -1,0 +1,483 @@
+<template>
+  <div class="tms-layout" :class="{ 'sidebar-collapsed': sidebarCollapsed, 'no-banner': !showBanner }">
+    <!-- Top Banner -->
+    <div class="top-banner" v-if="showBanner">
+      <span class="banner-content">Message Content</span>
+      <div class="banner-actions">
+        <button class="banner-btn">Button</button>
+        <button class="banner-btn primary">Button</button>
+      </div>
+      <button class="banner-close" @click="$emit('close-banner')">
+        <i class="pi pi-times" />
+      </button>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <router-link to="/admin" class="logo">
+          <span class="logo-icon">🚛</span>
+          <span class="logo-text" v-if="!sidebarCollapsed">TRUCKER TMS</span>
+        </router-link>
+        <button class="sidebar-toggle" @click="sidebarCollapsed = !sidebarCollapsed">
+          <i class="pi pi-bars" />
+        </button>
+      </div>
+
+      <!-- Demo Navigation -->
+      <div class="demo-nav" v-if="!sidebarCollapsed">
+        <div class="demo-nav-label">MTChat Demo</div>
+        <router-link to="/chat" class="demo-nav-link" :class="{ active: $route.path === '/chat' }">
+          <i class="pi pi-comments" />
+          Full Mode
+        </router-link>
+        <router-link to="/inline" class="demo-nav-link" :class="{ active: $route.path.startsWith('/inline') }">
+          <i class="pi pi-window-maximize" />
+          Inline Mode
+        </router-link>
+        <router-link to="/admin" class="demo-nav-link" :class="{ active: $route.path === '/admin' }">
+          <i class="pi pi-cog" />
+          Admin Panel
+        </router-link>
+      </div>
+      <div class="demo-nav-collapsed" v-else>
+        <router-link to="/chat" class="demo-nav-icon" :class="{ active: $route.path === '/chat' }" title="Full Mode">
+          <i class="pi pi-comments" />
+        </router-link>
+        <router-link to="/inline" class="demo-nav-icon" :class="{ active: $route.path.startsWith('/inline') }" title="Inline Mode">
+          <i class="pi pi-window-maximize" />
+        </router-link>
+        <router-link to="/admin" class="demo-nav-icon" :class="{ active: $route.path === '/admin' }" title="Admin Panel">
+          <i class="pi pi-cog" />
+        </router-link>
+      </div>
+
+      <div class="sidebar-divider" />
+
+      <nav class="sidebar-nav">
+        <div class="nav-group">
+          <a href="#" class="nav-item">
+            <i class="pi pi-bell" />
+            <span v-if="!sidebarCollapsed">Уведомления</span>
+            <span class="badge" v-if="!sidebarCollapsed">3</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="pi pi-question-circle" />
+            <span v-if="!sidebarCollapsed">Техподдержка</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="pi pi-chart-line" />
+            <span v-if="!sidebarCollapsed">Аналитика</span>
+          </a>
+        </div>
+
+        <div class="nav-section" v-if="!sidebarCollapsed">Заказы и поставки</div>
+        <div class="nav-group">
+          <a href="#" class="nav-item">
+            <i class="pi pi-box" />
+            <span v-if="!sidebarCollapsed">Заказы</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="pi pi-list" />
+            <span v-if="!sidebarCollapsed">Цифровая очередь</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="pi pi-truck" />
+            <span v-if="!sidebarCollapsed">Самовывоз</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="pi pi-map-marker" />
+            <span v-if="!sidebarCollapsed">Отслеживание рейсов</span>
+          </a>
+        </div>
+
+        <div class="nav-section" v-if="!sidebarCollapsed">Тариф</div>
+        <div class="nav-group">
+          <a href="#" class="nav-item active">
+            <i class="pi pi-tag" />
+            <span v-if="!sidebarCollapsed">Тендеры</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="pi pi-th-large" />
+            <span v-if="!sidebarCollapsed">Матрицы</span>
+          </a>
+        </div>
+
+        <div class="nav-section" v-if="!sidebarCollapsed">Документы и отчёты</div>
+        <div class="nav-group">
+          <a href="#" class="nav-item">
+            <i class="pi pi-check-square" />
+            <span v-if="!sidebarCollapsed">Согласования</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="pi pi-file" />
+            <span v-if="!sidebarCollapsed">Реестры</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="pi pi-folder" />
+            <span v-if="!sidebarCollapsed">Документооборот</span>
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-selector-wrapper" v-if="!sidebarCollapsed">
+          <UserSelector compact />
+        </div>
+        <div class="company-info" v-if="!sidebarCollapsed">
+          <div class="company-name">ООО «Контакт Технолоджикс»</div>
+          <div class="company-email">kuleshov@contact-tech.ru</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Area -->
+    <main class="main-area">
+      <slot />
+    </main>
+
+    <!-- Right Panel (for inline mode) -->
+    <aside class="right-panel" v-if="$slots.rightPanel">
+      <slot name="rightPanel" />
+    </aside>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import UserSelector from './UserSelector.vue'
+
+defineProps<{
+  showBanner?: boolean
+}>()
+
+defineEmits<{
+  (e: 'close-banner'): void
+}>()
+
+const sidebarCollapsed = ref(false)
+</script>
+
+<style scoped>
+.tms-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+
+.tms-layout.sidebar-collapsed {
+  grid-template-columns: 60px 1fr;
+}
+
+.tms-layout.no-banner {
+  grid-template-rows: 1fr;
+}
+
+.tms-layout.no-banner .sidebar {
+  grid-row: 1;
+}
+
+.tms-layout.no-banner .main-area {
+  grid-row: 1;
+}
+
+.tms-layout.no-banner .right-panel {
+  grid-row: 1;
+}
+
+/* Top Banner */
+.top-banner {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #a8d4f5 0%, #7ec8e3 100%);
+  color: #1a1a2e;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.banner-content {
+  font-weight: 500;
+}
+
+.banner-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.banner-btn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid #1a1a2e;
+  background: transparent;
+  color: #1a1a2e;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.banner-btn.primary {
+  background: #1a1a2e;
+  color: white;
+  border-color: #1a1a2e;
+}
+
+.banner-close {
+  background: none;
+  border: none;
+  color: #1a1a2e;
+  cursor: pointer;
+  padding: 4px;
+  opacity: 0.7;
+}
+
+.banner-close:hover {
+  opacity: 1;
+}
+
+/* Sidebar */
+.sidebar {
+  background: #16213e;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sidebar-header {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.logo-icon {
+  font-size: 20px;
+}
+
+.logo-text {
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+}
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.sidebar-toggle:hover {
+  color: #fff;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.nav-section {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 16px 16px 8px;
+}
+
+.nav-group {
+  margin-bottom: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  color: #888;
+  text-decoration: none;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.nav-item.active {
+  color: #4fc3f7;
+  background: rgba(79, 195, 247, 0.1);
+}
+
+.nav-item i {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.nav-item .badge {
+  margin-left: auto;
+  background: #e74c3c;
+  color: white;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.user-selector-wrapper {
+  margin-bottom: 12px;
+}
+
+.user-selector-wrapper :deep(.p-select) {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.user-selector-wrapper :deep(.p-select .p-select-label) {
+  color: #e0e0e0;
+  font-size: 13px;
+}
+
+.company-info {
+  font-size: 12px;
+}
+
+.company-name {
+  color: #fff;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.company-email {
+  color: #666;
+}
+
+/* Demo Navigation */
+.demo-nav {
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.demo-nav-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #4fc3f7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0 4px 8px;
+}
+
+.demo-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: #888;
+  text-decoration: none;
+  font-size: 13px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.demo-nav-link:hover {
+  background: rgba(79, 195, 247, 0.1);
+  color: #fff;
+}
+
+.demo-nav-link.active {
+  background: rgba(79, 195, 247, 0.2);
+  color: #4fc3f7;
+}
+
+.demo-nav-link i {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+}
+
+.demo-nav-collapsed {
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.demo-nav-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.demo-nav-icon:hover {
+  background: rgba(79, 195, 247, 0.1);
+  color: #fff;
+}
+
+.demo-nav-icon.active {
+  background: rgba(79, 195, 247, 0.2);
+  color: #4fc3f7;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 16px 8px;
+}
+
+/* Main Area */
+.main-area {
+  background: #1a1a2e;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Right Panel */
+.right-panel {
+  width: 380px;
+  background: #16213e;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Grid adjustments for right panel */
+.tms-layout:has(.right-panel) {
+  grid-template-columns: 220px 1fr 380px;
+}
+
+.tms-layout.sidebar-collapsed:has(.right-panel) {
+  grid-template-columns: 60px 1fr 380px;
+}
+</style>
