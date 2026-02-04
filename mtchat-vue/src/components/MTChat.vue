@@ -81,6 +81,7 @@ const showScrollButton = ref(false)
 
 // Sticky date state
 const stickyDate = ref<string | null>(null)
+const hiddenDividerDate = ref<string | null>(null)
 
 // Collect all attachments from all messages
 const allAttachments = computed(() => {
@@ -169,10 +170,11 @@ function handleScroll() {
   // Show/hide scroll to bottom button
   showScrollButton.value = distanceFromBottom > 200
 
-  // Update sticky date - find date divider that's scrolled past 40px
+  // Update sticky date - find date divider that's scrolled past top
   const dateDividers = container.querySelectorAll('.mtchat__date-divider')
   const containerRect = container.getBoundingClientRect()
   let activeDateText: string | null = null
+  let hiddenDate: string | null = null
   let hideSticky = false
 
   const dividerArray = Array.from(dateDividers)
@@ -185,8 +187,9 @@ function handleScroll() {
     // If divider is scrolled above container top
     if (relativeTop < 0) {
       activeDateText = divider.textContent?.trim() || null
+      hiddenDate = activeDateText // Hide in-flow divider that's past top
 
-      // Check if NEXT divider is close to top (between -40px and 60px)
+      // Check if NEXT divider is close to top
       const nextDivider = dividerArray[i + 1]
       if (nextDivider) {
         const nextRect = nextDivider.getBoundingClientRect()
@@ -201,6 +204,7 @@ function handleScroll() {
 
   // Hide sticky date only if next divider is close to top
   stickyDate.value = hideSticky ? null : activeDateText
+  hiddenDividerDate.value = hideSticky ? null : hiddenDate
 
   // Mark as read logic
   if (chat.firstUnreadMessageId.value) {
@@ -545,9 +549,10 @@ defineExpose({
         </div>
 
         <template v-for="(message, index) in chat.messages.value" :key="message.id">
-          <!-- Date divider (in-flow) -->
+          <!-- Date divider (in-flow, hidden when sticky is showing same date) -->
           <div
             v-if="shouldShowDateDivider(message, index)"
+            v-show="formatDateDivider(message.sent_at) !== hiddenDividerDate"
             class="mtchat__date-divider"
           >
             <span>{{ formatDateDivider(message.sent_at) }}</span>
