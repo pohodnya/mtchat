@@ -36,7 +36,7 @@
 │  │ (users)        │  │ (system)       │  │  (outgoing)  │       │
 │  └────────────────┘  └────────────────┘  └──────────────┘       │
 │                              │                                   │
-│                    PostgreSQL + Redis                            │
+│              PostgreSQL + Redis + MinIO (S3)                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -148,6 +148,31 @@ POST /api/v1/dialogs/{id}/messages        # Send message
 WS   /api/v1/ws                           # Real-time
 ```
 
+### File Upload API
+
+```
+POST /api/v1/upload/presign         # Get presigned S3 upload URL
+GET  /api/v1/attachments/{id}/url   # Get presigned download URL
+```
+
+**Upload Flow:**
+1. Client calls `/upload/presign` with `{ dialog_id, filename, content_type, size }`
+2. Server returns `{ upload_url, s3_key, expires_in }`
+3. Client uploads file directly to S3 via `PUT upload_url`
+4. Client sends message with `attachments: [{ s3_key, filename, content_type, size }]`
+
+**Supported File Types:**
+- Images: jpeg, png, gif, webp, svg, bmp, tiff
+- Documents: pdf, doc/docx, xls/xlsx, ppt/pptx, odt/ods/odp, rtf
+- Text: txt, csv, markdown, html, xml, json
+- Archives: zip, rar, 7z, gzip, tar
+- Audio: mp3, wav, ogg, m4a
+- Video: mp4, webm, ogg, mov
+
+**Limits:**
+- Max file size: 100MB
+- Max attachments per message: 10
+
 ### Outgoing Webhooks
 
 ```
@@ -228,9 +253,22 @@ docker-compose up -d
 | WebSocket real-time | ✅ |
 | Basic UI component | ✅ |
 | Demo App (Dev Playground) | ✅ |
-| File attachments | 🔲 |
+| File attachments | ✅ |
+| Unified FileViewer (images/PDF) | ✅ |
 
 ## Changelog
+
+### 2025-02-04 (v3.2) - File Attachments
+- Full file attachment support with S3/MinIO storage
+- Presigned URL upload flow (secure, direct-to-S3)
+- Unified FileViewer component for images and PDFs
+- PDF.js integration with zoom, pan, and multi-page support
+- Image gallery with keyboard navigation (arrows, Esc)
+- Native macOS trackpad gestures support (two-finger pan)
+- Upload progress tracking with retry on failure
+- Expanded file type support (40+ MIME types)
+- Cross-origin file download support
+- Inline mode layout fixes (proper 100vh containment)
 
 ### 2025-02-04 (v3.1) - Demo App Complete
 - Dev Playground (mtchat-example) fully implemented
