@@ -410,6 +410,8 @@ export interface UseChatReturn {
   error: import('vue').Ref<Error | null>
   /** ID of the first unread message (for divider) */
   firstUnreadMessageId: import('vue').Ref<string | null>
+  /** Message being replied to */
+  replyToMessage: import('vue').Ref<Message | null>
 
   // API access for file uploads
   api: import('../sdk/api').MTChatApi
@@ -429,4 +431,8 @@ export interface UseChatReturn {
   unsubscribe: (dialogId: string) => void
   /** Mark messages as read up to specified message */
   markAsRead: (messageId?: string) => Promise<void>
+  /** Set message to reply to */
+  setReplyTo: (message: Message) => void
+  /** Clear reply */
+  clearReplyTo: () => void
 }

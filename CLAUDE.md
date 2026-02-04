@@ -257,19 +257,22 @@ docker-compose up -d
 | Demo App (Dev Playground) | ✅ |
 | File attachments | ✅ |
 | Unified FileViewer (images/PDF) | ✅ |
+| Message replies | ✅ |
 | Unread message tracking | ✅ |
 
 ## Changelog
 
-### 2025-02-04 (v3.3) - Unread Message Tracking
+### 2025-02-04 (v3.3) - Message Replies & Unread Tracking
+- Message reply functionality with reply-to icon on hover (outside message bubble)
+- Quote preview above input field with cancel (X/Esc)
+- Quoted message display in sent messages with click-to-scroll
+- Scroll-to-bottom button (fixed position, appears when scrolled up)
 - Unread message counter per dialog (stored in dialog_participants.unread_count)
 - "Новые сообщения" divider between read and unread messages
-- Atomic increment on new message for all participants (except author)
 - Mark as read API endpoint: POST /dialogs/{id}/read
 - Auto-mark-as-read when scrolled to bottom (1 second delay)
 - WebSocket message.read event for real-time updates across devices
 - Unread badge in dialog list UI (99+ cap)
-- first_unread_message_id in messages response for divider positioning
 
 ### 2025-02-04 (v3.2) - File Attachments
 - Full file attachment support with S3/MinIO storage

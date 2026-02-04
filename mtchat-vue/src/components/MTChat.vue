@@ -7,7 +7,7 @@
  * - Inline mode: Single chat for a business object
  */
 
-import { computed, ref, watch, nextTick, onUnmounted } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useChat } from '../composables/useChat'
 import { useFileUpload } from '../composables/useFileUpload'
 import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment } from '../types'
@@ -75,6 +75,9 @@ let readTimeout: ReturnType<typeof setTimeout> | null = null
 // File viewer state
 const showFileViewer = ref(false)
 const fileViewerIndex = ref(0)
+
+// Scroll button state
+const showScrollButton = ref(false)
 
 // Collect all attachments from all messages
 const allAttachments = computed(() => {
@@ -154,24 +157,31 @@ watch(
 
 // Check if scrolled to bottom and mark as read
 function handleScroll() {
-  if (!messagesContainer.value || !chat.firstUnreadMessageId.value) return
+  if (!messagesContainer.value) return
 
   const container = messagesContainer.value
-  const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50
+  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+  const isAtBottom = distanceFromBottom < 50
 
-  if (isAtBottom) {
-    // Start timer to mark as read after 1 second
-    if (!readTimeout) {
-      readTimeout = setTimeout(() => {
-        chat.markAsRead()
+  // Show/hide scroll to bottom button
+  showScrollButton.value = distanceFromBottom > 200
+
+  // Mark as read logic
+  if (chat.firstUnreadMessageId.value) {
+    if (isAtBottom) {
+      // Start timer to mark as read after 1 second
+      if (!readTimeout) {
+        readTimeout = setTimeout(() => {
+          chat.markAsRead()
+          readTimeout = null
+        }, 1000)
+      }
+    } else {
+      // Cancel if scrolled away
+      if (readTimeout) {
+        clearTimeout(readTimeout)
         readTimeout = null
-      }, 1000)
-    }
-  } else {
-    // Cancel if scrolled away
-    if (readTimeout) {
-      clearTimeout(readTimeout)
-      readTimeout = null
+      }
     }
   }
 }
@@ -280,12 +290,66 @@ function closeFileViewer() {
   showFileViewer.value = false
 }
 
+// Reply helpers
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength) + '...'
+}
+
+function getQuotedText(messageId: string): string {
+  const msg = chat.messages.value.find((m) => m.id === messageId)
+  if (!msg) return 'Сообщение удалено'
+  return truncateText(msg.content, 60)
+}
+
+function getMessageAuthor(messageId: string): string {
+  const msg = chat.messages.value.find((m) => m.id === messageId)
+  if (!msg) return '...'
+  return msg.sender_id === props.config.userId ? 'Вы' : msg.sender_id.slice(0, 8)
+}
+
+function scrollToMessage(messageId: string) {
+  const messageEl = messagesContainer.value?.querySelector(
+    `[data-message-id="${messageId}"]`
+  )
+  if (messageEl) {
+    messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // Highlight effect
+    messageEl.classList.add('mtchat__message--highlight')
+    setTimeout(() => {
+      messageEl.classList.remove('mtchat__message--highlight')
+    }, 2000)
+  }
+}
+
+function handleScrollToBottom() {
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTo({
+      top: messagesContainer.value.scrollHeight,
+      behavior: 'smooth'
+    })
+  }
+}
+
+// Keyboard handler for Esc
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && chat.replyToMessage.value) {
+    chat.clearReplyTo()
+  }
+}
+
+// Lifecycle - keyboard handlers
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown)
+})
+
 // Cleanup
 onUnmounted(() => {
   if (readTimeout) {
     clearTimeout(readTimeout)
     readTimeout = null
   }
+  document.removeEventListener('keydown', handleKeydown)
 })
 
 // Expose for parent access
@@ -413,19 +477,55 @@ defineExpose({
           </div>
 
           <div
-            :class="['mtchat__message', { 'mtchat__message--own': message.sender_id === config.userId }]"
+            :data-message-id="message.id"
+            :class="['mtchat__message-row', { 'mtchat__message-row--own': message.sender_id === config.userId }]"
           >
-            <div class="mtchat__message-sender">
-              {{ message.sender_id === config.userId ? 'You' : message.sender_id.slice(0, 8) }}
+            <!-- Message bubble -->
+            <div :class="['mtchat__message', { 'mtchat__message--own': message.sender_id === config.userId }]">
+              <!-- Quoted message (if reply) -->
+              <div
+                v-if="message.reply_to_id"
+                class="mtchat__quoted-message"
+                @click.stop="scrollToMessage(message.reply_to_id)"
+              >
+                <div class="mtchat__quoted-indicator"></div>
+                <div class="mtchat__quoted-content">
+                  <div class="mtchat__quoted-author">
+                    {{ getMessageAuthor(message.reply_to_id) }}
+                  </div>
+                  <div class="mtchat__quoted-text">
+                    {{ getQuotedText(message.reply_to_id) }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="mtchat__message-sender">
+                {{ message.sender_id === config.userId ? 'You' : message.sender_id.slice(0, 8) }}
+              </div>
+              <div v-if="message.content" class="mtchat__message-content">{{ message.content }}</div>
+              <AttachmentList
+                v-if="message.attachments && message.attachments.length > 0"
+                :attachments="message.attachments"
+                @open-gallery="(index) => openGalleryAtIndex(message, index)"
+                @open-file="openFileViewer"
+              />
+              <div class="mtchat__message-time">{{ formatTime(message.sent_at) }}</div>
             </div>
-            <div v-if="message.content" class="mtchat__message-content">{{ message.content }}</div>
-            <AttachmentList
-              v-if="message.attachments && message.attachments.length > 0"
-              :attachments="message.attachments"
-              @open-gallery="(index) => openGalleryAtIndex(message, index)"
-              @open-file="openFileViewer"
-            />
-            <div class="mtchat__message-time">{{ formatTime(message.sent_at) }}</div>
+
+            <!-- Message actions (visible on hover) -->
+            <div class="mtchat__message-actions">
+              <button
+                class="mtchat__action-btn"
+                title="Ответить"
+                @click.stop="chat.setReplyTo(message)"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 14L4 9l5-5"/>
+                  <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+                </svg>
+              </button>
+              <!-- Future: edit, delete, more actions -->
+            </div>
           </div>
         </template>
 
@@ -433,6 +533,18 @@ defineExpose({
           No messages yet
         </div>
       </div>
+
+      <!-- Scroll to bottom button (fixed position, outside scroll container) -->
+      <button
+        v-if="showScrollButton && hasDialog"
+        class="mtchat__scroll-bottom"
+        title="Вниз"
+        @click="handleScrollToBottom"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
 
       <!-- Input Area -->
       <div v-if="hasDialog" class="mtchat__input-area">
@@ -443,6 +555,24 @@ defineExpose({
           </button>
         </div>
         <template v-else-if="canSendMessage">
+          <!-- Reply Preview -->
+          <div v-if="chat.replyToMessage.value" class="mtchat__reply-preview">
+            <div class="mtchat__reply-indicator"></div>
+            <div class="mtchat__reply-content">
+              <div class="mtchat__reply-author">
+                {{ chat.replyToMessage.value.sender_id === config.userId ? 'Вы' : chat.replyToMessage.value.sender_id.slice(0, 8) }}
+              </div>
+              <div class="mtchat__reply-text">
+                {{ truncateText(chat.replyToMessage.value.content, 100) }}
+              </div>
+            </div>
+            <button class="mtchat__reply-cancel" @click="chat.clearReplyTo()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
           <!-- Attachment Preview -->
           <AttachmentPreview
             :attachments="fileUpload.pendingAttachments.value"
@@ -675,6 +805,7 @@ defineExpose({
   background: var(--mtchat-bg);
   min-width: 0;
   min-height: 0;
+  position: relative;
 }
 
 /* Header */
@@ -728,19 +859,143 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+}
+
+/* Message row (bubble + actions) */
+.mtchat__message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  align-self: flex-start;
+  max-width: 80%;
+}
+
+.mtchat__message-row--own {
+  align-self: flex-end;
+  flex-direction: row-reverse;
 }
 
 .mtchat__message {
-  max-width: 70%;
+  max-width: 100%;
   padding: 8px 12px;
   border-radius: 12px;
   background: var(--mtchat-message-other);
-  align-self: flex-start;
+  position: relative;
 }
 
 .mtchat__message--own {
   background: var(--mtchat-message-own);
-  align-self: flex-end;
+}
+
+/* Message actions (reply, edit, delete) */
+.mtchat__message-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  padding-top: 4px;
+}
+
+.mtchat__message-row:hover .mtchat__message-actions {
+  opacity: 1;
+}
+
+.mtchat__action-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--mtchat-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.mtchat__action-btn:hover {
+  opacity: 1;
+  color: var(--mtchat-primary);
+}
+
+/* Quoted message in message */
+.mtchat__quoted-message {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.mtchat__quoted-message:hover {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.mtchat__quoted-indicator {
+  width: 2px;
+  background: var(--mtchat-primary);
+  border-radius: 1px;
+}
+
+.mtchat__quoted-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mtchat__quoted-author {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mtchat-primary);
+}
+
+.mtchat__quoted-text {
+  font-size: 12px;
+  color: var(--mtchat-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Message highlight animation */
+.mtchat__message--highlight {
+  animation: highlight-pulse 2s ease-out;
+}
+
+@keyframes highlight-pulse {
+  0% { background: rgba(0, 122, 255, 0.3); }
+  100% { background: transparent; }
+}
+
+/* Scroll to bottom button */
+.mtchat__scroll-bottom {
+  position: absolute;
+  bottom: 84px; /* input area (~68px) + 16px spacing */
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--mtchat-border);
+  border-radius: 50%;
+  background: var(--mtchat-bg);
+  color: var(--mtchat-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mtchat__scroll-bottom:hover {
+  background: var(--mtchat-bg-secondary);
+  color: var(--mtchat-primary);
+  border-color: var(--mtchat-primary);
 }
 
 .mtchat__message-sender {
@@ -782,6 +1037,62 @@ defineExpose({
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
+}
+
+/* Reply Preview */
+.mtchat__reply-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--mtchat-bg-secondary);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.mtchat__reply-indicator {
+  width: 3px;
+  height: 100%;
+  min-height: 32px;
+  background: var(--mtchat-primary);
+  border-radius: 2px;
+}
+
+.mtchat__reply-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mtchat__reply-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mtchat-primary);
+}
+
+.mtchat__reply-text {
+  font-size: 13px;
+  color: var(--mtchat-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mtchat__reply-cancel {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--mtchat-text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mtchat__reply-cancel:hover {
+  background: var(--mtchat-bg);
+  color: var(--mtchat-text);
 }
 
 /* Input Area */

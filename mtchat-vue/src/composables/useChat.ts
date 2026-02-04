@@ -35,6 +35,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const isLoading: Ref<boolean> = ref(false)
   const error: Ref<Error | null> = ref(null)
   const firstUnreadMessageId: Ref<string | null> = ref(null)
+  const replyToMessage: Ref<Message | null> = ref(null)
 
   // Track subscribed dialog
   let subscribedDialogId: string | null = null
@@ -255,6 +256,16 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  // ============ Reply ============
+
+  function setReplyTo(message: Message): void {
+    replyToMessage.value = message
+  }
+
+  function clearReplyTo(): void {
+    replyToMessage.value = null
+  }
+
   async function sendMessage(
     content: string,
     attachments?: AttachmentInput[]
@@ -266,8 +277,15 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       const message = await client.api.sendMessage(
         currentDialog.value.id,
         content,
-        attachments ? { attachments } : undefined
+        {
+          replyTo: replyToMessage.value?.id,
+          attachments,
+        }
       )
+
+      // Clear reply after sending
+      clearReplyTo()
+
       // Add or update message (WebSocket may have added it without attachments)
       const existingIndex = messages.value.findIndex((m) => m.id === message.id)
       if (existingIndex !== -1) {
@@ -458,6 +476,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     isLoading,
     error,
     firstUnreadMessageId,
+    replyToMessage,
 
     // API access for file uploads
     api: client.api,
@@ -476,6 +495,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     subscribe,
     unsubscribe,
     markAsRead,
+    setReplyTo,
+    clearReplyTo,
   }
 }
 
