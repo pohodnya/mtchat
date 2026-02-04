@@ -182,8 +182,8 @@ function handleScroll() {
     const rect = divider.getBoundingClientRect()
     const relativeTop = rect.top - containerRect.top
 
-    // If divider is scrolled above container top by more than 40px
-    if (relativeTop < -40) {
+    // If divider is scrolled above container top
+    if (relativeTop < 0) {
       activeDateText = divider.textContent?.trim() || null
 
       // Check if NEXT divider is close to top (between -40px and 60px)
@@ -192,7 +192,7 @@ function handleScroll() {
         const nextRect = nextDivider.getBoundingClientRect()
         const nextRelativeTop = nextRect.top - containerRect.top
         // If next divider is near top (visible or about to be), hide sticky
-        if (nextRelativeTop >= -40 && nextRelativeTop < 60) {
+        if (nextRelativeTop >= 0 && nextRelativeTop < 60) {
           hideSticky = true
         }
       }
