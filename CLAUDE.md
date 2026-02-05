@@ -363,6 +363,7 @@ docker-compose up -d
 - Search input in sidebar above dialog tabs
 - Backend search by dialog title using ILIKE (case-insensitive)
 - 300ms debounce to prevent excessive API calls
+- Cmd+K (Mac) / Ctrl+K (Windows/Linux) hotkey to focus search
 - Esc key clears search input
 - Clear button (X) appears when search has text
 - "No results found" message when search returns empty
