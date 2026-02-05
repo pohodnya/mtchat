@@ -27,7 +27,7 @@
       <TMSChatPanel
         :title="selectedObject.title"
         :subtitle="typeLabels[selectedObject.type] || selectedObject.type"
-        :tabs="['Чат']"
+        :tabs="['Информация', 'Маршрут', 'Чат']"
         @close="selectedObjectId = null"
       >
         <MTChat
@@ -36,7 +36,6 @@
           mode="inline"
           :object-type="selectedObject.type"
           :object-id="selectedObject.id"
-          :show-header="false"
           :show-sidebar="false"
           :theme="settings.theme"
           @connected="onConnected"

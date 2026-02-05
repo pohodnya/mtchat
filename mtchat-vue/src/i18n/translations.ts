@@ -52,6 +52,7 @@ export interface TranslationStrings {
     reply: string
     scrollDown: string
     close: string
+    back: string
   }
   dates: {
     today: string
@@ -159,6 +160,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       reply: 'Ответить',
       scrollDown: 'Вниз',
       close: 'Закрыть',
+      back: 'Назад',
     },
     dates: {
       today: 'Сегодня',
@@ -265,6 +267,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       reply: 'Reply',
       scrollDown: 'Scroll down',
       close: 'Close',
+      back: 'Back',
     },
     dates: {
       today: 'Today',
@@ -371,6 +374,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       reply: '回复',
       scrollDown: '向下滚动',
       close: '关闭',
+      back: '返回',
     },
     dates: {
       today: '今天',

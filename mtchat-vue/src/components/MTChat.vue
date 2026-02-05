@@ -115,6 +115,32 @@ const isJoining = ref(false)
 // Archived accordion state
 const showArchivedAccordion = ref(false)
 
+// Responsive state
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200)
+const windowHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 800)
+
+// Breakpoint detection
+const isMobile = computed(() => windowWidth.value < 768)
+const isTablet = computed(() => windowWidth.value >= 768 && windowWidth.value < 1200)
+const isDesktop = computed(() => windowWidth.value >= 1200)
+
+// Mobile view state: which column is currently visible
+type MobileView = 'list' | 'chat' | 'info'
+const mobileView = ref<MobileView>('list')
+
+// Column resizer state (desktop only)
+const sidebarWidth = ref(280)
+const infoWidth = ref(300)
+const isResizingSidebar = ref(false)
+const isResizingInfo = ref(false)
+const containerRef = ref<HTMLElement | null>(null)
+
+// Resize constraints
+const SIDEBAR_MIN_WIDTH = 200
+const INFO_MIN_WIDTH = 240
+const MAX_COLUMN_PERCENT = 30
+const MAIN_MIN_PERCENT = 50
+
 // Collect all attachments from all messages
 const allAttachments = computed(() => {
   const attachments: Attachment[] = []
@@ -184,6 +210,25 @@ watch(
     }
   }
 )
+
+// Watch for info panel changes on mobile/tablet
+watch(showInfoPanel, (show) => {
+  if (isMobile.value || isTablet.value) {
+    if (show) {
+      mobileView.value = 'info'
+    } else if (mobileView.value === 'info') {
+      // When closing info panel (via X button), return to chat view
+      mobileView.value = 'chat'
+    }
+  }
+})
+
+// Reset mobile view when switching to desktop
+watch(isDesktop, (desktop) => {
+  if (desktop) {
+    mobileView.value = 'list'
+  }
+})
 
 // Auto-scroll on new messages and mark as read
 watch(
@@ -511,6 +556,108 @@ function handleScrollToBottom() {
   }
 }
 
+// Window resize handler
+function handleWindowResize() {
+  windowWidth.value = window.innerWidth
+  windowHeight.value = window.innerHeight
+}
+
+// Mobile/inline navigation handlers
+function goBack() {
+  // In inline mode, just close the info panel
+  if (isInlineMode.value && showInfoPanel.value) {
+    showInfoPanel.value = false
+    return
+  }
+
+  // Mobile/tablet navigation
+  if (mobileView.value === 'info') {
+    mobileView.value = 'chat'
+    showInfoPanel.value = false
+  } else if (mobileView.value === 'chat') {
+    mobileView.value = 'list'
+  }
+}
+
+// Override selectDialog to handle mobile navigation
+const originalSelectDialog = handleSelectDialog
+async function handleSelectDialogResponsive(dialog: DialogListItem) {
+  await originalSelectDialog(dialog)
+  if (isMobile.value || isTablet.value) {
+    mobileView.value = 'chat'
+  }
+}
+
+// Column resize handlers
+function startSidebarResize(e: MouseEvent | TouchEvent) {
+  if (!isDesktop.value) return
+  e.preventDefault()
+  isResizingSidebar.value = true
+  document.addEventListener('mousemove', handleSidebarResize)
+  document.addEventListener('mouseup', stopResize)
+  document.addEventListener('touchmove', handleSidebarResize)
+  document.addEventListener('touchend', stopResize)
+}
+
+function startInfoResize(e: MouseEvent | TouchEvent) {
+  if (!isDesktop.value) return
+  e.preventDefault()
+  isResizingInfo.value = true
+  document.addEventListener('mousemove', handleInfoResize)
+  document.addEventListener('mouseup', stopResize)
+  document.addEventListener('touchmove', handleInfoResize)
+  document.addEventListener('touchend', stopResize)
+}
+
+function handleSidebarResize(e: MouseEvent | TouchEvent) {
+  if (!isResizingSidebar.value || !containerRef.value) return
+
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const containerRect = containerRef.value.getBoundingClientRect()
+  const containerWidth = containerRect.width
+
+  let newWidth = clientX - containerRect.left
+  const maxWidth = containerWidth * (MAX_COLUMN_PERCENT / 100)
+  const minMainWidth = containerWidth * (MAIN_MIN_PERCENT / 100)
+
+  // Ensure main area has at least 50%
+  const availableForSidebar = containerWidth - minMainWidth - (showInfoPanel.value ? infoWidth.value : 0)
+  newWidth = Math.min(newWidth, availableForSidebar, maxWidth)
+  newWidth = Math.max(newWidth, SIDEBAR_MIN_WIDTH)
+
+  sidebarWidth.value = newWidth
+}
+
+function handleInfoResize(e: MouseEvent | TouchEvent) {
+  if (!isResizingInfo.value || !containerRef.value) return
+
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const containerRect = containerRef.value.getBoundingClientRect()
+  const containerWidth = containerRect.width
+
+  let newWidth = containerRect.right - clientX
+  const maxWidth = containerWidth * (MAX_COLUMN_PERCENT / 100)
+  const minMainWidth = containerWidth * (MAIN_MIN_PERCENT / 100)
+
+  // Ensure main area has at least 50%
+  const availableForInfo = containerWidth - minMainWidth - sidebarWidth.value
+  newWidth = Math.min(newWidth, availableForInfo, maxWidth)
+  newWidth = Math.max(newWidth, INFO_MIN_WIDTH)
+
+  infoWidth.value = newWidth
+}
+
+function stopResize() {
+  isResizingSidebar.value = false
+  isResizingInfo.value = false
+  document.removeEventListener('mousemove', handleSidebarResize)
+  document.removeEventListener('mouseup', stopResize)
+  document.removeEventListener('touchmove', handleSidebarResize)
+  document.removeEventListener('touchend', stopResize)
+  document.removeEventListener('mousemove', handleInfoResize)
+  document.removeEventListener('touchmove', handleInfoResize)
+}
+
 // Keyboard handler for Esc and Cmd+K/Ctrl+K
 function handleKeydown(e: KeyboardEvent) {
   // Cmd+K or Ctrl+K - focus search input
@@ -529,9 +676,10 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-// Lifecycle - keyboard handlers
+// Lifecycle - keyboard handlers and window resize
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
+  window.addEventListener('resize', handleWindowResize)
 })
 
 // Cleanup
@@ -545,6 +693,8 @@ onUnmounted(() => {
     searchTimeout = null
   }
   document.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('resize', handleWindowResize)
+  stopResize()
 })
 
 // Expose for parent access
@@ -566,9 +716,29 @@ defineExpose({
 </script>
 
 <template>
-  <div :class="['mtchat', `mtchat--${theme}`, { 'mtchat--inline': isInlineMode }]">
+  <div
+    ref="containerRef"
+    :class="[
+      'mtchat',
+      `mtchat--${theme}`,
+      {
+        'mtchat--inline': isInlineMode,
+        'mtchat--mobile': isMobile,
+        'mtchat--tablet': isTablet,
+        'mtchat--desktop': isDesktop,
+        'mtchat--view-list': mobileView === 'list',
+        'mtchat--view-chat': mobileView === 'chat',
+        'mtchat--view-info': mobileView === 'info',
+        'mtchat--resizing': isResizingSidebar || isResizingInfo,
+      }
+    ]"
+  >
     <!-- Sidebar (Full mode only) -->
-    <aside v-if="!isInlineMode && showSidebar" class="mtchat__sidebar">
+    <aside
+      v-if="!isInlineMode && showSidebar"
+      class="mtchat__sidebar"
+      :style="isDesktop ? { width: `${sidebarWidth}px` } : undefined"
+    >
       <!-- Search -->
       <div class="mtchat__search">
         <input
@@ -621,13 +791,12 @@ defineExpose({
             v-for="dialog in currentDialogsList"
             :key="dialog.id"
             :class="['mtchat__dialog-item', { 'mtchat__dialog-item--active': chat.currentDialog.value?.id === dialog.id }]"
-            @click="handleSelectDialog(dialog)"
+            @click="handleSelectDialogResponsive(dialog)"
           >
             <div class="mtchat__dialog-title">
               {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
             </div>
             <div class="mtchat__dialog-meta">
-              <span class="mtchat__dialog-type">{{ dialog.object_type }}</span>
               <span class="mtchat__dialog-participants">
                 {{ tt('chat.participants', { count: dialog.participants_count }) }}
               </span>
@@ -678,13 +847,12 @@ defineExpose({
                 'mtchat__dialog-item--archived',
                 { 'mtchat__dialog-item--active': chat.currentDialog.value?.id === dialog.id }
               ]"
-              @click="handleSelectDialog(dialog)"
+              @click="handleSelectDialogResponsive(dialog)"
             >
               <div class="mtchat__dialog-title">
                 {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
               </div>
               <div class="mtchat__dialog-meta">
-                <span class="mtchat__dialog-type">{{ dialog.object_type }}</span>
                 <span class="mtchat__dialog-participants">
                   {{ tt('chat.participants', { count: dialog.participants_count }) }}
                 </span>
@@ -698,10 +866,30 @@ defineExpose({
       </div>
     </aside>
 
+    <!-- Sidebar Resizer (Desktop only) -->
+    <div
+      v-if="!isInlineMode && showSidebar && isDesktop"
+      class="mtchat__resizer"
+      @mousedown="startSidebarResize"
+      @touchstart="startSidebarResize"
+    ></div>
+
     <!-- Main Chat Area -->
     <main class="mtchat__main">
       <!-- Header -->
       <header v-if="showHeader && hasDialog" class="mtchat__header">
+        <!-- Back button (mobile/tablet/inline with info open) -->
+        <button
+          v-if="(isMobile && mobileView === 'chat') || (isTablet && showInfoPanel) || (isInlineMode && showInfoPanel)"
+          class="mtchat__back-btn"
+          :title="t.tooltips.back"
+          @click="goBack"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+
         <button
           class="mtchat__header-info"
           @click="showInfoPanel = true"
@@ -986,20 +1174,33 @@ defineExpose({
             <button
               type="submit"
               class="mtchat__btn mtchat__btn--send"
+              :title="t.buttons.send"
               :disabled="!hasContentToSend || chat.isLoading.value || fileUpload.isUploading.value"
             >
-              {{ t.buttons.send }}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
             </button>
           </form>
         </template>
       </div>
     </main>
 
+    <!-- Info Panel Resizer (Desktop only) -->
+    <div
+      v-if="showInfoPanel && hasDialog && isDesktop && !isInlineMode"
+      class="mtchat__resizer"
+      @mousedown="startInfoResize"
+      @touchstart="startInfoResize"
+    ></div>
+
     <!-- Info Panel (side column in full mode, overlay in inline mode) -->
     <Transition name="mtchat-info-panel">
       <aside
         v-if="showInfoPanel && hasDialog"
         :class="['mtchat__info-panel', { 'mtchat__info-panel--inline': isInlineMode }]"
+        :style="isDesktop && !isInlineMode ? { width: `${infoWidth}px` } : undefined"
       >
         <ChatInfoPanel
           :dialog-title="dialogTitle"
@@ -1037,21 +1238,68 @@ defineExpose({
 
 <style scoped>
 .mtchat {
+  /* === LAYOUT TOKENS === */
+  --mtchat-sidebar-width: 280px;
+  --mtchat-sidebar-min-width: 200px;
+  --mtchat-sidebar-max-percent: 30;
+
+  --mtchat-info-width: 300px;
+  --mtchat-info-min-width: 240px;
+  --mtchat-info-max-percent: 30;
+
+  --mtchat-main-min-percent: 50;
+
+  --mtchat-header-height: 48px;
+  --mtchat-resizer-width: 4px;
+
+  /* === SPACING TOKENS === */
+  --mtchat-spacing-xs: 4px;
+  --mtchat-spacing-sm: 8px;
+  --mtchat-spacing-md: 12px;
+  --mtchat-spacing-lg: 16px;
+  --mtchat-spacing-xl: 24px;
+
+  /* === SIZING TOKENS === */
+  --mtchat-button-size: 44px;
+  --mtchat-icon-size: 20px;
+  --mtchat-avatar-size: 40px;
+  --mtchat-input-height: 44px;
+
+  /* === BORDER TOKENS === */
+  --mtchat-border-radius-sm: 4px;
+  --mtchat-border-radius-md: 8px;
+  --mtchat-border-radius-lg: 12px;
+  --mtchat-border-radius-full: 50%;
+
+  /* === TRANSITION TOKENS === */
+  --mtchat-transition-fast: 150ms ease;
+  --mtchat-transition-normal: 300ms ease;
+
+  /* === Z-INDEX TOKENS === */
+  --mtchat-z-base: 1;
+  --mtchat-z-overlay: 10;
+  --mtchat-z-modal: 100;
+
   display: flex;
   height: 100%;
   min-height: 400px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   border: 1px solid var(--mtchat-border, #e0e0e0);
-  border-radius: 8px;
+  border-radius: var(--mtchat-border-radius-md);
   overflow: hidden;
   position: relative;
 }
 
 .mtchat--inline {
-  border-radius: 4px;
+  border-radius: var(--mtchat-border-radius-sm);
   min-height: 0;
   border: none;
+}
+
+/* Disable text selection while resizing */
+.mtchat--resizing {
+  user-select: none;
 }
 
 /* Light theme (PrimeVue Lara Light Blue) */
@@ -1082,28 +1330,51 @@ defineExpose({
 
 /* Sidebar */
 .mtchat__sidebar {
-  width: 280px;
+  width: var(--mtchat-sidebar-width);
+  min-width: var(--mtchat-sidebar-min-width);
   border-right: 1px solid var(--mtchat-border);
   background: var(--mtchat-bg);
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+  transition: transform var(--mtchat-transition-normal);
+}
+
+/* Column Resizer */
+.mtchat__resizer {
+  width: var(--mtchat-resizer-width);
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  z-index: var(--mtchat-z-base);
+  transition: background var(--mtchat-transition-fast);
+}
+
+.mtchat__resizer:hover,
+.mtchat--resizing .mtchat__resizer {
+  background: var(--mtchat-primary);
 }
 
 /* Search */
 .mtchat__search {
-  padding: 12px;
+  height: var(--mtchat-header-height);
+  padding: 0 var(--mtchat-spacing-md);
   border-bottom: 1px solid var(--mtchat-border);
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: var(--mtchat-spacing-sm);
   position: relative;
+  flex-shrink: 0;
 }
 
 .mtchat__search-input {
   flex: 1;
-  padding: 8px 12px;
+  height: 36px;
+  padding: 0 var(--mtchat-spacing-md);
   padding-right: 32px;
   border: 1px solid var(--mtchat-border);
-  border-radius: 6px;
+  border-radius: var(--mtchat-border-radius-md);
   background: var(--mtchat-bg);
   color: var(--mtchat-text);
   font-size: 14px;
@@ -1120,18 +1391,18 @@ defineExpose({
 
 .mtchat__search-clear {
   position: absolute;
-  right: 20px;
+  right: calc(var(--mtchat-spacing-md) + var(--mtchat-spacing-sm));
   top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
   color: var(--mtchat-text-secondary);
   cursor: pointer;
-  padding: 4px;
+  padding: var(--mtchat-spacing-xs);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--mtchat-border-radius-sm);
 }
 
 .mtchat__search-clear:hover {
@@ -1141,13 +1412,15 @@ defineExpose({
 
 /* Tabs */
 .mtchat__tabs {
+  height: var(--mtchat-header-height);
   display: flex;
   border-bottom: 1px solid var(--mtchat-border);
+  flex-shrink: 0;
 }
 
 .mtchat__tab {
   flex: 1;
-  padding: 12px 8px;
+  padding: 0 var(--mtchat-spacing-sm);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -1155,7 +1428,11 @@ defineExpose({
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all var(--mtchat-transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mtchat-spacing-xs);
 }
 
 .mtchat__tab:hover {
@@ -1169,10 +1446,9 @@ defineExpose({
 }
 
 .mtchat__tab-count {
-  margin-left: 4px;
   padding: 2px 6px;
   background: var(--mtchat-bg-secondary);
-  border-radius: 10px;
+  border-radius: var(--mtchat-border-radius-lg);
   font-size: 11px;
 }
 
@@ -1193,10 +1469,10 @@ defineExpose({
 }
 
 .mtchat__dialog-item {
-  padding: 12px 16px;
+  padding: var(--mtchat-spacing-sm) var(--mtchat-spacing-md);
   border-bottom: 1px solid var(--mtchat-border);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--mtchat-transition-fast);
   position: relative;
 }
 
@@ -1211,24 +1487,19 @@ defineExpose({
 
 .mtchat__dialog-title {
   font-weight: 500;
+  font-size: 13px;
   color: var(--mtchat-text);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .mtchat__dialog-meta {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--mtchat-text-secondary);
   display: flex;
-  gap: 8px;
-}
-
-.mtchat__dialog-type {
-  background: var(--mtchat-bg-secondary);
-  padding: 2px 6px;
-  border-radius: 4px;
+  gap: var(--mtchat-spacing-sm);
 }
 
 .mtchat__dialog-badge {
@@ -1270,12 +1541,36 @@ defineExpose({
 
 /* Header */
 .mtchat__header {
-  padding: 12px 16px;
+  height: var(--mtchat-header-height);
+  padding: 0 var(--mtchat-spacing-lg);
   border-bottom: 1px solid var(--mtchat-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--mtchat-spacing-sm);
   background: var(--mtchat-bg);
+  flex-shrink: 0;
+}
+
+/* Back button */
+.mtchat__back-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: var(--mtchat-border-radius-md);
+  cursor: pointer;
+  color: var(--mtchat-text-secondary);
+  transition: background var(--mtchat-transition-fast), color var(--mtchat-transition-fast);
+  flex-shrink: 0;
+}
+
+.mtchat__back-btn:hover {
+  background: var(--mtchat-bg-hover);
+  color: var(--mtchat-text);
 }
 
 .mtchat__header-title-row {
@@ -1729,14 +2024,15 @@ button.mtchat__header-info:focus {
 
 /* Input Area */
 .mtchat__input-area {
-  padding: 12px 16px;
+  padding: var(--mtchat-spacing-md) var(--mtchat-spacing-lg);
   border-top: 1px solid var(--mtchat-border);
   background: var(--mtchat-bg);
+  flex-shrink: 0;
 }
 
 .mtchat__input-form {
   display: flex;
-  gap: 8px;
+  gap: var(--mtchat-spacing-sm);
   align-items: center;
 }
 
@@ -1745,10 +2041,10 @@ button.mtchat__header-info:focus {
 }
 
 .mtchat__btn--attach {
-  width: 44px;
-  height: 44px;
+  width: var(--mtchat-button-size);
+  height: var(--mtchat-button-size);
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--mtchat-border-radius-full);
   background: transparent;
   color: var(--mtchat-text-secondary);
   display: flex;
@@ -1764,9 +2060,10 @@ button.mtchat__header-info:focus {
 
 .mtchat__input {
   flex: 1;
-  padding: 10px 14px;
+  height: var(--mtchat-input-height);
+  padding: 0 var(--mtchat-spacing-lg);
   border: 1px solid var(--mtchat-border);
-  border-radius: 20px;
+  border-radius: calc(var(--mtchat-input-height) / 2);
   font-size: 14px;
   outline: none;
   background: var(--mtchat-bg);
@@ -1779,23 +2076,23 @@ button.mtchat__header-info:focus {
 
 .mtchat__join-prompt {
   text-align: center;
-  padding: 16px;
+  padding: var(--mtchat-spacing-lg);
   color: var(--mtchat-text-secondary);
 }
 
 .mtchat__join-prompt p {
-  margin: 0 0 12px;
+  margin: 0 0 var(--mtchat-spacing-md);
 }
 
 /* Buttons */
 .mtchat__btn {
-  padding: 8px 16px;
+  padding: var(--mtchat-spacing-sm) var(--mtchat-spacing-lg);
   border: none;
-  border-radius: 20px;
+  border-radius: calc(var(--mtchat-input-height) / 2);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--mtchat-transition-fast);
 }
 
 .mtchat__btn:disabled {
@@ -1822,13 +2119,25 @@ button.mtchat__header-info:focus {
 }
 
 .mtchat__btn--send {
+  width: var(--mtchat-button-size);
+  height: var(--mtchat-button-size);
+  padding: 0;
+  border-radius: var(--mtchat-border-radius-full);
   background: var(--mtchat-primary);
   color: white;
-  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .mtchat__btn--send:hover:not(:disabled) {
   background: var(--mtchat-primary-hover);
+}
+
+.mtchat__btn--send svg {
+  width: var(--mtchat-icon-size);
+  height: var(--mtchat-icon-size);
 }
 
 /* Empty States */
@@ -1839,7 +2148,7 @@ button.mtchat__header-info:focus {
   justify-content: center;
   flex: 1;
   color: var(--mtchat-text-secondary);
-  padding: 24px;
+  padding: var(--mtchat-spacing-xl);
   text-align: center;
 }
 
@@ -1848,18 +2157,19 @@ button.mtchat__header-info:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--mtchat-spacing-xl);
   color: var(--mtchat-text-secondary);
 }
 
 /* Info Panel - side column */
 .mtchat__info-panel {
-  width: 300px;
-  min-width: 280px;
+  width: var(--mtchat-info-width);
+  min-width: var(--mtchat-info-min-width);
   flex-shrink: 0;
   border-left: 1px solid var(--mtchat-border);
   background: var(--mtchat-bg);
   overflow: hidden;
+  transition: transform var(--mtchat-transition-normal);
 }
 
 /* In inline mode, overlay the entire chat */
@@ -1868,7 +2178,7 @@ button.mtchat__header-info:focus {
   inset: 0;
   width: 100%;
   border-left: none;
-  z-index: 50;
+  z-index: var(--mtchat-z-modal);
 }
 
 /* Info Panel Transition */
@@ -1987,5 +2297,131 @@ button.mtchat__header-info:focus {
 
 .mtchat__dialog-item--archived:hover {
   opacity: 1;
+}
+
+/* =====================================================
+   RESPONSIVE LAYOUTS
+   ===================================================== */
+
+/* Mobile Layout (< 768px) */
+@media (max-width: 767px) {
+  .mtchat--mobile {
+    position: relative;
+  }
+
+  .mtchat--mobile .mtchat__sidebar,
+  .mtchat--mobile .mtchat__main,
+  .mtchat--mobile .mtchat__info-panel {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    min-width: 0 !important;
+    border: none;
+  }
+
+  /* Hide resizers on mobile */
+  .mtchat--mobile .mtchat__resizer {
+    display: none;
+  }
+
+  /* Sidebar (list view) */
+  .mtchat--mobile .mtchat__sidebar {
+    z-index: 1;
+    transform: translateX(0);
+  }
+
+  .mtchat--mobile.mtchat--view-chat .mtchat__sidebar,
+  .mtchat--mobile.mtchat--view-info .mtchat__sidebar {
+    transform: translateX(-100%);
+  }
+
+  /* Main (chat view) */
+  .mtchat--mobile .mtchat__main {
+    z-index: 2;
+    transform: translateX(100%);
+  }
+
+  .mtchat--mobile.mtchat--view-chat .mtchat__main,
+  .mtchat--mobile.mtchat--view-info .mtchat__main {
+    transform: translateX(0);
+  }
+
+  /* Info Panel (info view) */
+  .mtchat--mobile .mtchat__info-panel {
+    z-index: 3;
+    transform: translateX(100%);
+  }
+
+  .mtchat--mobile.mtchat--view-info .mtchat__info-panel {
+    transform: translateX(0);
+  }
+}
+
+/* Tablet Layout (768px - 1199px) */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .mtchat--tablet {
+    position: relative;
+  }
+
+  /* Hide resizers on tablet */
+  .mtchat--tablet .mtchat__resizer {
+    display: none;
+  }
+
+  /* Default: sidebar + main */
+  .mtchat--tablet .mtchat__sidebar {
+    width: var(--mtchat-sidebar-width) !important;
+    transition: transform var(--mtchat-transition-normal), opacity var(--mtchat-transition-normal);
+  }
+
+  .mtchat--tablet .mtchat__main {
+    flex: 1;
+  }
+
+  /* When info panel is open: hide sidebar, show main + info */
+  .mtchat--tablet.mtchat--view-info .mtchat__sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .mtchat--tablet .mtchat__info-panel {
+    width: var(--mtchat-info-width) !important;
+    min-width: var(--mtchat-info-min-width) !important;
+    transition: transform var(--mtchat-transition-normal);
+  }
+
+  /* Info panel slides in from right */
+  .mtchat--tablet .mtchat__info-panel:not(.mtchat__info-panel--inline) {
+    position: relative;
+  }
+}
+
+/* Desktop Layout (≥ 1200px) - all three columns visible */
+@media (min-width: 1200px) {
+  .mtchat--desktop .mtchat__sidebar {
+    flex-shrink: 0;
+  }
+
+  .mtchat--desktop .mtchat__main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mtchat--desktop .mtchat__info-panel {
+    flex-shrink: 0;
+  }
+}
+
+/* Small height - archived accordion takes full height */
+@media (max-height: 599px) {
+  .mtchat__archived-section--open {
+    max-height: none;
+    min-height: 0;
+  }
 }
 </style>

@@ -595,6 +595,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       if (currentDialog.value) {
         subscribe(currentDialog.value.id)
         await loadMessages()
+        await loadParticipants()
       }
     } else if (dialogId) {
       // Full mode with initial dialog
