@@ -21,6 +21,8 @@ export interface TranslationStrings {
     cancel: string
     leaveChat: string
     info: string
+    archive: string
+    unarchive: string
   }
   chat: {
     participants: string
@@ -34,6 +36,7 @@ export interface TranslationStrings {
     messageDeleted: string
     joinToSend: string
     joinRequired: string
+    archived: string
   }
   input: {
     placeholder: string
@@ -125,6 +128,8 @@ export const translations: Record<Locale, TranslationStrings> = {
       cancel: 'Отмена',
       leaveChat: 'Покинуть чат',
       info: 'Информация',
+      archive: 'Архивировать',
+      unarchive: 'Разархивировать',
     },
     chat: {
       participants: '{count} участников',
@@ -138,6 +143,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       messageDeleted: 'Сообщение удалено',
       joinToSend: 'Присоединитесь к чату, чтобы отправлять сообщения',
       joinRequired: 'Присоединитесь к чату, чтобы просматривать сообщения',
+      archived: 'Архивные',
     },
     input: {
       placeholder: 'Введите сообщение...',
@@ -228,6 +234,8 @@ export const translations: Record<Locale, TranslationStrings> = {
       cancel: 'Cancel',
       leaveChat: 'Leave Chat',
       info: 'Info',
+      archive: 'Archive',
+      unarchive: 'Unarchive',
     },
     chat: {
       participants: '{count} participants',
@@ -241,6 +249,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       messageDeleted: 'Message deleted',
       joinToSend: 'Join this chat to send messages',
       joinRequired: 'Join this chat to view messages',
+      archived: 'Archived',
     },
     input: {
       placeholder: 'Type a message...',
@@ -331,6 +340,8 @@ export const translations: Record<Locale, TranslationStrings> = {
       cancel: '取消',
       leaveChat: '退出聊天',
       info: '信息',
+      archive: '归档',
+      unarchive: '取消归档',
     },
     chat: {
       participants: '{count} 位参与者',
@@ -344,6 +355,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       messageDeleted: '消息已删除',
       joinToSend: '加入此聊天以发送消息',
       joinRequired: '加入此聊天以查看消息',
+      archived: '已归档',
     },
     input: {
       placeholder: '输入消息...',

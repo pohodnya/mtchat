@@ -129,9 +129,19 @@ export class MTChatApi {
   /**
    * Get dialogs user is participating in
    * @param search - Optional search query for dialog title
+   * @param archived - Optional filter: true = only archived, false = only active, undefined = all
    */
-  async getParticipatingDialogs(search?: string): Promise<DialogListItem[]> {
-    return this.getDialogs('participating', search)
+  async getParticipatingDialogs(search?: string, archived?: boolean): Promise<DialogListItem[]> {
+    const params: Record<string, string> = { type: 'participating' }
+    if (search) params.search = search
+    if (archived !== undefined) params.archived = String(archived)
+
+    const response = await this.request<ApiResponse<DialogListItem[]>>(
+      'GET',
+      '/api/v1/dialogs',
+      { params }
+    )
+    return response.data
   }
 
   /**
@@ -183,6 +193,20 @@ export class MTChatApi {
    */
   async leaveDialog(dialogId: string): Promise<void> {
     await this.request<void>('POST', `/api/v1/dialogs/${dialogId}/leave`)
+  }
+
+  /**
+   * Archive a dialog for the current user
+   */
+  async archiveDialog(dialogId: string): Promise<void> {
+    await this.request<{ status: string }>('POST', `/api/v1/dialogs/${dialogId}/archive`)
+  }
+
+  /**
+   * Unarchive a dialog for the current user
+   */
+  async unarchiveDialog(dialogId: string): Promise<void> {
+    await this.request<{ status: string }>('POST', `/api/v1/dialogs/${dialogId}/unarchive`)
   }
 
   /**

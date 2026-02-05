@@ -30,6 +30,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const messages: Ref<Message[]> = ref([])
   const participatingDialogs: Ref<DialogListItem[]> = ref([])
   const availableDialogs: Ref<DialogListItem[]> = ref([])
+  const archivedDialogs: Ref<DialogListItem[]> = ref([])
   const participants: Ref<DialogParticipant[]> = ref([])
   const currentDialog: Ref<DialogListItem | null> = ref(null)
   const isConnected: Ref<boolean> = ref(false)
@@ -59,7 +60,15 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       isLoading.value = true
       error.value = null
       const search = searchQuery.value || undefined
-      participatingDialogs.value = await client.api.getParticipatingDialogs(search)
+
+      // Load both active and archived dialogs in parallel
+      const [active, archived] = await Promise.all([
+        client.api.getParticipatingDialogs(search, false),
+        client.api.getParticipatingDialogs(search, true),
+      ])
+
+      participatingDialogs.value = active
+      archivedDialogs.value = archived
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
@@ -115,8 +124,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       client.unsubscribe(subscribedDialogId)
     }
 
-    // Find dialog in our lists
+    // Find dialog in our lists (active, archived, or available)
     let dialog = participatingDialogs.value.find((d) => d.id === id)
+    if (!dialog) {
+      dialog = archivedDialogs.value.find((d) => d.id === id)
+    }
     if (!dialog) {
       dialog = availableDialogs.value.find((d) => d.id === id)
     }
@@ -208,6 +220,63 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  // ============ Archive ============
+
+  async function archiveDialog(dialogId: string): Promise<void> {
+    try {
+      isLoading.value = true
+      error.value = null
+      await client.api.archiveDialog(dialogId)
+
+      // Move from active to archived
+      const idx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
+      if (idx !== -1) {
+        const dialog = participatingDialogs.value[idx]
+        dialog.is_archived = true
+        participatingDialogs.value.splice(idx, 1)
+        archivedDialogs.value.push(dialog)
+      }
+
+      // Clear current dialog if it was archived
+      if (currentDialog.value?.id === dialogId) {
+        currentDialog.value = null
+        messages.value = []
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function unarchiveDialog(dialogId: string): Promise<void> {
+    try {
+      isLoading.value = true
+      error.value = null
+      await client.api.unarchiveDialog(dialogId)
+
+      // Move from archived to active
+      const idx = archivedDialogs.value.findIndex((d) => d.id === dialogId)
+      if (idx !== -1) {
+        const dialog = archivedDialogs.value[idx]
+        dialog.is_archived = false
+        archivedDialogs.value.splice(idx, 1)
+        participatingDialogs.value.push(dialog)
+      }
+
+      // Update current dialog if it was unarchived
+      if (currentDialog.value?.id === dialogId) {
+        currentDialog.value.is_archived = false
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   // ============ Messages ============
 
   async function loadMessages(opts?: PaginationOptions): Promise<void> {
@@ -258,13 +327,32 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     try {
       await client.api.markAsRead(currentDialog.value.id, lastReadId)
 
-      // Update unread count in dialog list (but keep divider until next visit)
-      const dialog = participatingDialogs.value.find((d) => d.id === currentDialog.value?.id)
-      if (dialog) {
-        dialog.unread_count = 0
+      const dialogId = currentDialog.value.id
+
+      // Update unread count in active dialogs
+      const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
+      if (activeIdx !== -1) {
+        participatingDialogs.value[activeIdx] = {
+          ...participatingDialogs.value[activeIdx],
+          unread_count: 0,
+        }
       }
+
+      // Update unread count in archived dialogs
+      const archivedIdx = archivedDialogs.value.findIndex((d) => d.id === dialogId)
+      if (archivedIdx !== -1) {
+        archivedDialogs.value[archivedIdx] = {
+          ...archivedDialogs.value[archivedIdx],
+          unread_count: 0,
+        }
+      }
+
+      // Update current dialog
       if (currentDialog.value) {
-        currentDialog.value.unread_count = 0
+        currentDialog.value = {
+          ...currentDialog.value,
+          unread_count: 0,
+        }
       }
       // NOTE: firstUnreadMessageId is NOT cleared here
       // Divider stays visible until user leaves and re-enters the chat
@@ -448,14 +536,30 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     // Only handle if it's the current user's read receipt
     if (readByUserId === config.userId) {
-      // Update unread count in dialog list
-      const dialog = participatingDialogs.value.find((d) => d.id === dialog_id)
-      if (dialog) {
-        dialog.unread_count = 0
+      // Update unread count in active dialogs
+      const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialog_id)
+      if (activeIdx !== -1) {
+        participatingDialogs.value[activeIdx] = {
+          ...participatingDialogs.value[activeIdx],
+          unread_count: 0,
+        }
       }
+
+      // Update unread count in archived dialogs
+      const archivedIdx = archivedDialogs.value.findIndex((d) => d.id === dialog_id)
+      if (archivedIdx !== -1) {
+        archivedDialogs.value[archivedIdx] = {
+          ...archivedDialogs.value[archivedIdx],
+          unread_count: 0,
+        }
+      }
+
       // Update current dialog unread count (but keep divider)
       if (currentDialog.value?.id === dialog_id) {
-        currentDialog.value.unread_count = 0
+        currentDialog.value = {
+          ...currentDialog.value,
+          unread_count: 0,
+        }
         // NOTE: firstUnreadMessageId is NOT cleared
         // Divider stays visible until user re-enters the chat
       }
@@ -511,6 +615,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     messages,
     participatingDialogs,
     availableDialogs,
+    archivedDialogs,
     participants,
     currentDialog,
     isConnected,
@@ -535,6 +640,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     selectDialog,
     joinDialog,
     leaveDialog,
+    archiveDialog,
+    unarchiveDialog,
     subscribe,
     unsubscribe,
     markAsRead,

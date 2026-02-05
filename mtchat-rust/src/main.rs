@@ -154,6 +154,8 @@ struct DialogsQuery {
     r#type: Option<String>, // "participating" or "available"
     #[serde(default)]
     search: Option<String>, // Search by dialog title
+    #[serde(default)]
+    archived: Option<bool>, // Filter by archived status
 }
 
 #[derive(Debug, Deserialize)]
@@ -193,6 +195,8 @@ struct DialogResponse {
     can_join: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     unread_count: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_archived: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -399,12 +403,14 @@ async fn list_dialogs(
     let dialog_type = params.r#type.as_deref().unwrap_or("participating");
 
     let search = params.search.as_deref();
+    let archived = params.archived;
 
     let dialogs = match dialog_type {
         "participating" => {
-            state.dialogs.find_participating(user_id, search).await?
+            state.dialogs.find_participating(user_id, search, archived).await?
         }
         "available" => {
+            // Available dialogs are never archived (user is not a participant yet)
             if let Some(scope) = &scope_config {
                 state.dialogs.find_available(
                     user_id,
@@ -427,12 +433,15 @@ async fn list_dialogs(
     for dialog in dialogs {
         let participants_count = state.dialogs.count_participants(dialog.id).await?;
 
-        // Get unread count for participating dialogs
-        let unread_count = if dialog_type == "participating" {
-            state.participants.find(dialog.id, user_id).await?
-                .map(|p| p.unread_count as i64)
+        // Get participant info for participating dialogs
+        let (unread_count, is_archived) = if dialog_type == "participating" {
+            let participant = state.participants.find(dialog.id, user_id).await?;
+            (
+                participant.as_ref().map(|p| p.unread_count as i64),
+                participant.as_ref().map(|p| p.is_archived),
+            )
         } else {
-            None
+            (None, None)
         };
 
         responses.push(DialogResponse {
@@ -441,6 +450,7 @@ async fn list_dialogs(
             i_am_participant: Some(dialog_type == "participating"),
             can_join: Some(dialog_type == "available"),
             unread_count,
+            is_archived,
         });
     }
 
@@ -486,6 +496,7 @@ async fn get_dialog_by_object(
                 i_am_participant: Some(i_am_participant),
                 can_join: Some(can_join),
                 unread_count: None,
+                is_archived: None,
             })
         }))
     } else {
@@ -559,6 +570,36 @@ async fn leave_dialog(
     Ok(Json(serde_json::json!({
         "status": "left"
     })))
+}
+
+async fn archive_dialog(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+    Path(dialog_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // Check user is participant
+    if !state.participants.exists(dialog_id, user_id).await? {
+        return Err(ApiError::Forbidden("Not a participant".into()));
+    }
+
+    state.participants.set_archived(dialog_id, user_id, true).await?;
+
+    Ok(Json(serde_json::json!({ "status": "archived" })))
+}
+
+async fn unarchive_dialog(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+    Path(dialog_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // Check user is participant
+    if !state.participants.exists(dialog_id, user_id).await? {
+        return Err(ApiError::Forbidden("Not a participant".into()));
+    }
+
+    state.participants.set_archived(dialog_id, user_id, false).await?;
+
+    Ok(Json(serde_json::json!({ "status": "unarchived" })))
 }
 
 async fn get_dialog(
@@ -1038,6 +1079,8 @@ async fn main() {
         .route("/api/v1/dialogs/by-object/{object_type}/{object_id}", get(get_dialog_by_object))
         .route("/api/v1/dialogs/{id}/join", post(join_dialog))
         .route("/api/v1/dialogs/{id}/leave", post(leave_dialog))
+        .route("/api/v1/dialogs/{id}/archive", post(archive_dialog))
+        .route("/api/v1/dialogs/{id}/unarchive", post(unarchive_dialog))
         .route("/api/v1/dialogs/{id}/read", post(mark_as_read))
         .route("/api/v1/dialogs/{id}/participants", get(list_participants))
 

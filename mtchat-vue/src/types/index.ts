@@ -34,6 +34,8 @@ export interface DialogListItem extends Dialog {
   can_join?: boolean
   /** Unread messages count */
   unread_count?: number
+  /** Whether dialog is archived for current user */
+  is_archived?: boolean
 }
 
 /**
@@ -457,6 +459,8 @@ export interface UseChatReturn {
   messages: import('vue').Ref<Message[]>
   participatingDialogs: import('vue').Ref<DialogListItem[]>
   availableDialogs: import('vue').Ref<DialogListItem[]>
+  /** Archived dialogs for current user */
+  archivedDialogs: import('vue').Ref<DialogListItem[]>
   participants: import('vue').Ref<DialogParticipant[]>
   currentDialog: import('vue').Ref<DialogListItem | null>
   isConnected: import('vue').Ref<boolean>
@@ -485,6 +489,10 @@ export interface UseChatReturn {
   selectDialog: (dialogId: string) => Promise<void>
   joinDialog: (dialogId: string, profile: JoinDialogRequest) => Promise<void>
   leaveDialog: (dialogId: string) => Promise<void>
+  /** Archive a dialog for current user */
+  archiveDialog: (dialogId: string) => Promise<void>
+  /** Unarchive a dialog for current user */
+  unarchiveDialog: (dialogId: string) => Promise<void>
   subscribe: (dialogId: string) => void
   unsubscribe: (dialogId: string) => void
   /** Mark messages as read up to specified message */

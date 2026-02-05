@@ -112,6 +112,9 @@ const showHeaderMenu = ref(false)
 const showJoinDialog = ref(false)
 const isJoining = ref(false)
 
+// Archived accordion state
+const showArchivedAccordion = ref(false)
+
 // Collect all attachments from all messages
 const allAttachments = computed(() => {
   const attachments: Attachment[] = []
@@ -151,6 +154,10 @@ const currentDialogsList = computed(() =>
     : chat.availableDialogs.value
 )
 
+const hasArchivedDialogs = computed(() =>
+  chat.archivedDialogs.value.length > 0
+)
+
 // Watch for connection changes
 watch(
   () => chat.isConnected.value,
@@ -178,12 +185,21 @@ watch(
   }
 )
 
-// Auto-scroll on new messages
+// Auto-scroll on new messages and mark as read
 watch(
   () => chat.messages.value.length,
-  async () => {
+  async (newLength, oldLength) => {
     await nextTick()
     scrollToBottom()
+
+    // Mark as read after initial load (not on new incoming messages)
+    // Only if we have unread messages and just loaded the first batch
+    if (oldLength === 0 && newLength > 0 && chat.firstUnreadMessageId.value) {
+      // Delay to allow user to see the chat
+      setTimeout(() => {
+        chat.markAsRead()
+      }, 1500)
+    }
   }
 )
 
@@ -359,6 +375,22 @@ async function handleLeaveDialog() {
   }
 }
 
+async function handleToggleArchive() {
+  if (!chat.currentDialog.value) return
+
+  const dialogId = chat.currentDialog.value.id
+
+  try {
+    if (chat.currentDialog.value.is_archived) {
+      await chat.unarchiveDialog(dialogId)
+    } else {
+      await chat.archiveDialog(dialogId)
+    }
+  } catch (e) {
+    // Error handled in composable
+  }
+}
+
 function formatTime(dateString: string): string {
   const date = new Date(dateString)
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -521,12 +553,15 @@ defineExpose({
   messages: chat.messages,
   participatingDialogs: chat.participatingDialogs,
   availableDialogs: chat.availableDialogs,
+  archivedDialogs: chat.archivedDialogs,
   currentDialog: chat.currentDialog,
   isConnected: chat.isConnected,
   selectDialog: chat.selectDialog,
   sendMessage: chat.sendMessage,
   joinDialog: chat.joinDialog,
   leaveDialog: chat.leaveDialog,
+  archiveDialog: chat.archiveDialog,
+  unarchiveDialog: chat.unarchiveDialog,
 })
 </script>
 
@@ -578,33 +613,87 @@ defineExpose({
         </button>
       </div>
 
-      <!-- Dialog List -->
-      <div class="mtchat__dialog-list">
-        <div
-          v-for="dialog in currentDialogsList"
-          :key="dialog.id"
-          :class="['mtchat__dialog-item', { 'mtchat__dialog-item--active': chat.currentDialog.value?.id === dialog.id }]"
-          @click="handleSelectDialog(dialog)"
-        >
-          <div class="mtchat__dialog-title">
-            {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
-          </div>
-          <div class="mtchat__dialog-meta">
-            <span class="mtchat__dialog-type">{{ dialog.object_type }}</span>
-            <span class="mtchat__dialog-participants">
-              {{ tt('chat.participants', { count: dialog.participants_count }) }}
+      <!-- Dialog List Container -->
+      <div class="mtchat__dialog-list-container">
+        <!-- Scrollable Dialog List -->
+        <div class="mtchat__dialog-list">
+          <div
+            v-for="dialog in currentDialogsList"
+            :key="dialog.id"
+            :class="['mtchat__dialog-item', { 'mtchat__dialog-item--active': chat.currentDialog.value?.id === dialog.id }]"
+            @click="handleSelectDialog(dialog)"
+          >
+            <div class="mtchat__dialog-title">
+              {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
+            </div>
+            <div class="mtchat__dialog-meta">
+              <span class="mtchat__dialog-type">{{ dialog.object_type }}</span>
+              <span class="mtchat__dialog-participants">
+                {{ tt('chat.participants', { count: dialog.participants_count }) }}
+              </span>
+            </div>
+            <span v-if="dialog.unread_count && dialog.unread_count > 0" class="mtchat__unread-badge">
+              {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
             </span>
           </div>
-          <span v-if="dialog.unread_count && dialog.unread_count > 0" class="mtchat__unread-badge">
-            {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
-          </span>
+
+          <div v-if="currentDialogsList.length === 0 && !hasArchivedDialogs" class="mtchat__empty">
+            {{ searchInput
+              ? t.search.noResults
+              : (activeTab === 'participating' ? t.chat.noActiveChats : t.chat.noAvailableChats)
+            }}
+          </div>
         </div>
 
-        <div v-if="currentDialogsList.length === 0" class="mtchat__empty">
-          {{ searchInput
-            ? t.search.noResults
-            : (activeTab === 'participating' ? t.chat.noActiveChats : t.chat.noAvailableChats)
-          }}
+        <!-- Archived Accordion (sticky at bottom, only in participating tab) -->
+        <div
+          v-if="activeTab === 'participating' && hasArchivedDialogs"
+          :class="['mtchat__archived-section', { 'mtchat__archived-section--open': showArchivedAccordion }]"
+        >
+          <button
+            class="mtchat__archived-toggle"
+            @click="showArchivedAccordion = !showArchivedAccordion"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            {{ t.chat.archived }} ({{ chat.archivedDialogs.value.length }})
+          </button>
+
+          <div v-if="showArchivedAccordion" class="mtchat__archived-list">
+            <div
+              v-for="dialog in chat.archivedDialogs.value"
+              :key="dialog.id"
+              :class="[
+                'mtchat__dialog-item',
+                'mtchat__dialog-item--archived',
+                { 'mtchat__dialog-item--active': chat.currentDialog.value?.id === dialog.id }
+              ]"
+              @click="handleSelectDialog(dialog)"
+            >
+              <div class="mtchat__dialog-title">
+                {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
+              </div>
+              <div class="mtchat__dialog-meta">
+                <span class="mtchat__dialog-type">{{ dialog.object_type }}</span>
+                <span class="mtchat__dialog-participants">
+                  {{ tt('chat.participants', { count: dialog.participants_count }) }}
+                </span>
+              </div>
+              <span v-if="dialog.unread_count && dialog.unread_count > 0" class="mtchat__unread-badge">
+                {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </aside>
@@ -618,7 +707,12 @@ defineExpose({
           @click="showInfoPanel = true"
           :title="t.tooltips.chatInfo"
         >
-          <h2 class="mtchat__header-title">{{ dialogTitle }}</h2>
+          <div class="mtchat__header-title-row">
+            <h2 class="mtchat__header-title">{{ dialogTitle }}</h2>
+            <span v-if="chat.currentDialog.value?.is_archived" class="mtchat__archived-badge">
+              {{ t.chat.archived }}
+            </span>
+          </div>
           <div class="mtchat__header-meta">
             <span class="mtchat__header-participants">
               {{ tt('chat.participants', { count: chat.currentDialog.value?.participants_count || 0 }) }}
@@ -663,6 +757,18 @@ defineExpose({
                   <path d="M12 8h.01"/>
                 </svg>
                 {{ t.buttons.info }}
+              </button>
+              <button
+                class="mtchat__menu-item"
+                @click="handleToggleArchive(); showHeaderMenu = false"
+                :disabled="chat.isLoading.value"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="21 8 21 21 3 21 3 8"/>
+                  <rect x="1" y="3" width="22" height="5"/>
+                  <line x1="10" y1="12" x2="14" y2="12"/>
+                </svg>
+                {{ chat.currentDialog.value?.is_archived ? t.buttons.unarchive : t.buttons.archive }}
               </button>
               <button
                 class="mtchat__menu-item mtchat__menu-item--danger"
@@ -1070,10 +1176,20 @@ defineExpose({
   font-size: 11px;
 }
 
+/* Dialog List Container */
+.mtchat__dialog-list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Dialog List */
 .mtchat__dialog-list {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .mtchat__dialog-item {
@@ -1162,11 +1278,28 @@ defineExpose({
   background: var(--mtchat-bg);
 }
 
+.mtchat__header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .mtchat__header-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: var(--mtchat-text);
+}
+
+.mtchat__archived-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: var(--mtchat-text-secondary);
+  color: var(--mtchat-bg);
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .mtchat__header-meta {
@@ -1782,5 +1915,77 @@ button.mtchat__header-info:focus {
   margin: 0 0 16px;
   font-size: 15px;
   color: var(--mtchat-text-secondary);
+}
+
+/* Archived Section (sticky at bottom) */
+.mtchat__archived-section {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--mtchat-bg-secondary);
+  border-top: 2px solid var(--mtchat-border);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* When open: exactly 50% height */
+.mtchat__archived-section--open {
+  flex: 1;
+  max-height: 50%;
+  min-height: 50%;
+}
+
+.mtchat__archived-toggle {
+  width: 100%;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--mtchat-border);
+  border: none;
+  color: var(--mtchat-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.mtchat__archived-toggle:hover {
+  background: var(--mtchat-bg-hover);
+  color: var(--mtchat-text);
+}
+
+.mtchat--dark .mtchat__archived-toggle {
+  background: var(--mtchat-bg-hover);
+}
+
+.mtchat--dark .mtchat__archived-toggle:hover {
+  background: var(--mtchat-border);
+}
+
+.mtchat__archived-toggle svg {
+  transition: transform 0.2s;
+  opacity: 0.6;
+}
+
+.mtchat__archived-section--open .mtchat__archived-toggle svg {
+  transform: rotate(90deg);
+}
+
+.mtchat__archived-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  background: var(--mtchat-bg);
+}
+
+.mtchat__dialog-item--archived {
+  opacity: 0.7;
+}
+
+.mtchat__dialog-item--archived:hover {
+  opacity: 1;
 }
 </style>

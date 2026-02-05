@@ -251,4 +251,24 @@ impl ParticipantRepository {
         .await?;
         Ok(result.rows_affected() > 0)
     }
+
+    /// Archive or unarchive a dialog for a specific user
+    pub async fn set_archived(
+        &self,
+        dialog_id: Uuid,
+        user_id: Uuid,
+        archived: bool,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            r#"UPDATE dialog_participants
+               SET is_archived = $3
+               WHERE dialog_id = $1 AND user_id = $2"#,
+        )
+        .bind(dialog_id)
+        .bind(user_id)
+        .bind(archived)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
 }

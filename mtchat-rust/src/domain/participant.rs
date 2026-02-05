@@ -71,6 +71,8 @@ pub struct DialogParticipant {
     pub email: Option<String>,
     /// Contact phone (optional, can be hidden)
     pub phone: Option<String>,
+    /// Whether this dialog is archived for this participant
+    pub is_archived: bool,
 }
 
 /// Profile information for a participant
@@ -96,6 +98,7 @@ impl DialogParticipant {
             company: None,
             email: None,
             phone: None,
+            is_archived: false,
         }
     }
 
@@ -112,6 +115,7 @@ impl DialogParticipant {
             company: profile.company,
             email: profile.email,
             phone: profile.phone,
+            is_archived: false,
         }
     }
 

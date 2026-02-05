@@ -55,20 +55,25 @@ impl DialogRepository {
     }
 
     /// Find dialogs where user is a direct participant
+    ///
+    /// - archived: None = all, Some(true) = only archived, Some(false) = only active
     pub async fn find_participating(
         &self,
         user_id: Uuid,
         search: Option<&str>,
+        archived: Option<bool>,
     ) -> Result<Vec<Dialog>, sqlx::Error> {
         sqlx::query_as::<_, Dialog>(
             r#"SELECT d.* FROM dialogs d
                INNER JOIN dialog_participants dp ON dp.dialog_id = d.id
                WHERE dp.user_id = $1
                  AND ($2::text IS NULL OR d.title ILIKE '%' || $2 || '%')
+                 AND ($3::boolean IS NULL OR dp.is_archived = $3)
                ORDER BY d.created_at DESC"#,
         )
         .bind(user_id)
         .bind(search)
+        .bind(archived)
         .fetch_all(&self.pool)
         .await
     }
