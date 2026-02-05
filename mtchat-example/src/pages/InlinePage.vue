@@ -173,17 +173,16 @@ function onError(error: Error) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1a1a2e;
 }
 
 .no-user-content {
   text-align: center;
-  color: #888;
+  color: var(--tms-text-secondary, #888);
 }
 
 .no-user-content i {
   font-size: 64px;
-  color: #444;
+  color: var(--tms-text-muted, #444);
   margin-bottom: 16px;
   display: block;
 }
@@ -191,22 +190,22 @@ function onError(error: Error) {
 .no-user-content h2 {
   font-size: 24px;
   font-weight: 600;
-  color: #e0e0e0;
+  color: var(--tms-text, #e0e0e0);
   margin-bottom: 8px;
 }
 
 .no-user-content p {
-  color: #888;
+  color: var(--tms-text-secondary, #888);
   margin-bottom: 8px;
 }
 
 .no-user-content .hint {
   font-size: 14px;
-  color: #666;
+  color: var(--tms-text-muted, #666);
 }
 
 .no-user-content a {
-  color: #4fc3f7;
+  color: var(--tms-primary, #4fc3f7);
   text-decoration: none;
 }
 

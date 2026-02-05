@@ -68,13 +68,13 @@ const activeTab = ref(props.tabs[0])
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: #16213e;
+  background: var(--tms-bg-panel, #16213e);
 }
 
 /* Panel Header */
 .panel-header {
   padding: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
   position: relative;
 }
 
@@ -87,7 +87,7 @@ const activeTab = ref(props.tabs[0])
 .panel-title {
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--tms-text, #fff);
   margin: 0;
   display: flex;
   align-items: center;
@@ -96,21 +96,21 @@ const activeTab = ref(props.tabs[0])
 
 .panel-title i {
   font-size: 12px;
-  color: #666;
+  color: var(--tms-text-muted, #666);
 }
 
 .panel-tag {
   padding: 2px 8px;
   border-radius: 4px;
-  background: #4fc3f7;
-  color: #1a1a2e;
+  background: var(--tms-primary, #4fc3f7);
+  color: var(--tms-bg, #1a1a2e);
   font-size: 11px;
   font-weight: 600;
 }
 
 .panel-subtitle {
   font-size: 13px;
-  color: #888;
+  color: var(--tms-text-secondary, #888);
   margin: 4px 0 0;
 }
 
@@ -128,27 +128,27 @@ const activeTab = ref(props.tabs[0])
   border-radius: 4px;
   border: none;
   background: transparent;
-  color: #888;
+  color: var(--tms-text-secondary, #888);
   cursor: pointer;
 }
 
 .panel-action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--tms-bg-hover, rgba(255, 255, 255, 0.1));
+  color: var(--tms-text, #fff);
 }
 
 /* Panel Tabs */
 .panel-tabs {
   display: flex;
   padding: 0 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
 }
 
 .panel-tab {
   padding: 10px 12px;
   background: none;
   border: none;
-  color: #888;
+  color: var(--tms-text-secondary, #888);
   font-size: 13px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -157,8 +157,8 @@ const activeTab = ref(props.tabs[0])
 }
 
 .panel-tab.active {
-  color: #4fc3f7;
-  border-bottom-color: #4fc3f7;
+  color: var(--tms-primary, #4fc3f7);
+  border-bottom-color: var(--tms-primary, #4fc3f7);
 }
 
 /* Panel Content */

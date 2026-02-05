@@ -129,11 +129,11 @@ function handleLogout() {
 
 .user-tenant {
   font-size: 11px;
-  color: #999;
+  color: var(--tms-text-muted, #999);
 }
 
 .placeholder {
-  color: #999;
+  color: var(--tms-text-muted, #999);
 }
 
 /* Compact mode */
@@ -146,7 +146,7 @@ function handleLogout() {
 .selector-label {
   font-size: 10px;
   font-weight: 600;
-  color: #888;
+  color: var(--tms-text-secondary, #888);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }

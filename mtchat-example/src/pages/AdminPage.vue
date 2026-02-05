@@ -69,7 +69,7 @@ const tabs = [
 /* Page Header */
 .page-header {
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
 }
 
 .page-title {
@@ -78,17 +78,17 @@ const tabs = [
   gap: 10px;
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
+  color: var(--tms-text, #fff);
 }
 
 .page-title i {
-  color: #4fc3f7;
+  color: var(--tms-primary, #4fc3f7);
 }
 
 .page-subtitle {
   margin-top: 4px;
   font-size: 14px;
-  color: #888;
+  color: var(--tms-text-secondary, #888);
 }
 
 /* Tabs */
@@ -96,8 +96,8 @@ const tabs = [
   display: flex;
   gap: 0;
   padding: 0 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
+  background: var(--tms-bg-hover, rgba(255, 255, 255, 0.02));
 }
 
 .tab-btn {
@@ -107,7 +107,7 @@ const tabs = [
   padding: 14px 20px;
   background: none;
   border: none;
-  color: #888;
+  color: var(--tms-text-secondary, #888);
   font-size: 14px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -116,13 +116,13 @@ const tabs = [
 }
 
 .tab-btn:hover {
-  color: #e0e0e0;
-  background: rgba(255, 255, 255, 0.03);
+  color: var(--tms-text, #e0e0e0);
+  background: var(--tms-bg-hover, rgba(255, 255, 255, 0.03));
 }
 
 .tab-btn.active {
-  color: #4fc3f7;
-  border-bottom-color: #4fc3f7;
+  color: var(--tms-primary, #4fc3f7);
+  border-bottom-color: var(--tms-primary, #4fc3f7);
 }
 
 .tab-btn i {
