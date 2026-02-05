@@ -833,6 +833,7 @@ defineExpose({
       :email="config.userProfile.email"
       :phone="config.userProfile.phone"
       :loading="isJoining"
+      :theme="theme"
       @cancel="showJoinDialog = false"
       @join="confirmJoinDialog"
     />

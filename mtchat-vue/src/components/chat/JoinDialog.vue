@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="join-dialog">
-      <div v-if="show" class="join-dialog-overlay" @click.self="$emit('cancel')">
+      <div v-if="show" :class="['join-dialog-overlay', `join-dialog--${theme || 'light'}`]" @click.self="$emit('cancel')">
         <div class="join-dialog">
           <div class="join-dialog__header">
             <h2 class="join-dialog__title">Присоединиться к чату</h2>
@@ -10,7 +10,7 @@
               @click="$emit('cancel')"
               title="Отмена"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"/>
                 <line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
@@ -46,7 +46,12 @@
             <!-- Company (read-only) -->
             <div class="join-dialog__field">
               <label class="join-dialog__label">Компания</label>
-              <div class="join-dialog__value">{{ company }}</div>
+              <input
+                type="text"
+                class="join-dialog__input join-dialog__input--disabled"
+                :value="company"
+                disabled
+              />
             </div>
 
             <!-- Contact info toggles -->
@@ -98,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import type { JoinDialogRequest } from '../../types'
 
 const props = defineProps<{
@@ -108,6 +113,7 @@ const props = defineProps<{
   email?: string
   phone?: string
   loading?: boolean
+  theme?: 'light' | 'dark'
 }>()
 
 const emit = defineEmits<{
@@ -134,6 +140,24 @@ function handleJoin() {
   }
   emit('join', joinData)
 }
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.show) {
+    emit('cancel')
+  }
+}
+
+watch(() => props.show, (show) => {
+  if (show) {
+    document.addEventListener('keydown', handleKeydown)
+  } else {
+    document.removeEventListener('keydown', handleKeydown)
+  }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>
@@ -147,33 +171,57 @@ function handleJoin() {
   z-index: 1000;
 }
 
+/* Light theme */
+.join-dialog--light {
+  --mtchat-bg: #ffffff;
+  --mtchat-text: #334155;
+  --mtchat-text-secondary: #64748b;
+  --mtchat-border: #e2e8f0;
+  --mtchat-hover: #f1f5f9;
+  --mtchat-primary: #3B82F6;
+  --mtchat-input-bg: #ffffff;
+  --mtchat-input-border: #d1d5db;
+}
+
+/* Dark theme */
+.join-dialog--dark {
+  --mtchat-bg: #1f2937;
+  --mtchat-text: #f8fafc;
+  --mtchat-text-secondary: #94a3b8;
+  --mtchat-border: #374151;
+  --mtchat-hover: #374151;
+  --mtchat-primary: #60a5fa;
+  --mtchat-input-bg: #111827;
+  --mtchat-input-border: #374151;
+}
+
 .join-dialog {
-  background: var(--mtchat-bg, #ffffff);
+  background: var(--mtchat-bg);
   border-radius: 12px;
   width: 100%;
-  max-width: 420px;
+  max-width: 380px;
   margin: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  color: var(--mtchat-text, #1a1a1a);
+  color: var(--mtchat-text);
 }
 
 .join-dialog__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--mtchat-border, #e5e5e5);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--mtchat-border);
 }
 
 .join-dialog__title {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .join-dialog__close {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -181,129 +229,134 @@ function handleJoin() {
   background: none;
   border-radius: 6px;
   cursor: pointer;
-  color: var(--mtchat-text-secondary, #666);
+  color: var(--mtchat-text-secondary);
   transition: background-color 0.2s, color 0.2s;
 }
 
 .join-dialog__close:hover {
-  background: var(--mtchat-hover, #f0f0f0);
-  color: var(--mtchat-text, #1a1a1a);
+  background: var(--mtchat-hover);
+  color: var(--mtchat-text);
 }
 
 .join-dialog__body {
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .join-dialog__field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .join-dialog__label {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--mtchat-text-secondary, #666);
+  color: var(--mtchat-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.join-dialog__value {
-  font-size: 15px;
-  color: var(--mtchat-text, #1a1a1a);
-  padding: 10px 12px;
-  background: var(--mtchat-hover, #f0f0f0);
-  border-radius: 8px;
+.join-dialog__input {
+  font-size: 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--mtchat-input-border);
+  border-radius: 6px;
+  background: var(--mtchat-input-bg);
+  color: var(--mtchat-text);
+  font-family: inherit;
+}
+
+.join-dialog__input--disabled {
+  background: var(--mtchat-hover);
+  color: var(--mtchat-text-secondary);
+  cursor: not-allowed;
 }
 
 .join-dialog__radio-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .join-dialog__radio {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--mtchat-hover, #f0f0f0);
-  border-radius: 8px;
+  gap: 8px;
+  padding: 6px 0;
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
-.join-dialog__radio:hover {
-  background: var(--mtchat-border, #e5e5e5);
+.join-dialog__radio:hover .join-dialog__radio-label {
+  color: var(--mtchat-text);
 }
 
 .join-dialog__radio input[type="radio"] {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   margin: 0;
-  accent-color: var(--mtchat-primary, #007AFF);
+  accent-color: var(--mtchat-primary);
+  cursor: pointer;
 }
 
 .join-dialog__radio-label {
-  font-size: 15px;
-  color: var(--mtchat-text, #1a1a1a);
+  font-size: 14px;
+  color: var(--mtchat-text);
 }
 
 .join-dialog__toggles {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .join-dialog__toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--mtchat-hover, #f0f0f0);
-  border-radius: 8px;
+  gap: 8px;
+  padding: 6px 0;
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
-.join-dialog__toggle:hover {
-  background: var(--mtchat-border, #e5e5e5);
+.join-dialog__toggle:hover .join-dialog__toggle-label {
+  color: var(--mtchat-text);
 }
 
 .join-dialog__toggle input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   margin: 0;
-  accent-color: var(--mtchat-primary, #007AFF);
+  accent-color: var(--mtchat-primary);
+  cursor: pointer;
 }
 
 .join-dialog__toggle-label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
-  color: var(--mtchat-text, #1a1a1a);
+  font-size: 13px;
+  color: var(--mtchat-text);
 }
 
 .join-dialog__toggle-label svg {
-  color: var(--mtchat-text-secondary, #666);
+  color: var(--mtchat-text-secondary);
+  flex-shrink: 0;
 }
 
 .join-dialog__footer {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--mtchat-border, #e5e5e5);
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--mtchat-border);
 }
 
 .join-dialog__btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s, opacity 0.2s;
@@ -316,16 +369,16 @@ function handleJoin() {
 }
 
 .join-dialog__btn--secondary {
-  background: var(--mtchat-hover, #f0f0f0);
-  color: var(--mtchat-text, #1a1a1a);
+  background: var(--mtchat-hover);
+  color: var(--mtchat-text);
 }
 
 .join-dialog__btn--secondary:hover:not(:disabled) {
-  background: var(--mtchat-border, #e5e5e5);
+  background: var(--mtchat-border);
 }
 
 .join-dialog__btn--primary {
-  background: var(--mtchat-primary, #007AFF);
+  background: var(--mtchat-primary);
   color: white;
 }
 
