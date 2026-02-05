@@ -419,4 +419,131 @@ body {
 .theme-light .p-chips-input-token input::placeholder {
   color: #94a3b8 !important;
 }
+
+/* DataTable overrides for light theme */
+.theme-light .p-datatable {
+  background: transparent !important;
+}
+
+.theme-light .p-datatable-table {
+  background: transparent !important;
+}
+
+.theme-light .p-datatable-thead > tr > th {
+  background: #f8fafc !important;
+  color: #1e293b !important;
+  border-color: #e2e8f0 !important;
+  font-weight: 600 !important;
+}
+
+.theme-light .p-datatable-tbody > tr {
+  background: #ffffff !important;
+  color: #334155 !important;
+}
+
+.theme-light .p-datatable-tbody > tr > td {
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+.theme-light .p-datatable-tbody > tr:nth-child(even) {
+  background: #f8fafc !important;
+}
+
+.theme-light .p-datatable-tbody > tr:hover {
+  background: #f1f5f9 !important;
+}
+
+.theme-light .p-datatable-emptymessage {
+  color: #64748b !important;
+}
+
+.theme-light .p-paginator {
+  background: transparent !important;
+  border: none !important;
+}
+
+.theme-light .p-paginator .p-paginator-page,
+.theme-light .p-paginator .p-paginator-next,
+.theme-light .p-paginator .p-paginator-prev,
+.theme-light .p-paginator .p-paginator-first,
+.theme-light .p-paginator .p-paginator-last {
+  color: #64748b !important;
+}
+
+.theme-light .p-paginator .p-paginator-page.p-highlight {
+  background: #3B82F6 !important;
+  color: #ffffff !important;
+}
+
+/* InputText and form controls for light theme */
+.theme-light .p-inputtext {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+.theme-light .p-inputtext::placeholder {
+  color: #94a3b8 !important;
+}
+
+.theme-light .p-inputtext:focus {
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+.theme-light .p-select {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+.theme-light .p-select:focus,
+.theme-light .p-select.p-focus {
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+.theme-light .p-select-label {
+  color: #334155 !important;
+}
+
+.theme-light .p-select-label.p-placeholder {
+  color: #94a3b8 !important;
+}
+
+.theme-light .p-multiselect {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+.theme-light .p-multiselect:focus,
+.theme-light .p-multiselect.p-focus {
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+.theme-light .p-multiselect-label {
+  color: #334155 !important;
+}
+
+.theme-light .p-multiselect-label.p-placeholder {
+  color: #94a3b8 !important;
+}
+
+.theme-light .p-textarea {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+.theme-light .p-textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.theme-light .p-textarea:focus {
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
 </style>

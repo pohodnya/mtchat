@@ -230,7 +230,7 @@ function getTenantName(tenantId: string): string {
 h3 {
   font-size: 14px;
   font-weight: 600;
-  color: #666;
+  color: #374151;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 16px;
@@ -251,7 +251,7 @@ h3 {
 .form-field label {
   font-size: 13px;
   font-weight: 500;
-  color: #666;
+  color: #374151;
 }
 
 .w-full {
@@ -265,7 +265,8 @@ h3 {
 .uuid {
   font-family: 'SF Mono', Monaco, monospace;
   font-size: 11px;
-  background: #f0f0f0;
+  background: #e2e8f0;
+  color: #334155;
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -277,7 +278,7 @@ h3 {
 }
 
 .empty-scope {
-  color: #999;
+  color: #64748b;
 }
 
 .contacts {
@@ -291,11 +292,11 @@ h3 {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #666;
+  color: #475569;
 }
 
 .contact-item i {
   font-size: 12px;
-  color: #999;
+  color: #64748b;
 }
 </style>

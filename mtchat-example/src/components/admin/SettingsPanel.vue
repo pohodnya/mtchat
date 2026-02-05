@@ -313,14 +313,14 @@ function generateSampleData() {
 h3 {
   font-size: 14px;
   font-weight: 600;
-  color: #666;
+  color: #374151;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 16px;
 }
 
 .section-description {
-  color: #666;
+  color: #475569;
   margin-bottom: 16px;
 }
 
@@ -339,12 +339,12 @@ h3 {
 .form-field label {
   font-size: 13px;
   font-weight: 500;
-  color: #666;
+  color: #374151;
 }
 
 .form-field small {
   font-size: 12px;
-  color: #999;
+  color: #64748b;
 }
 
 .w-full {
@@ -375,12 +375,13 @@ h3 {
 .action-card h4 {
   font-size: 14px;
   font-weight: 600;
+  color: #1e293b;
   margin-bottom: 8px;
 }
 
 .action-card p {
   font-size: 13px;
-  color: #666;
+  color: #475569;
   margin-bottom: 12px;
 }
 </style>
