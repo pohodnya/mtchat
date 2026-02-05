@@ -259,8 +259,20 @@ docker-compose up -d
 | Unified FileViewer (images/PDF) | ✅ |
 | Message replies | ✅ |
 | Unread message tracking | ✅ |
+| Date dividers (sticky) | ✅ |
+| List-style message layout | ✅ |
+| PrimeVue theme support | ✅ |
 
 ## Changelog
+
+### 2025-02-05 (v3.4) - UI Improvements & PrimeVue Themes
+- List-style message layout (left-aligned, full width, no bubbles)
+- Date dividers between messages with smart formatting (Сегодня/Вчера/дата)
+- Sticky date headers that appear when scrolling past dividers
+- Message hover highlighting on full row
+- PrimeVue-compatible light/dark themes
+- Theme prop support in MTChat component
+- Theme toggle in demo application
 
 ### 2025-02-04 (v3.3) - Message Replies & Unread Tracking
 - Message reply functionality with reply-to icon on hover (outside message bubble)

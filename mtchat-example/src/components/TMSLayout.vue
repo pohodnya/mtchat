@@ -39,6 +39,10 @@
           <i class="pi pi-cog" />
           Admin Panel
         </router-link>
+        <button class="demo-nav-link theme-toggle" @click="toggleTheme">
+          <i :class="currentTheme === 'dark' ? 'pi pi-sun' : 'pi pi-moon'" />
+          {{ currentTheme === 'dark' ? 'Light Theme' : 'Dark Theme' }}
+        </button>
       </div>
       <div class="demo-nav-collapsed" v-else>
         <router-link to="/chat" class="demo-nav-icon" :class="{ active: $route.path === '/chat' }" title="Full Mode">
@@ -50,6 +54,9 @@
         <router-link to="/admin" class="demo-nav-icon" :class="{ active: $route.path === '/admin' }" title="Admin Panel">
           <i class="pi pi-cog" />
         </router-link>
+        <button class="demo-nav-icon theme-toggle" @click="toggleTheme" :title="currentTheme === 'dark' ? 'Switch to Light' : 'Switch to Dark'">
+          <i :class="currentTheme === 'dark' ? 'pi pi-sun' : 'pi pi-moon'" />
+        </button>
       </div>
 
       <div class="sidebar-divider" />
@@ -144,12 +151,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import UserSelector from './UserSelector.vue'
+import { useSettings } from '../composables'
 
 defineProps<{
   showBanner?: boolean
 }>()
+
+const { settings, updateSettings } = useSettings()
+
+const currentTheme = computed(() => settings.value.theme)
+
+function toggleTheme() {
+  updateSettings({ theme: currentTheme.value === 'dark' ? 'light' : 'dark' })
+}
 
 defineEmits<{
   (e: 'close-banner'): void
@@ -416,6 +432,16 @@ const sidebarCollapsed = ref(false)
   text-align: center;
 }
 
+.demo-nav-link.theme-toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 12px;
+}
+
 .demo-nav-collapsed {
   padding: 12px 0;
   display: flex;
@@ -444,6 +470,12 @@ const sidebarCollapsed = ref(false)
 .demo-nav-icon.active {
   background: rgba(79, 195, 247, 0.2);
   color: #4fc3f7;
+}
+
+.demo-nav-icon.theme-toggle {
+  border: none;
+  cursor: pointer;
+  margin-top: 8px;
 }
 
 .sidebar-divider {

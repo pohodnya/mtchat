@@ -21,7 +21,7 @@
         mode="full"
         :show-header="true"
         :show-sidebar="true"
-        theme="dark"
+        :theme="settings.theme"
         @connected="onConnected"
         @disconnected="onDisconnected"
         @error="onError"
@@ -38,11 +38,10 @@ import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
 import { MTChat, type MTChatConfig, type Message } from '@mtchat/vue'
 import TMSLayout from '../components/TMSLayout.vue'
-import { useUsers, useTenants, useSettings } from '../composables'
+import { useUsers, useSettings } from '../composables'
 
 const toast = useToast()
 const { users, currentUser } = useUsers()
-const { getTenant } = useTenants()
 const { settings } = useSettings()
 
 // Build chat config from current user

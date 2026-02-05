@@ -746,30 +746,30 @@ defineExpose({
   border: none;
 }
 
-/* Light theme (default) */
+/* Light theme (PrimeVue Lara Light Blue) */
 .mtchat--light {
   --mtchat-bg: #ffffff;
-  --mtchat-bg-secondary: #f5f5f5;
-  --mtchat-text: #333333;
-  --mtchat-text-secondary: #666666;
-  --mtchat-border: #e0e0e0;
-  --mtchat-primary: #1976d2;
-  --mtchat-primary-hover: #1565c0;
-  --mtchat-message-own: #e3f2fd;
-  --mtchat-message-other: #f5f5f5;
+  --mtchat-bg-secondary: #f8fafc;
+  --mtchat-bg-hover: #f1f5f9;
+  --mtchat-text: #334155;
+  --mtchat-text-secondary: #64748b;
+  --mtchat-border: #e2e8f0;
+  --mtchat-primary: #3B82F6;
+  --mtchat-primary-hover: #2563eb;
+  --mtchat-primary-text: #ffffff;
 }
 
-/* Dark theme */
+/* Dark theme (PrimeVue Lara Dark Blue) */
 .mtchat--dark {
-  --mtchat-bg: #1e1e1e;
-  --mtchat-bg-secondary: #2d2d2d;
-  --mtchat-text: #ffffff;
-  --mtchat-text-secondary: #b0b0b0;
-  --mtchat-border: #404040;
-  --mtchat-primary: #64b5f6;
-  --mtchat-primary-hover: #42a5f5;
-  --mtchat-message-own: #1565c0;
-  --mtchat-message-other: #2d2d2d;
+  --mtchat-bg: #1f2937;
+  --mtchat-bg-secondary: #111827;
+  --mtchat-bg-hover: #374151;
+  --mtchat-text: #f8fafc;
+  --mtchat-text-secondary: #94a3b8;
+  --mtchat-border: #374151;
+  --mtchat-primary: #60a5fa;
+  --mtchat-primary-hover: #3b82f6;
+  --mtchat-primary-text: #1f2937;
 }
 
 /* Sidebar */
@@ -1008,7 +1008,7 @@ defineExpose({
 }
 
 .mtchat__message:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--mtchat-bg-hover);
 }
 
 /* Message header: sender + datetime */

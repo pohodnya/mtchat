@@ -38,7 +38,7 @@
           :object-id="selectedObject.id"
           :show-header="false"
           :show-sidebar="false"
-          theme="dark"
+          :theme="settings.theme"
           @connected="onConnected"
           @disconnected="onDisconnected"
           @error="onError"
