@@ -354,8 +354,19 @@ docker-compose up -d
 | Join dialog with profile selection | ✅ |
 | Chat info panel | ✅ |
 | i18n (ru/en/zh) | ✅ |
+| Potential chat access control | ✅ |
 
 ## Changelog
+
+### 2025-02-05 (v3.7) - Potential Chat Access Control
+- Security fix: potential participants can no longer read messages before joining
+- Potential participants see "Join to view messages" prompt with join button
+- Backend validation on all message-related endpoints (403 Forbidden for non-participants)
+- Protected endpoints: GET/POST messages, GET participants, GET dialog (with scope check)
+- Frontend guards prevent message loading and sending for non-participants
+- Proper handling of 403 errors in useChat composable
+- Messages and participants load automatically after successful join
+- Updated translations for join-required state (ru/en/zh)
 
 ### 2025-02-05 (v3.6) - Internationalization (i18n)
 - Full i18n support with Russian (default), English, and Chinese translations

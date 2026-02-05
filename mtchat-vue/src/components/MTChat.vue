@@ -122,8 +122,7 @@ const allAttachments = computed(() => {
 const isInlineMode = computed(() => props.mode === 'inline')
 const hasDialog = computed(() => chat.currentDialog.value !== null)
 const canSendMessage = computed(() =>
-  hasDialog.value &&
-  (chat.currentDialog.value?.i_am_participant || isInlineMode.value)
+  hasDialog.value && chat.currentDialog.value?.i_am_participant
 )
 const canJoin = computed(() =>
   chat.currentDialog.value?.can_join &&
@@ -629,7 +628,26 @@ defineExpose({
         <p v-else>{{ t.chat.selectChat }}</p>
       </div>
 
-      <!-- Messages -->
+      <!-- Join Required (not a participant yet) -->
+      <div v-else-if="!chat.currentDialog.value?.i_am_participant" class="mtchat__join-required">
+        <div class="mtchat__join-required-content">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          <p>{{ t.chat.joinRequired }}</p>
+          <button
+            v-if="canJoin"
+            class="mtchat__btn mtchat__btn--primary"
+            @click="handleJoinDialog"
+            :disabled="chat.isLoading.value"
+          >
+            {{ t.buttons.join }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages (only for participants) -->
       <div v-else ref="messagesContainer" class="mtchat__messages" @scroll="handleScroll">
         <!-- Floating sticky date (appears when scrolled 40px+) -->
         <div v-if="stickyDate" class="mtchat__sticky-date">
@@ -1623,5 +1641,31 @@ button.mtchat__header-info:focus {
 .mtchat__info-panel--inline.mtchat-info-panel-leave-to {
   width: 100%;
   opacity: 0;
+}
+
+/* Join Required State */
+.mtchat__join-required {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.mtchat__join-required-content {
+  text-align: center;
+  color: var(--mtchat-text-secondary);
+}
+
+.mtchat__join-required-content svg {
+  color: var(--mtchat-text-secondary);
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.mtchat__join-required-content p {
+  margin: 0 0 16px;
+  font-size: 15px;
+  color: var(--mtchat-text-secondary);
 }
 </style>

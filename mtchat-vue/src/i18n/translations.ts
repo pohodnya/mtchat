@@ -33,6 +33,7 @@ export interface TranslationStrings {
     newMessages: string
     messageDeleted: string
     joinToSend: string
+    joinRequired: string
   }
   input: {
     placeholder: string
@@ -132,6 +133,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       newMessages: 'Новые сообщения',
       messageDeleted: 'Сообщение удалено',
       joinToSend: 'Присоединитесь к чату, чтобы отправлять сообщения',
+      joinRequired: 'Присоединитесь к чату, чтобы просматривать сообщения',
     },
     input: {
       placeholder: 'Введите сообщение...',
@@ -230,6 +232,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       newMessages: 'New messages',
       messageDeleted: 'Message deleted',
       joinToSend: 'Join this chat to send messages',
+      joinRequired: 'Join this chat to view messages',
     },
     input: {
       placeholder: 'Type a message...',
@@ -328,6 +331,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       newMessages: '新消息',
       messageDeleted: '消息已删除',
       joinToSend: '加入此聊天以发送消息',
+      joinRequired: '加入此聊天以查看消息',
     },
     input: {
       placeholder: '输入消息...',

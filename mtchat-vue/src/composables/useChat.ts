@@ -157,6 +157,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       if (currentDialog.value?.id === id) {
         currentDialog.value.i_am_participant = true
         currentDialog.value.can_join = false
+
+        // Now that we're a participant, load messages and participants
+        await loadMessages()
+        await loadParticipants()
       }
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
@@ -199,6 +203,13 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   async function loadMessages(opts?: PaginationOptions): Promise<void> {
     if (!currentDialog.value) return
 
+    // Don't load messages if not a participant
+    if (!currentDialog.value.i_am_participant) {
+      messages.value = []
+      firstUnreadMessageId.value = null
+      return
+    }
+
     try {
       isLoading.value = true
       error.value = null
@@ -213,7 +224,14 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         firstUnreadMessageId.value = response.first_unread_message_id || null
       }
     } catch (e) {
-      error.value = e instanceof Error ? e : new Error(String(e))
+      // 403 = not a participant, expected for potential participants
+      const err = e instanceof Error ? e : new Error(String(e))
+      if (err.message.includes('403') || err.message.includes('Forbidden')) {
+        messages.value = []
+        firstUnreadMessageId.value = null
+        return
+      }
+      error.value = err
       throw e
     } finally {
       isLoading.value = false
@@ -249,9 +267,21 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   async function loadParticipants(): Promise<void> {
     if (!currentDialog.value) return
 
+    // Don't load participants if not a participant
+    if (!currentDialog.value.i_am_participant) {
+      participants.value = []
+      return
+    }
+
     try {
       participants.value = await client.api.getParticipants(currentDialog.value.id)
     } catch (e) {
+      // 403 = not a participant, expected
+      const err = e instanceof Error ? e : new Error(String(e))
+      if (err.message.includes('403') || err.message.includes('Forbidden')) {
+        participants.value = []
+        return
+      }
       // Non-critical, don't set error
       console.warn('Failed to load participants:', e)
     }

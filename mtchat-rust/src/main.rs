@@ -558,10 +558,25 @@ async fn leave_dialog(
 
 async fn get_dialog(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
+    scope_config: ScopeConfig,
     Path(dialog_id): Path<Uuid>,
 ) -> Result<Json<ApiResponse<Dialog>>, ApiError> {
     let dialog = state.dialogs.find_by_id(dialog_id).await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
+
+    // Check access: must be participant OR have scope access (potential participant)
+    let is_participant = state.participants.exists(dialog_id, user_id).await?;
+    let has_scope_access = state.scopes.check_access(
+        dialog_id,
+        scope_config.tenant_uid,
+        &scope_config.scope_level1,
+        &scope_config.scope_level2,
+    ).await?;
+
+    if !is_participant && !has_scope_access {
+        return Err(ApiError::Forbidden("No access to this dialog".into()));
+    }
 
     Ok(Json(ApiResponse { data: dialog }))
 }
@@ -574,6 +589,11 @@ async fn list_messages(
     Path(dialog_id): Path<Uuid>,
     Query(pagination): Query<PaginationQuery>,
 ) -> Result<Json<ApiResponse<MessagesResponse>>, ApiError> {
+    // Check user is participant (potential participants cannot read messages)
+    if !state.participants.exists(dialog_id, user_id).await? {
+        return Err(ApiError::Forbidden("Not a participant. Join the dialog first.".into()));
+    }
+
     let messages = state.messages.list_by_dialog(dialog_id, pagination.limit, pagination.before).await?;
 
     // Get participant to find first unread message
@@ -669,6 +689,11 @@ async fn send_message(
     // Verify dialog exists
     let dialog = state.dialogs.find_by_id(dialog_id).await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
+
+    // Check user is participant (potential participants cannot send messages)
+    if !state.participants.exists(dialog_id, sender_id).await? {
+        return Err(ApiError::Forbidden("Not a participant. Join the dialog first.".into()));
+    }
 
     // Validate attachment count
     if req.attachments.len() > domain::attachment_limits::MAX_ATTACHMENTS_PER_MESSAGE {
@@ -875,8 +900,14 @@ async fn get_attachment_url(
 
 async fn list_participants(
     State(state): State<AppState>,
+    UserId(user_id): UserId,
     Path(dialog_id): Path<Uuid>,
 ) -> Result<Json<ApiResponse<Vec<DialogParticipant>>>, ApiError> {
+    // Check user is participant
+    if !state.participants.exists(dialog_id, user_id).await? {
+        return Err(ApiError::Forbidden("Not a participant".into()));
+    }
+
     let participants = state.participants.list_by_dialog(dialog_id).await?;
     Ok(Json(ApiResponse { data: participants }))
 }
