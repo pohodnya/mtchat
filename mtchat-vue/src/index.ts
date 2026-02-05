@@ -59,6 +59,7 @@ export type {
   ScopeConfig,
   ChatMode,
   MTChatProps,
+  Locale,
 
   // API types
   ApiResponse,

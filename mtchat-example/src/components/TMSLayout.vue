@@ -43,6 +43,10 @@
           <i :class="currentTheme === 'dark' ? 'pi pi-sun' : 'pi pi-moon'" />
           {{ currentTheme === 'dark' ? 'Light Theme' : 'Dark Theme' }}
         </button>
+        <button class="demo-nav-link locale-toggle" @click="cycleLocale">
+          <i class="pi pi-globe" />
+          {{ localeLabels[currentLocale] }}
+        </button>
       </div>
       <div class="demo-nav-collapsed" v-else>
         <router-link to="/chat" class="demo-nav-icon" :class="{ active: $route.path === '/chat' }" title="Full Mode">
@@ -56,6 +60,9 @@
         </router-link>
         <button class="demo-nav-icon theme-toggle" @click="toggleTheme" :title="currentTheme === 'dark' ? 'Switch to Light' : 'Switch to Dark'">
           <i :class="currentTheme === 'dark' ? 'pi pi-sun' : 'pi pi-moon'" />
+        </button>
+        <button class="demo-nav-icon locale-toggle" @click="cycleLocale" :title="localeLabels[currentLocale]">
+          <i class="pi pi-globe" />
         </button>
       </div>
 
@@ -154,6 +161,7 @@
 import { ref, computed } from 'vue'
 import UserSelector from './UserSelector.vue'
 import { useSettings } from '../composables'
+import type { Locale } from '../types'
 
 defineProps<{
   showBanner?: boolean
@@ -162,9 +170,24 @@ defineProps<{
 const { settings, updateSettings } = useSettings()
 
 const currentTheme = computed(() => settings.value.theme)
+const currentLocale = computed(() => settings.value.locale)
+
+const localeLabels: Record<Locale, string> = {
+  ru: 'Русский',
+  en: 'English',
+  zh: '中文',
+}
+
+const localeOrder: Locale[] = ['ru', 'en', 'zh']
 
 function toggleTheme() {
   updateSettings({ theme: currentTheme.value === 'dark' ? 'light' : 'dark' })
+}
+
+function cycleLocale() {
+  const currentIndex = localeOrder.indexOf(currentLocale.value)
+  const nextIndex = (currentIndex + 1) % localeOrder.length
+  updateSettings({ locale: localeOrder[nextIndex] })
 }
 
 defineEmits<{
@@ -461,7 +484,8 @@ const sidebarCollapsed = ref(false)
   text-align: center;
 }
 
-.demo-nav-link.theme-toggle {
+.demo-nav-link.theme-toggle,
+.demo-nav-link.locale-toggle {
   width: 100%;
   border: none;
   background: transparent;
@@ -469,6 +493,12 @@ const sidebarCollapsed = ref(false)
   margin-top: 8px;
   border-top: 1px solid var(--tms-border);
   padding-top: 12px;
+}
+
+.demo-nav-link.locale-toggle {
+  margin-top: 4px;
+  border-top: none;
+  padding-top: 8px;
 }
 
 .demo-nav-collapsed {
@@ -501,10 +531,15 @@ const sidebarCollapsed = ref(false)
   color: var(--tms-primary);
 }
 
-.demo-nav-icon.theme-toggle {
+.demo-nav-icon.theme-toggle,
+.demo-nav-icon.locale-toggle {
   border: none;
   cursor: pointer;
   margin-top: 8px;
+}
+
+.demo-nav-icon.locale-toggle {
+  margin-top: 4px;
 }
 
 .sidebar-divider {

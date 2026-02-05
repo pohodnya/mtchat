@@ -88,7 +88,7 @@ const selectedObject = computed(() =>
   selectedObjectId.value ? getObject(selectedObjectId.value) : null
 )
 
-// Key for remounting MTChat when object or user changes
+// Key for remounting MTChat when object, user, or locale changes
 const chatKey = computed(() => {
   const objKey = selectedObject.value ? `${selectedObject.value.type}-${selectedObject.value.id}` : 'none'
   const userKey = currentUser.value?.id || 'no-user'
@@ -129,6 +129,7 @@ const chatConfig = computed<MTChatConfig>(() => {
       email: currentUser.value.email,
       phone: currentUser.value.phone,
     },
+    locale: settings.value.locale,
   }
 })
 

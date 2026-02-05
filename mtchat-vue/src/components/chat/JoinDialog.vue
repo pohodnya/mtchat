@@ -4,11 +4,11 @@
       <div v-if="show" :class="['join-dialog-overlay', `join-dialog--${theme || 'light'}`]" @click.self="$emit('cancel')">
         <div class="join-dialog">
           <div class="join-dialog__header">
-            <h2 class="join-dialog__title">Присоединиться к чату</h2>
+            <h2 class="join-dialog__title">{{ t.joinDialog.title }}</h2>
             <button
               class="join-dialog__close"
               @click="$emit('cancel')"
-              title="Отмена"
+              :title="t.buttons.cancel"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"/>
@@ -20,7 +20,7 @@
           <div class="join-dialog__body">
             <!-- Name selection -->
             <div class="join-dialog__field">
-              <label class="join-dialog__label">Отображаемое имя</label>
+              <label class="join-dialog__label">{{ t.joinDialog.displayName }}</label>
               <div class="join-dialog__radio-group">
                 <label class="join-dialog__radio">
                   <input
@@ -45,7 +45,7 @@
 
             <!-- Company (read-only) -->
             <div class="join-dialog__field">
-              <label class="join-dialog__label">Компания</label>
+              <label class="join-dialog__label">{{ t.joinDialog.company }}</label>
               <input
                 type="text"
                 class="join-dialog__input join-dialog__input--disabled"
@@ -56,7 +56,7 @@
 
             <!-- Contact info toggles -->
             <div v-if="email || phone" class="join-dialog__field">
-              <label class="join-dialog__label">Показать контакты</label>
+              <label class="join-dialog__label">{{ t.joinDialog.showContacts }}</label>
               <div class="join-dialog__toggles">
                 <label v-if="email" class="join-dialog__toggle">
                   <input type="checkbox" v-model="showEmail" />
@@ -86,14 +86,14 @@
               class="join-dialog__btn join-dialog__btn--secondary"
               @click="$emit('cancel')"
             >
-              Отмена
+              {{ t.buttons.cancel }}
             </button>
             <button
               class="join-dialog__btn join-dialog__btn--primary"
               @click="handleJoin"
               :disabled="loading"
             >
-              {{ loading ? 'Присоединение...' : 'Присоединиться' }}
+              {{ loading ? t.joinDialog.joining : t.buttons.join }}
             </button>
           </div>
         </div>
@@ -105,6 +105,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
 import type { JoinDialogRequest } from '../../types'
+import { useI18n } from '../../i18n'
+
+const { t, tt } = useI18n()
 
 const props = defineProps<{
   show: boolean
@@ -125,7 +128,7 @@ const nameMode = ref<'profile' | 'anonymous'>('profile')
 const showEmail = ref(true)
 const showPhone = ref(true)
 
-const anonymousName = computed(() => `Сотрудник компании ${props.company}`)
+const anonymousName = computed(() => tt('user.anonymous', { company: props.company }))
 
 const selectedName = computed(() =>
   nameMode.value === 'profile' ? props.profileName : anonymousName.value

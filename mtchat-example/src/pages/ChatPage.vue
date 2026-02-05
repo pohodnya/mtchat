@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
 import { MTChat, type MTChatConfig, type Message } from '@mtchat/vue'
@@ -79,6 +79,7 @@ const chatConfig = computed<MTChatConfig>(() => {
       email: currentUser.value.email,
       phone: currentUser.value.phone,
     },
+    locale: settings.value.locale,
   }
 })
 

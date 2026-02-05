@@ -66,12 +66,18 @@ export interface DialogRef {
 }
 
 /**
+ * Supported UI locales
+ */
+export type Locale = 'ru' | 'en' | 'zh'
+
+/**
  * Application settings
  */
 export interface AppSettings {
   adminToken: string
   apiBaseUrl: string
   theme: 'light' | 'dark'
+  locale: Locale
 }
 
 /**
@@ -81,6 +87,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   adminToken: '',
   apiBaseUrl: window.location.origin,
   theme: 'light',
+  locale: 'ru',
 }
 
 /**

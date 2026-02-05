@@ -11,7 +11,13 @@ export function useStorage<T>(key: string, defaultValue: T): Ref<T> {
 
   if (storedValue !== null) {
     try {
-      initialValue = JSON.parse(storedValue)
+      const parsed = JSON.parse(storedValue)
+      // Merge with defaults to handle new fields added to schema
+      if (typeof defaultValue === 'object' && defaultValue !== null && !Array.isArray(defaultValue)) {
+        initialValue = { ...defaultValue, ...parsed }
+      } else {
+        initialValue = parsed
+      }
     } catch {
       console.warn(`Failed to parse localStorage value for key "${key}"`)
     }

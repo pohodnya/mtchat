@@ -351,6 +351,11 @@ export interface WsClientMessage {
 // ============ SDK Configuration ============
 
 /**
+ * Supported UI locales
+ */
+export type Locale = 'ru' | 'en' | 'zh'
+
+/**
  * User profile for display in chats
  * Contains default values that can be customized when joining specific dialogs
  */
@@ -393,6 +398,8 @@ export interface MTChatConfig {
   reconnectInterval?: number
   /** Heartbeat interval in ms (default: 30000) */
   heartbeatInterval?: number
+  /** UI locale (default: 'ru') */
+  locale?: Locale
 }
 
 // ============ Component Props ============

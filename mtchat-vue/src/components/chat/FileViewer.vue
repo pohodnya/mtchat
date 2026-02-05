@@ -3,7 +3,7 @@
     <div v-if="show" class="viewer-overlay" @click="handleOverlayClick">
       <div class="viewer-container">
         <!-- Close button -->
-        <button class="viewer-close" title="Close (Esc)" @click="$emit('close')">
+        <button class="viewer-close" :title="t.fileViewer.close" @click="$emit('close')">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
@@ -14,7 +14,7 @@
           v-if="files.length > 1"
           class="viewer-nav viewer-nav--prev"
           :disabled="currentIndex <= 0"
-          title="Previous (←)"
+          :title="t.fileViewer.previous"
           @click.stop="prev"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -26,7 +26,7 @@
           v-if="files.length > 1"
           class="viewer-nav viewer-nav--next"
           :disabled="currentIndex >= files.length - 1"
-          title="Next (→)"
+          :title="t.fileViewer.next"
           @click.stop="next"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -71,7 +71,7 @@
           <template v-else-if="currentFileType === 'pdf'">
             <div v-if="pdfLoading" class="viewer-loading">
               <div class="loading-spinner" />
-              <span>Loading PDF...</span>
+              <span>{{ t.fileViewer.loadingPdf }}</span>
             </div>
             <div v-else-if="pdfError" class="viewer-file-preview">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -116,7 +116,7 @@
 
           <!-- PDF page count -->
           <span v-if="currentFileType === 'pdf' && !pdfLoading && !pdfError" class="viewer-pages-count">
-            {{ pdfTotalPages }} {{ pdfTotalPages === 1 ? 'page' : 'pages' }}
+            {{ pdfTotalPages }} {{ t.fileViewer.page }}
           </span>
 
           <!-- Zoom controls (for images and PDFs) -->
@@ -124,7 +124,7 @@
             <button
               class="viewer-zoom-btn"
               :disabled="zoom <= 0.5"
-              title="Zoom out (−)"
+              :title="t.fileViewer.zoomOut"
               @click="zoomOut()"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -136,7 +136,7 @@
             <button
               class="viewer-zoom-btn"
               :disabled="zoom >= 5"
-              title="Zoom in (+)"
+              :title="t.fileViewer.zoomIn"
               @click="zoomIn()"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -146,7 +146,7 @@
             </button>
             <button
               class="viewer-zoom-btn"
-              title="Reset zoom"
+              :title="t.fileViewer.resetZoom"
               @click="resetZoom"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -160,7 +160,7 @@
           <button
             v-if="currentFile"
             class="viewer-download"
-            title="Download"
+            :title="t.fileViewer.download"
             @click="downloadCurrentFile"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -177,12 +177,15 @@
 import { ref, shallowRef, computed, watch, onMounted, onUnmounted, nextTick, h, type FunctionalComponent } from 'vue'
 import type { Attachment } from '../../types'
 import { getAttachmentType } from '../../types'
+import { useI18n } from '../../i18n'
 import * as pdfjsLib from 'pdfjs-dist'
 // @ts-ignore - Vite handles this import
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 // Set worker source
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
+
+const { t } = useI18n()
 
 const props = defineProps<{
   show: boolean
@@ -586,30 +589,37 @@ function handleContentWheel(e: WheelEvent) {
 
 // File type helpers
 function getFileTypeLabel(contentType?: string): string {
-  if (!contentType) return 'File'
+  const labels = t.value.fileViewer.fileTypes
+  if (!contentType) return labels.file
 
   const typeMap: Record<string, string> = {
-    'application/msword': 'Word Document',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word Document',
-    'application/vnd.ms-excel': 'Excel Spreadsheet',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'Excel Spreadsheet',
-    'application/vnd.ms-powerpoint': 'PowerPoint Presentation',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'PowerPoint Presentation',
-    'application/zip': 'ZIP Archive',
-    'application/x-rar-compressed': 'RAR Archive',
-    'application/x-7z-compressed': '7-Zip Archive',
-    'application/gzip': 'GZIP Archive',
-    'text/plain': 'Text File',
-    'text/csv': 'CSV File',
-    'application/json': 'JSON File',
-    'application/xml': 'XML File',
-    'video/mp4': 'Video',
-    'video/webm': 'Video',
-    'audio/mpeg': 'Audio',
-    'audio/wav': 'Audio',
+    'application/msword': labels.word,
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': labels.word,
+    'application/vnd.ms-excel': labels.excel,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': labels.excel,
+    'application/vnd.ms-powerpoint': labels.powerpoint,
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': labels.powerpoint,
+    'application/zip': labels.zip,
+    'application/x-rar-compressed': labels.rar,
+    'application/vnd.rar': labels.rar,
+    'application/x-7z-compressed': labels.sevenZip,
+    'application/gzip': labels.gzip,
+    'text/plain': labels.text,
+    'text/csv': labels.csv,
+    'application/json': labels.json,
+    'application/xml': labels.xml,
+    'text/xml': labels.xml,
+    'video/mp4': labels.video,
+    'video/webm': labels.video,
+    'video/ogg': labels.video,
+    'video/quicktime': labels.video,
+    'audio/mpeg': labels.audio,
+    'audio/wav': labels.audio,
+    'audio/ogg': labels.audio,
+    'audio/mp4': labels.audio,
   }
 
-  return typeMap[contentType] || contentType.split('/')[1]?.toUpperCase() || 'File'
+  return typeMap[contentType] || contentType.split('/')[1]?.toUpperCase() || labels.file
 }
 
 // File icons as functional components

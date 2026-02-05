@@ -10,6 +10,7 @@
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useChat } from '../composables/useChat'
 import { useFileUpload } from '../composables/useFileUpload'
+import { provideI18n } from '../i18n'
 import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment } from '../types'
 import AttachmentPreview from './chat/AttachmentPreview.vue'
 import AttachmentList from './chat/AttachmentList.vue'
@@ -47,6 +48,19 @@ const emit = defineEmits<{
   'dialog-joined': [dialogId: string]
   'dialog-left': [dialogId: string]
 }>()
+
+// i18n setup - provide locale to child components and get i18n for this component
+const { t, tt, formatDateDivider, localeRef } = provideI18n(props.config.locale ?? 'ru')
+
+// Watch for locale changes in config
+watch(
+  () => props.config.locale,
+  (newLocale) => {
+    if (newLocale && newLocale !== localeRef.value) {
+      localeRef.value = newLocale
+    }
+  }
+)
 
 // Chat composable
 const chat = useChat({
@@ -331,30 +345,7 @@ function getDateKey(dateString: string): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 }
 
-function formatDateDivider(dateString: string): string {
-  const date = new Date(dateString)
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  const isToday = date.toDateString() === today.toDateString()
-  const isYesterday = date.toDateString() === yesterday.toDateString()
-
-  if (isToday) return 'Сегодня'
-  if (isYesterday) return 'Вчера'
-
-  const day = date.getDate()
-  const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-                  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
-  const month = months[date.getMonth()]
-  const year = date.getFullYear()
-  const currentYear = today.getFullYear()
-
-  if (year === currentYear) {
-    return `${day} ${month}`
-  }
-  return `${day} ${month} ${year}`
-}
+// formatDateDivider is now provided by useI18n
 
 function shouldShowDateDivider(message: Message, index: number): boolean {
   if (index === 0) return true
@@ -412,7 +403,7 @@ function truncateText(text: string, maxLength: number): string {
 
 function getQuotedText(messageId: string): string {
   const msg = chat.messages.value.find((m) => m.id === messageId)
-  if (!msg) return 'Сообщение удалено'
+  if (!msg) return t.value.chat.messageDeleted
   return truncateText(msg.content, 60)
 }
 
@@ -427,12 +418,12 @@ function getSenderDisplayName(senderId: string): string {
   const participant = chat.participants.value.find((p) => p.user_id === senderId)
 
   if (participant?.display_name) {
-    // Use display_name with "(Вы)" suffix for current user
-    return isCurrentUser ? `${participant.display_name} (Вы)` : participant.display_name
+    // Use display_name with "(You)" suffix for current user
+    return isCurrentUser ? `${participant.display_name} ${t.value.user.youBadge}` : participant.display_name
   }
 
   // Fallback if participant not found or no display_name
-  return isCurrentUser ? 'Вы' : senderId.slice(0, 8)
+  return isCurrentUser ? t.value.user.you : senderId.slice(0, 8)
 }
 
 function getMessageAuthor(messageId: string): string {
@@ -510,7 +501,7 @@ defineExpose({
           :class="['mtchat__tab', { 'mtchat__tab--active': activeTab === 'participating' }]"
           @click="activeTab = 'participating'"
         >
-          My Chats
+          {{ t.tabs.myChats }}
           <span v-if="chat.participatingDialogs.value.length" class="mtchat__tab-count">
             {{ chat.participatingDialogs.value.length }}
           </span>
@@ -519,7 +510,7 @@ defineExpose({
           :class="['mtchat__tab', { 'mtchat__tab--active': activeTab === 'available' }]"
           @click="activeTab = 'available'"
         >
-          Available
+          {{ t.tabs.available }}
           <span v-if="chat.availableDialogs.value.length" class="mtchat__tab-count">
             {{ chat.availableDialogs.value.length }}
           </span>
@@ -540,11 +531,8 @@ defineExpose({
           <div class="mtchat__dialog-meta">
             <span class="mtchat__dialog-type">{{ dialog.object_type }}</span>
             <span class="mtchat__dialog-participants">
-              {{ dialog.participants_count }} participants
+              {{ tt('chat.participants', { count: dialog.participants_count }) }}
             </span>
-          </div>
-          <div v-if="dialog.can_join && !dialog.i_am_participant" class="mtchat__dialog-badge">
-            Can Join
           </div>
           <span v-if="dialog.unread_count && dialog.unread_count > 0" class="mtchat__unread-badge">
             {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
@@ -552,7 +540,7 @@ defineExpose({
         </div>
 
         <div v-if="currentDialogsList.length === 0" class="mtchat__empty">
-          {{ activeTab === 'participating' ? 'No active chats' : 'No available chats' }}
+          {{ activeTab === 'participating' ? t.chat.noActiveChats : t.chat.noAvailableChats }}
         </div>
       </div>
     </aside>
@@ -564,15 +552,15 @@ defineExpose({
         <button
           class="mtchat__header-info"
           @click="showInfoPanel = true"
-          :title="chat.currentDialog.value?.i_am_participant ? 'Информация о чате' : 'Информация'"
+          :title="t.tooltips.chatInfo"
         >
           <h2 class="mtchat__header-title">{{ dialogTitle }}</h2>
           <div class="mtchat__header-meta">
             <span class="mtchat__header-participants">
-              {{ chat.currentDialog.value?.participants_count || 0 }} участников
+              {{ tt('chat.participants', { count: chat.currentDialog.value?.participants_count || 0 }) }}
             </span>
             <span :class="['mtchat__status', { 'mtchat__status--connected': chat.isConnected.value }]">
-              {{ chat.isConnected.value ? 'Connected' : 'Disconnected' }}
+              {{ chat.isConnected.value ? t.status.connected : t.status.disconnected }}
             </span>
           </div>
         </button>
@@ -584,14 +572,14 @@ defineExpose({
             @click="handleJoinDialog"
             :disabled="chat.isLoading.value"
           >
-            Присоединиться
+            {{ t.buttons.join }}
           </button>
           <!-- Menu button for participants -->
           <div v-else-if="chat.currentDialog.value?.i_am_participant" class="mtchat__menu-container">
             <button
               class="mtchat__menu-button"
               @click="showHeaderMenu = !showHeaderMenu"
-              title="Меню"
+              :title="t.tooltips.menu"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="5" r="2"/>
@@ -610,7 +598,7 @@ defineExpose({
                   <path d="M12 16v-4"/>
                   <path d="M12 8h.01"/>
                 </svg>
-                Информация
+                {{ t.buttons.info }}
               </button>
               <button
                 class="mtchat__menu-item mtchat__menu-item--danger"
@@ -622,7 +610,7 @@ defineExpose({
                   <polyline points="16 17 21 12 16 7"/>
                   <line x1="21" y1="12" x2="9" y2="12"/>
                 </svg>
-                Покинуть чат
+                {{ t.buttons.leaveChat }}
               </button>
             </div>
           </div>
@@ -637,8 +625,8 @@ defineExpose({
 
       <!-- No Dialog Selected -->
       <div v-if="!hasDialog" class="mtchat__no-dialog">
-        <p v-if="isInlineMode">No chat available for this object</p>
-        <p v-else>Select a chat to start messaging</p>
+        <p v-if="isInlineMode">{{ t.chat.noChatForObject }}</p>
+        <p v-else>{{ t.chat.selectChat }}</p>
       </div>
 
       <!-- Messages -->
@@ -662,7 +650,7 @@ defineExpose({
             v-if="message.id === chat.firstUnreadMessageId.value"
             class="mtchat__unread-divider"
           >
-            <span>Новые сообщения</span>
+            <span>{{ t.chat.newMessages }}</span>
           </div>
 
           <div
@@ -673,7 +661,7 @@ defineExpose({
             <div class="mtchat__message-actions">
               <button
                 class="mtchat__action-btn"
-                title="Ответить"
+                :title="t.tooltips.reply"
                 @click.stop="chat.setReplyTo(message)"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -722,7 +710,7 @@ defineExpose({
         </template>
 
         <div v-if="chat.messages.value.length === 0" class="mtchat__empty">
-          No messages yet
+          {{ t.chat.noMessages }}
         </div>
       </div>
 
@@ -730,7 +718,7 @@ defineExpose({
       <button
         v-if="showScrollButton && hasDialog"
         class="mtchat__scroll-bottom"
-        title="Вниз"
+        :title="t.tooltips.scrollDown"
         @click="handleScrollToBottom"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -741,9 +729,9 @@ defineExpose({
       <!-- Input Area -->
       <div v-if="hasDialog" class="mtchat__input-area">
         <div v-if="!canSendMessage && canJoin" class="mtchat__join-prompt">
-          <p>Join this chat to send messages</p>
+          <p>{{ t.chat.joinToSend }}</p>
           <button class="mtchat__btn mtchat__btn--primary" @click="handleJoinDialog">
-            Join Chat
+            {{ t.buttons.join }}
           </button>
         </div>
         <template v-else-if="canSendMessage">
@@ -787,7 +775,7 @@ defineExpose({
             <button
               type="button"
               class="mtchat__btn mtchat__btn--attach"
-              title="Attach files"
+              :title="t.input.attachFiles"
               :disabled="chat.isLoading.value || fileUpload.isUploading.value"
               @click="handleFileSelect"
             >
@@ -801,7 +789,7 @@ defineExpose({
               v-model="messageInput"
               type="text"
               class="mtchat__input"
-              placeholder="Type a message..."
+              :placeholder="t.input.placeholder"
               :disabled="chat.isLoading.value"
             />
 
@@ -811,7 +799,7 @@ defineExpose({
               class="mtchat__btn mtchat__btn--send"
               :disabled="!hasContentToSend || chat.isLoading.value || fileUpload.isUploading.value"
             >
-              Send
+              {{ t.buttons.send }}
             </button>
           </form>
         </template>

@@ -245,9 +245,41 @@ const config: MTChatConfig = {
     company: user.company,
     email: user.email,      // optional
     phone: user.phone,      // optional
-  }
+  },
+  // UI locale (optional, default: 'ru')
+  locale: 'ru',  // 'ru' | 'en' | 'zh'
 }
 ```
+
+### Internationalization (i18n)
+
+MTChat supports three languages:
+- **Russian** (`ru`) - default
+- **English** (`en`)
+- **Chinese** (`zh`)
+
+Set the locale via the config:
+
+```typescript
+// Russian (default)
+<MTChat :config="{ ...config, locale: 'ru' }" />
+
+// English
+<MTChat :config="{ ...config, locale: 'en' }" />
+
+// Chinese
+<MTChat :config="{ ...config, locale: 'zh' }" />
+```
+
+All UI strings are translated including:
+- Tab labels (My Chats, Available)
+- Buttons (Join, Send, Cancel, Leave Chat)
+- Status indicators (Connected, Disconnected)
+- Empty states and placeholders
+- Date formatting (Today, Yesterday, locale-aware dates)
+- File viewer controls and file type labels
+- Join dialog labels
+- Chat info panel
 
 ### Participant Profiles
 
@@ -321,8 +353,21 @@ docker-compose up -d
 | Participant profiles | ✅ |
 | Join dialog with profile selection | ✅ |
 | Chat info panel | ✅ |
+| i18n (ru/en/zh) | ✅ |
 
 ## Changelog
+
+### 2025-02-05 (v3.6) - Internationalization (i18n)
+- Full i18n support with Russian (default), English, and Chinese translations
+- ~65 strings translated across all components
+- Lightweight implementation using Vue provide/inject (no external dependencies)
+- Reactive language switching without component remount (chat state preserved)
+- Template interpolation for dynamic values (e.g., "{count} participants")
+- Locale-aware date formatting via Intl.DateTimeFormat
+- Language selector in demo app sidebar
+- Locale persistence via localStorage
+- Removed redundant "can join" badge from available dialogs list
+- Removed unused ImageGallery and PDFViewer components (FileViewer handles all)
 
 ### 2025-02-05 (v3.5) - Participant Profiles & Join UX
 - Participant profile support (display_name, company, email, phone)

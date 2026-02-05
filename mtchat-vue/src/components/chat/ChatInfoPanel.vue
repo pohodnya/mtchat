@@ -2,11 +2,11 @@
   <div class="chat-info-panel">
     <!-- Header -->
     <div class="chat-info-panel__header">
-      <h2 class="chat-info-panel__title">Информация о чате</h2>
+      <h2 class="chat-info-panel__title">{{ t.infoPanel.title }}</h2>
       <button
         class="chat-info-panel__close"
         @click="$emit('close')"
-        title="Закрыть"
+        :title="t.tooltips.close"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"/>
@@ -27,7 +27,7 @@
     <!-- Participants -->
     <div class="chat-info-panel__section">
       <h3 class="chat-info-panel__section-title">
-        Участники ({{ participants.length }})
+        {{ t.infoPanel.participants }} ({{ participants.length }})
       </h3>
       <div class="chat-info-panel__participants">
         <div
@@ -43,9 +43,9 @@
           <!-- Info -->
           <div class="chat-info-panel__participant-info">
             <div class="chat-info-panel__participant-name">
-              {{ participant.display_name || 'Пользователь' }}
-              <span v-if="participant.user_id === currentUserId" class="chat-info-panel__you-badge">(Вы)</span>
-              <span v-if="participant.joined_as === 'creator'" class="chat-info-panel__creator-badge">Создатель</span>
+              {{ participant.display_name || t.user.defaultName }}
+              <span v-if="participant.user_id === currentUserId" class="chat-info-panel__you-badge">{{ t.user.youBadge }}</span>
+              <span v-if="participant.joined_as === 'creator'" class="chat-info-panel__creator-badge">{{ t.user.creator }}</span>
             </div>
 
             <div v-if="participant.company" class="chat-info-panel__participant-company">
@@ -85,6 +85,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
 import type { DialogParticipant } from '../../types'
+import { useI18n } from '../../i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   dialogTitle: string
@@ -113,12 +116,13 @@ onUnmounted(() => {
 })
 
 const objectTypeLabel = computed(() => {
-  const labels: Record<string, string> = {
-    tender: 'Тендер',
-    order: 'Заказ',
-    route: 'Рейс',
+  const labels = t.value.infoPanel.objectTypes
+  const typeMap: Record<string, string> = {
+    tender: labels.tender,
+    order: labels.order,
+    route: labels.route,
   }
-  return props.objectType ? labels[props.objectType] || props.objectType : ''
+  return props.objectType ? typeMap[props.objectType] || props.objectType : ''
 })
 
 // Sort participants: current user first, then by join date
