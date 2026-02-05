@@ -279,11 +279,22 @@ function handleJoinDialog() {
 async function confirmJoinDialog(profile: { display_name: string; company: string; email?: string; phone?: string }) {
   if (!chat.currentDialog.value) return
 
+  const dialogId = chat.currentDialog.value.id
+
   try {
     isJoining.value = true
-    await chat.joinDialog(chat.currentDialog.value.id, profile)
+    await chat.joinDialog(dialogId, profile)
     showJoinDialog.value = false
-    emit('dialog-joined', chat.currentDialog.value.id)
+
+    // Switch to "My Chats" tab (full mode only)
+    if (!isInlineMode.value) {
+      activeTab.value = 'participating'
+    }
+
+    // Reload dialog to get fresh state (participants, etc.)
+    await chat.selectDialog(dialogId)
+
+    emit('dialog-joined', dialogId)
   } catch (e) {
     // Error already handled
   } finally {
@@ -297,6 +308,14 @@ async function handleLeaveDialog() {
   const dialogId = chat.currentDialog.value.id
   try {
     await chat.leaveDialog(dialogId)
+
+    // Switch to "Available" tab and reload list (full mode only)
+    if (!isInlineMode.value) {
+      activeTab.value = 'available'
+      // Reload available dialogs to get the chat back (if user still has access)
+      await chat.loadAvailableDialogs()
+    }
+
     emit('dialog-left', dialogId)
   } catch (e) {
     // Error already handled
