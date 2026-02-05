@@ -83,6 +83,7 @@ const fileUpload = useFileUpload({
 const messageInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 const activeTab = ref<'participating' | 'available'>('participating')
 const searchInput = ref('')
 
@@ -478,8 +479,19 @@ function handleScrollToBottom() {
   }
 }
 
-// Keyboard handler for Esc
+// Keyboard handler for Esc and Cmd+K/Ctrl+K
 function handleKeydown(e: KeyboardEvent) {
+  // Cmd+K or Ctrl+K - focus search input
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault()
+    if (searchInputRef.value && !isInlineMode.value && props.showSidebar) {
+      searchInputRef.value.focus()
+      searchInputRef.value.select()
+    }
+    return
+  }
+
+  // Esc - clear reply
   if (e.key === 'Escape' && chat.replyToMessage.value) {
     chat.clearReplyTo()
   }
@@ -525,6 +537,7 @@ defineExpose({
       <!-- Search -->
       <div class="mtchat__search">
         <input
+          ref="searchInputRef"
           v-model="searchInput"
           type="text"
           :placeholder="t.search.placeholder"
