@@ -1066,9 +1066,11 @@ button.mtchat__header-info {
   text-align: left;
   border-radius: 8px;
   transition: background-color 0.2s;
+  outline: none;
 }
 
-button.mtchat__header-info:hover {
+button.mtchat__header-info:hover,
+button.mtchat__header-info:focus {
   background: var(--mtchat-hover);
   padding: 4px 8px;
   margin: -4px -8px;
