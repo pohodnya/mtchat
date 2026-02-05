@@ -63,8 +63,13 @@
 ├─────────────────────┤        ├─────────────────────────────────┤
 │  dialog_id          │        │  dialog_id                      │
 │  user_id            │        │  tenant_uid                     │
-│  joined_at          │        │  scope_level1[]  (departments)  │
-│  notifications      │        │  scope_level2[]  (permissions)  │
+│  display_name       │        │  scope_level1[]  (departments)  │
+│  company            │        │  scope_level2[]  (permissions)  │
+│  email              │        │                                 │
+│  phone              │        │                                 │
+│  joined_at          │        │                                 │
+│  joined_as          │        │                                 │
+│  notifications      │        │                                 │
 │  last_read_msg_id   │        │                                 │
 │  unread_count       │        │                                 │
 └─────────────────────┘        └─────────────────────────────────┘
@@ -224,14 +229,45 @@ Events: message.new, participant.joined, participant.left
 ### Config
 
 ```typescript
-const config = {
+const config: MTChatConfig = {
   baseUrl: 'https://chat.example.com',
   token: userToken,
+  userId: user.id,
+  // Scope config for access matching
   scopeConfig: {
     tenant_uid: user.tenant_id,
     scope_level1: user.departments,
     scope_level2: user.permissions,
+  },
+  // User profile for join dialog
+  userProfile: {
+    displayName: user.name,
+    company: user.company,
+    email: user.email,      // optional
+    phone: user.phone,      // optional
   }
+}
+```
+
+### Participant Profiles
+
+When joining a chat, users can customize their visible profile:
+
+- **Display name**: Real name or anonymous ("Сотрудник компании X")
+- **Company**: Always shown (from userProfile)
+- **Contacts**: Email/phone can be toggled on/off
+
+Profile data is stored per-participant and shown in:
+- Chat info panel (participant list with contacts)
+- Message headers (display_name)
+
+```typescript
+// Join dialog request
+interface JoinDialogRequest {
+  display_name: string
+  company: string
+  email?: string
+  phone?: string
 }
 ```
 
@@ -282,8 +318,24 @@ docker-compose up -d
 | Date dividers (sticky) | ✅ |
 | List-style message layout | ✅ |
 | PrimeVue theme support | ✅ |
+| Participant profiles | ✅ |
+| Join dialog with profile selection | ✅ |
+| Chat info panel | ✅ |
 
 ## Changelog
+
+### 2025-02-05 (v3.5) - Participant Profiles & Join UX
+- Participant profile support (display_name, company, email, phone)
+- Join dialog with name selection (real name or anonymous)
+- Contact visibility toggles (email/phone) when joining
+- Chat info panel showing all participants with contacts
+- Auto-switch to "My Chats" tab after joining
+- Auto-reload available dialogs after leaving (stay on "My Chats")
+- Keyboard shortcuts: Esc to close info panel and join dialog
+- Dark theme support for join dialog
+- Compact, clean join dialog design
+- Demo app: email/phone fields in user management
+- Demo app: improved text contrast in light theme
 
 ### 2025-02-05 (v3.4) - UI Improvements & PrimeVue Themes
 - List-style message layout (left-aligned, full width, no bubbles)
