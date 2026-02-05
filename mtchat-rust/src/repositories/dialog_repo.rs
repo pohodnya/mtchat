@@ -55,14 +55,20 @@ impl DialogRepository {
     }
 
     /// Find dialogs where user is a direct participant
-    pub async fn find_participating(&self, user_id: Uuid) -> Result<Vec<Dialog>, sqlx::Error> {
+    pub async fn find_participating(
+        &self,
+        user_id: Uuid,
+        search: Option<&str>,
+    ) -> Result<Vec<Dialog>, sqlx::Error> {
         sqlx::query_as::<_, Dialog>(
             r#"SELECT d.* FROM dialogs d
                INNER JOIN dialog_participants dp ON dp.dialog_id = d.id
                WHERE dp.user_id = $1
+                 AND ($2::text IS NULL OR d.title ILIKE '%' || $2 || '%')
                ORDER BY d.created_at DESC"#,
         )
         .bind(user_id)
+        .bind(search)
         .fetch_all(&self.pool)
         .await
     }
@@ -79,6 +85,7 @@ impl DialogRepository {
         tenant_uid: Uuid,
         scope_level1: &[String],
         scope_level2: &[String],
+        search: Option<&str>,
     ) -> Result<Vec<Dialog>, sqlx::Error> {
         sqlx::query_as::<_, Dialog>(
             r#"SELECT DISTINCT d.* FROM dialogs d
@@ -90,12 +97,14 @@ impl DialogRepository {
                    SELECT 1 FROM dialog_participants dp
                    WHERE dp.dialog_id = d.id AND dp.user_id = $4
                  )
+                 AND ($5::text IS NULL OR d.title ILIKE '%' || $5 || '%')
                ORDER BY d.created_at DESC"#,
         )
         .bind(tenant_uid)
         .bind(scope_level1)
         .bind(scope_level2)
         .bind(user_id)
+        .bind(search)
         .fetch_all(&self.pool)
         .await
     }

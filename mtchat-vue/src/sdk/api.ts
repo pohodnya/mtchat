@@ -112,28 +112,34 @@ export class MTChatApi {
   /**
    * List dialogs
    * @param type - 'participating' (my chats) or 'available' (can join)
+   * @param search - Optional search query for dialog title
    */
-  async getDialogs(type: DialogListType = 'participating'): Promise<DialogListItem[]> {
+  async getDialogs(type: DialogListType = 'participating', search?: string): Promise<DialogListItem[]> {
+    const params: Record<string, string> = { type }
+    if (search) params.search = search
+
     const response = await this.request<ApiResponse<DialogListItem[]>>(
       'GET',
       '/api/v1/dialogs',
-      { params: { type } }
+      { params }
     )
     return response.data
   }
 
   /**
    * Get dialogs user is participating in
+   * @param search - Optional search query for dialog title
    */
-  async getParticipatingDialogs(): Promise<DialogListItem[]> {
-    return this.getDialogs('participating')
+  async getParticipatingDialogs(search?: string): Promise<DialogListItem[]> {
+    return this.getDialogs('participating', search)
   }
 
   /**
    * Get dialogs user can join (based on scope)
+   * @param search - Optional search query for dialog title
    */
-  async getAvailableDialogs(): Promise<DialogListItem[]> {
-    return this.getDialogs('available')
+  async getAvailableDialogs(search?: string): Promise<DialogListItem[]> {
+    return this.getDialogs('available', search)
   }
 
   /**

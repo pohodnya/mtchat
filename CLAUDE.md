@@ -355,8 +355,19 @@ docker-compose up -d
 | Chat info panel | ✅ |
 | i18n (ru/en/zh) | ✅ |
 | Potential chat access control | ✅ |
+| Dialog search | ✅ |
 
 ## Changelog
+
+### 2025-02-05 (v3.8) - Dialog Search
+- Search input in sidebar above dialog tabs
+- Backend search by dialog title using ILIKE (case-insensitive)
+- 300ms debounce to prevent excessive API calls
+- Esc key clears search input
+- Clear button (X) appears when search has text
+- "No results found" message when search returns empty
+- Search works across both "My Chats" and "Available" tabs
+- Translations for search placeholder and empty state (ru/en/zh)
 
 ### 2025-02-05 (v3.7) - Potential Chat Access Control
 - Security fix: potential participants can no longer read messages before joining

@@ -466,6 +466,8 @@ export interface UseChatReturn {
   firstUnreadMessageId: import('vue').Ref<string | null>
   /** Message being replied to */
   replyToMessage: import('vue').Ref<Message | null>
+  /** Current search query for filtering dialogs */
+  searchQuery: import('vue').Ref<string>
 
   // API access for file uploads
   api: import('../sdk/api').MTChatApi
@@ -473,6 +475,8 @@ export interface UseChatReturn {
   // Methods
   connect: () => void
   disconnect: () => void
+  /** Set search query and reload dialogs */
+  setSearchQuery: (query: string) => void
   sendMessage: (content: string, attachments?: AttachmentInput[]) => Promise<Message | undefined>
   loadMessages: (options?: PaginationOptions) => Promise<void>
   loadParticipatingDialogs: () => Promise<void>

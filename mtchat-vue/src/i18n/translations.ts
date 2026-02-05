@@ -39,6 +39,10 @@ export interface TranslationStrings {
     placeholder: string
     attachFiles: string
   }
+  search: {
+    placeholder: string
+    noResults: string
+  }
   tooltips: {
     chatInfo: string
     menu: string
@@ -139,6 +143,10 @@ export const translations: Record<Locale, TranslationStrings> = {
       placeholder: 'Введите сообщение...',
       attachFiles: 'Прикрепить файлы',
     },
+    search: {
+      placeholder: 'Поиск по чатам...',
+      noResults: 'Ничего не найдено',
+    },
     tooltips: {
       chatInfo: 'Информация о чате',
       menu: 'Меню',
@@ -238,6 +246,10 @@ export const translations: Record<Locale, TranslationStrings> = {
       placeholder: 'Type a message...',
       attachFiles: 'Attach files',
     },
+    search: {
+      placeholder: 'Search chats...',
+      noResults: 'No results found',
+    },
     tooltips: {
       chatInfo: 'Chat info',
       menu: 'Menu',
@@ -336,6 +348,10 @@ export const translations: Record<Locale, TranslationStrings> = {
     input: {
       placeholder: '输入消息...',
       attachFiles: '添加附件',
+    },
+    search: {
+      placeholder: '搜索聊天...',
+      noResults: '未找到结果',
     },
     tooltips: {
       chatInfo: '聊天信息',

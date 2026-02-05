@@ -37,6 +37,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const error: Ref<Error | null> = ref(null)
   const firstUnreadMessageId: Ref<string | null> = ref(null)
   const replyToMessage: Ref<Message | null> = ref(null)
+  const searchQuery: Ref<string> = ref('')
 
   // Track subscribed dialog
   let subscribedDialogId: string | null = null
@@ -57,7 +58,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     try {
       isLoading.value = true
       error.value = null
-      participatingDialogs.value = await client.api.getParticipatingDialogs()
+      const search = searchQuery.value || undefined
+      participatingDialogs.value = await client.api.getParticipatingDialogs(search)
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
@@ -70,13 +72,21 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     try {
       isLoading.value = true
       error.value = null
-      availableDialogs.value = await client.api.getAvailableDialogs()
+      const search = searchQuery.value || undefined
+      availableDialogs.value = await client.api.getAvailableDialogs(search)
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
       isLoading.value = false
     }
+  }
+
+  /**
+   * Set search query for dialog filtering
+   */
+  function setSearchQuery(query: string): void {
+    searchQuery.value = query
   }
 
   async function loadDialogByObject(
@@ -508,6 +518,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     error,
     firstUnreadMessageId,
     replyToMessage,
+    searchQuery,
 
     // API access for file uploads
     api: client.api,
@@ -517,6 +528,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     disconnect,
     sendMessage,
     loadMessages,
+    setSearchQuery,
     loadParticipatingDialogs,
     loadAvailableDialogs,
     loadDialogByObject,

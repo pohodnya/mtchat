@@ -152,6 +152,8 @@ struct MessageWithAttachments {
 struct DialogsQuery {
     #[serde(default)]
     r#type: Option<String>, // "participating" or "available"
+    #[serde(default)]
+    search: Option<String>, // Search by dialog title
 }
 
 #[derive(Debug, Deserialize)]
@@ -396,9 +398,11 @@ async fn list_dialogs(
 ) -> Result<Json<ApiResponse<Vec<DialogResponse>>>, ApiError> {
     let dialog_type = params.r#type.as_deref().unwrap_or("participating");
 
+    let search = params.search.as_deref();
+
     let dialogs = match dialog_type {
         "participating" => {
-            state.dialogs.find_participating(user_id).await?
+            state.dialogs.find_participating(user_id, search).await?
         }
         "available" => {
             if let Some(scope) = &scope_config {
@@ -407,6 +411,7 @@ async fn list_dialogs(
                     scope.tenant_uid,
                     &scope.scope_level1,
                     &scope.scope_level2,
+                    search,
                 ).await?
             } else {
                 return Err(ApiError::BadRequest("X-Scope-Config header required for available dialogs".into()));

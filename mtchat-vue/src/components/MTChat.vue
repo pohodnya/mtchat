@@ -84,6 +84,10 @@ const messageInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const activeTab = ref<'participating' | 'available'>('participating')
+const searchInput = ref('')
+
+// Debounce timer for search
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Read tracking state
 let readTimeout: ReturnType<typeof setTimeout> | null = null
@@ -181,6 +185,26 @@ watch(
     scrollToBottom()
   }
 )
+
+// Debounced search - reload dialogs when search input changes
+watch(searchInput, (newValue) => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  searchTimeout = setTimeout(() => {
+    chat.setSearchQuery(newValue)
+    chat.loadParticipatingDialogs()
+    chat.loadAvailableDialogs()
+  }, 300)
+})
+
+// Clear search input and reload dialogs
+function clearSearch() {
+  searchInput.value = ''
+  chat.setSearchQuery('')
+  chat.loadParticipatingDialogs()
+  chat.loadAvailableDialogs()
+}
 
 // Check if scrolled to bottom and mark as read
 function handleScroll() {
@@ -472,6 +496,10 @@ onUnmounted(() => {
     clearTimeout(readTimeout)
     readTimeout = null
   }
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+    searchTimeout = null
+  }
   document.removeEventListener('keydown', handleKeydown)
 })
 
@@ -494,6 +522,27 @@ defineExpose({
   <div :class="['mtchat', `mtchat--${theme}`, { 'mtchat--inline': isInlineMode }]">
     <!-- Sidebar (Full mode only) -->
     <aside v-if="!isInlineMode && showSidebar" class="mtchat__sidebar">
+      <!-- Search -->
+      <div class="mtchat__search">
+        <input
+          v-model="searchInput"
+          type="text"
+          :placeholder="t.search.placeholder"
+          class="mtchat__search-input"
+          @keydown.esc="clearSearch"
+        />
+        <button
+          v-if="searchInput"
+          class="mtchat__search-clear"
+          type="button"
+          @click="clearSearch"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
       <!-- Tabs -->
       <div class="mtchat__tabs">
         <button
@@ -539,7 +588,10 @@ defineExpose({
         </div>
 
         <div v-if="currentDialogsList.length === 0" class="mtchat__empty">
-          {{ activeTab === 'participating' ? t.chat.noActiveChats : t.chat.noAvailableChats }}
+          {{ searchInput
+            ? t.search.noResults
+            : (activeTab === 'participating' ? t.chat.noActiveChats : t.chat.noAvailableChats)
+          }}
         </div>
       </div>
     </aside>
@@ -916,6 +968,56 @@ defineExpose({
   background: var(--mtchat-bg);
   display: flex;
   flex-direction: column;
+}
+
+/* Search */
+.mtchat__search {
+  padding: 12px;
+  border-bottom: 1px solid var(--mtchat-border);
+  display: flex;
+  gap: 8px;
+  position: relative;
+}
+
+.mtchat__search-input {
+  flex: 1;
+  padding: 8px 12px;
+  padding-right: 32px;
+  border: 1px solid var(--mtchat-border);
+  border-radius: 6px;
+  background: var(--mtchat-bg);
+  color: var(--mtchat-text);
+  font-size: 14px;
+  outline: none;
+}
+
+.mtchat__search-input:focus {
+  border-color: var(--mtchat-primary);
+}
+
+.mtchat__search-input::placeholder {
+  color: var(--mtchat-text-secondary);
+}
+
+.mtchat__search-clear {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--mtchat-text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.mtchat__search-clear:hover {
+  color: var(--mtchat-text);
+  background: var(--mtchat-bg-hover);
 }
 
 /* Tabs */
