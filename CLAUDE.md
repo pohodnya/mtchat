@@ -201,6 +201,26 @@ Events: message.new, participant.joined, participant.left
 />
 ```
 
+### Theme Support
+
+```vue
+<!-- Light theme -->
+<MTChat :config="config" theme="light" />
+
+<!-- Dark theme -->
+<MTChat :config="config" theme="dark" />
+```
+
+**CSS Variables (MTChat):**
+- `--mtchat-bg`, `--mtchat-bg-secondary`, `--mtchat-bg-hover`
+- `--mtchat-text`, `--mtchat-text-secondary`
+- `--mtchat-border`, `--mtchat-primary`
+
+**CSS Variables (Demo Layout):**
+- `--tms-bg`, `--tms-bg-sidebar`, `--tms-bg-panel`, `--tms-bg-hover`
+- `--tms-text`, `--tms-text-secondary`, `--tms-text-muted`
+- `--tms-border`, `--tms-primary`, `--tms-primary-bg`
+
 ### Config
 
 ```typescript
@@ -270,9 +290,10 @@ docker-compose up -d
 - Date dividers between messages with smart formatting (Сегодня/Вчера/дата)
 - Sticky date headers that appear when scrolling past dividers
 - Message hover highlighting on full row
-- PrimeVue-compatible light/dark themes
-- Theme prop support in MTChat component
-- Theme toggle in demo application
+- Full light/dark theme support based on PrimeVue Lara Blue scheme
+- Theme toggle button in demo app sidebar
+- CSS variables system for easy theming (--tms-*, --mtchat-*)
+- Theme persistence via localStorage
 
 ### 2025-02-04 (v3.3) - Message Replies & Unread Tracking
 - Message reply functionality with reply-to icon on hover (outside message bubble)
