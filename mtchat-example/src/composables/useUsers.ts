@@ -20,6 +20,8 @@ export function useUsers() {
     tenantId: string
     scopeLevel1?: string[]
     scopeLevel2?: string[]
+    email?: string
+    phone?: string
   }): User {
     const user: User = {
       id: generateUUID(),
@@ -27,6 +29,8 @@ export function useUsers() {
       tenantId: data.tenantId,
       scopeLevel1: data.scopeLevel1 || [],
       scopeLevel2: data.scopeLevel2 || [],
+      email: data.email?.trim() || undefined,
+      phone: data.phone?.trim() || undefined,
       createdAt: new Date().toISOString(),
     }
     users.value = [...users.value, user]
@@ -35,7 +39,7 @@ export function useUsers() {
 
   function updateUser(
     id: string,
-    updates: Partial<Pick<User, 'name' | 'tenantId' | 'scopeLevel1' | 'scopeLevel2'>>
+    updates: Partial<Pick<User, 'name' | 'tenantId' | 'scopeLevel1' | 'scopeLevel2' | 'email' | 'phone'>>
   ): User | null {
     const index = users.value.findIndex((u) => u.id === id)
     if (index === -1) return null

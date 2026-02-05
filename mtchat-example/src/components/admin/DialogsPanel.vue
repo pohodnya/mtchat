@@ -174,12 +174,12 @@ import Column from 'primevue/column'
 import Tag from 'primevue/tag'
 import Message from 'primevue/message'
 import { useTenants, useUsers, useObjects, useDialogRefs, useSettings } from '../../composables'
-import { ManagementApi } from '../../services/managementApi'
+import { ManagementApi, type ParticipantInput } from '../../services/managementApi'
 import type { DialogRef } from '../../types'
 
 const toast = useToast()
-const { sortedTenants } = useTenants()
-const { sortedUsers } = useUsers()
+const { sortedTenants, getTenant } = useTenants()
+const { sortedUsers, getUser } = useUsers()
 const { objects, getObject } = useObjects()
 const { dialogRefs, sortedDialogRefs, addDialogRef, removeDialogRef } = useDialogRefs()
 const { settings } = useSettings()
@@ -262,12 +262,28 @@ async function handleCreate() {
   try {
     const api = new ManagementApi(settings.value.apiBaseUrl, settings.value.adminToken)
 
+    // Build participant profiles from selected user IDs
+    const participants: ParticipantInput[] = form.participantIds
+      .map((userId) => {
+        const user = getUser(userId)
+        if (!user) return null
+        const tenant = getTenant(user.tenantId)
+        return {
+          user_id: user.id,
+          display_name: user.name,
+          company: tenant?.name,
+          email: user.email,
+          phone: user.phone,
+        } as ParticipantInput
+      })
+      .filter((p): p is ParticipantInput => p !== null)
+
     // Build request
     const request = {
       object_id: selectedObject.id,
       object_type: selectedObject.type,
       title: form.title || undefined,
-      participants: form.participantIds.length > 0 ? form.participantIds : undefined,
+      participants: participants.length > 0 ? participants : undefined,
       access_scopes: form.accessScopes
         .filter((s) => s.tenantId)
         .map((s) => ({

@@ -3,11 +3,19 @@ import type { AccessScope } from '../types'
 /**
  * Management API request/response types
  */
+export interface ParticipantInput {
+  user_id: string
+  display_name: string
+  company?: string
+  email?: string
+  phone?: string
+}
+
 export interface CreateDialogRequest {
   object_id: string
   object_type: string
   title?: string
-  participants?: string[]
+  participants?: ParticipantInput[]
   access_scopes?: {
     tenant_uid: string
     scope_level1: string[]
@@ -114,13 +122,9 @@ export class ManagementApi {
    */
   async addParticipant(
     dialogId: string,
-    userId: string,
-    notifications?: boolean
+    participant: ParticipantInput
   ): Promise<void> {
-    await this.request<void>('POST', `/api/v1/management/dialogs/${dialogId}/participants`, {
-      user_id: userId,
-      notifications_enabled: notifications ?? true,
-    })
+    await this.request<void>('POST', `/api/v1/management/dialogs/${dialogId}/participants`, participant)
   }
 
   /**

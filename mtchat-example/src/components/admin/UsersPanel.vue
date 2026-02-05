@@ -39,6 +39,22 @@
             class="w-full"
           />
         </div>
+        <div class="form-field">
+          <label>Email</label>
+          <InputText
+            v-model="form.email"
+            placeholder="user@example.com"
+            class="w-full"
+          />
+        </div>
+        <div class="form-field">
+          <label>Phone</label>
+          <InputText
+            v-model="form.phone"
+            placeholder="+7 999 123-45-67"
+            class="w-full"
+          />
+        </div>
       </div>
       <Button
         label="Create User"
@@ -91,6 +107,21 @@
             </div>
           </template>
         </Column>
+        <Column header="Contacts">
+          <template #body="{ data }">
+            <div class="contacts">
+              <span v-if="data.email" class="contact-item">
+                <i class="pi pi-envelope" />
+                {{ data.email }}
+              </span>
+              <span v-if="data.phone" class="contact-item">
+                <i class="pi pi-phone" />
+                {{ data.phone }}
+              </span>
+              <span v-if="!data.email && !data.phone" class="empty-scope">-</span>
+            </div>
+          </template>
+        </Column>
         <Column field="id" header="ID">
           <template #body="{ data }">
             <code class="uuid">{{ data.id.slice(0, 8) }}...</code>
@@ -135,6 +166,8 @@ const form = reactive({
   tenantId: '',
   scopeLevel1: [] as string[],
   scopeLevel2: [] as string[],
+  email: '',
+  phone: '',
 })
 
 function handleCreate() {
@@ -145,12 +178,16 @@ function handleCreate() {
     tenantId: form.tenantId,
     scopeLevel1: form.scopeLevel1,
     scopeLevel2: form.scopeLevel2,
+    email: form.email || undefined,
+    phone: form.phone || undefined,
   })
 
   // Reset form
   form.name = ''
   form.scopeLevel1 = []
   form.scopeLevel2 = []
+  form.email = ''
+  form.phone = ''
 
   toast.add({
     severity: 'success',
@@ -240,6 +277,25 @@ h3 {
 }
 
 .empty-scope {
+  color: #999;
+}
+
+.contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #666;
+}
+
+.contact-item i {
+  font-size: 12px;
   color: #999;
 }
 </style>
