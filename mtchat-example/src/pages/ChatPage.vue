@@ -38,11 +38,12 @@ import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
 import { MTChat, type MTChatConfig, type Message } from '@mtchat/vue'
 import TMSLayout from '../components/TMSLayout.vue'
-import { useUsers, useSettings } from '../composables'
+import { useUsers, useSettings, useTenants } from '../composables'
 
 const toast = useToast()
 const { users, currentUser } = useUsers()
 const { settings } = useSettings()
+const { getTenant } = useTenants()
 
 // Build chat config from current user
 const chatConfig = computed<MTChatConfig>(() => {
@@ -55,8 +56,14 @@ const chatConfig = computed<MTChatConfig>(() => {
         scope_level1: [],
         scope_level2: [],
       },
+      userProfile: {
+        displayName: '',
+        company: '',
+      },
     }
   }
+
+  const tenant = getTenant(currentUser.value.tenantId)
 
   return {
     baseUrl: settings.value.apiBaseUrl,
@@ -65,6 +72,12 @@ const chatConfig = computed<MTChatConfig>(() => {
       tenant_uid: currentUser.value.tenantId,
       scope_level1: currentUser.value.scopeLevel1,
       scope_level2: currentUser.value.scopeLevel2,
+    },
+    userProfile: {
+      displayName: currentUser.value.name,
+      company: tenant?.name || 'Unknown Company',
+      email: currentUser.value.email,
+      phone: currentUser.value.phone,
     },
   }
 })

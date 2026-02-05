@@ -4,7 +4,7 @@
  * Combines REST API and WebSocket functionality
  */
 
-import type { MTChatConfig, WsEvent, Message } from '../types'
+import type { MTChatConfig, WsEvent, Message, JoinDialogRequest } from '../types'
 import { MTChatApi } from './api'
 import { MTChatWebSocket } from './websocket'
 
@@ -163,8 +163,8 @@ export class MTChatClient {
   /**
    * Join dialog (convenience method)
    */
-  async joinDialog(dialogId: string): Promise<void> {
-    await this.api.joinDialog(dialogId)
+  async joinDialog(dialogId: string, profile: JoinDialogRequest): Promise<void> {
+    await this.api.joinDialog(dialogId, profile)
   }
 
   /**

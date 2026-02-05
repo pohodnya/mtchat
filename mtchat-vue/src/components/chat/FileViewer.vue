@@ -178,6 +178,7 @@ import { ref, shallowRef, computed, watch, onMounted, onUnmounted, nextTick, h, 
 import type { Attachment } from '../../types'
 import { getAttachmentType } from '../../types'
 import * as pdfjsLib from 'pdfjs-dist'
+// @ts-ignore - Vite handles this import
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 // Set worker source
@@ -406,6 +407,7 @@ async function renderPdfPage(pageNum: number) {
     canvas.style.height = `${displayHeight}px`
 
     // Create render task
+    // @ts-ignore - pdfjs-dist types are inconsistent across versions
     const renderTask = page.render({
       canvasContext: context,
       viewport: viewport,

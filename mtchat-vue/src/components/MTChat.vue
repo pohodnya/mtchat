@@ -14,6 +14,8 @@ import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment } from
 import AttachmentPreview from './chat/AttachmentPreview.vue'
 import AttachmentList from './chat/AttachmentList.vue'
 import FileViewer from './chat/FileViewer.vue'
+import ChatInfoPanel from './chat/ChatInfoPanel.vue'
+import JoinDialog from './chat/JoinDialog.vue'
 
 // Props
 const props = withDefaults(
@@ -82,6 +84,14 @@ const showScrollButton = ref(false)
 // Sticky date state
 const stickyDate = ref<string | null>(null)
 const hiddenDividerDate = ref<string | null>(null)
+
+// Info panel and menu state
+const showInfoPanel = ref(false)
+const showHeaderMenu = ref(false)
+
+// Join dialog state
+const showJoinDialog = ref(false)
+const isJoining = ref(false)
 
 // Collect all attachments from all messages
 const allAttachments = computed(() => {
@@ -260,14 +270,24 @@ async function handleSelectDialog(dialog: DialogListItem) {
   emit('dialog-selected', dialog)
 }
 
-async function handleJoinDialog() {
+function handleJoinDialog() {
+  if (!chat.currentDialog.value) return
+  // Show the join dialog modal
+  showJoinDialog.value = true
+}
+
+async function confirmJoinDialog(profile: { display_name: string; company: string; email?: string; phone?: string }) {
   if (!chat.currentDialog.value) return
 
   try {
-    await chat.joinDialog(chat.currentDialog.value.id)
+    isJoining.value = true
+    await chat.joinDialog(chat.currentDialog.value.id, profile)
+    showJoinDialog.value = false
     emit('dialog-joined', chat.currentDialog.value.id)
   } catch (e) {
     // Error already handled
+  } finally {
+    isJoining.value = false
   }
 }
 
@@ -378,10 +398,29 @@ function getQuotedText(messageId: string): string {
   return truncateText(msg.content, 60)
 }
 
+/**
+ * Get the display name for a user in the current dialog
+ */
+function getSenderDisplayName(senderId: string): string {
+  // Check if it's the current user
+  const isCurrentUser = senderId === props.config.userId
+
+  // Find participant by user_id
+  const participant = chat.participants.value.find((p) => p.user_id === senderId)
+
+  if (participant?.display_name) {
+    // Use display_name with "(Вы)" suffix for current user
+    return isCurrentUser ? `${participant.display_name} (Вы)` : participant.display_name
+  }
+
+  // Fallback if participant not found or no display_name
+  return isCurrentUser ? 'Вы' : senderId.slice(0, 8)
+}
+
 function getMessageAuthor(messageId: string): string {
   const msg = chat.messages.value.find((m) => m.id === messageId)
   if (!msg) return '...'
-  return msg.sender_id === props.config.userId ? 'Вы' : msg.sender_id.slice(0, 8)
+  return getSenderDisplayName(msg.sender_id)
 }
 
 function scrollToMessage(messageId: string) {
@@ -504,36 +543,79 @@ defineExpose({
     <main class="mtchat__main">
       <!-- Header -->
       <header v-if="showHeader && hasDialog" class="mtchat__header">
-        <div class="mtchat__header-info">
+        <button
+          class="mtchat__header-info"
+          @click="showInfoPanel = true"
+          :title="chat.currentDialog.value?.i_am_participant ? 'Информация о чате' : 'Информация'"
+        >
           <h2 class="mtchat__header-title">{{ dialogTitle }}</h2>
           <div class="mtchat__header-meta">
             <span class="mtchat__header-participants">
-              {{ chat.currentDialog.value?.participants_count || 0 }} participants
+              {{ chat.currentDialog.value?.participants_count || 0 }} участников
             </span>
             <span :class="['mtchat__status', { 'mtchat__status--connected': chat.isConnected.value }]">
               {{ chat.isConnected.value ? 'Connected' : 'Disconnected' }}
             </span>
           </div>
-        </div>
+        </button>
         <div class="mtchat__header-actions">
+          <!-- Join button for non-participants -->
           <button
             v-if="canJoin"
             class="mtchat__btn mtchat__btn--primary"
             @click="handleJoinDialog"
             :disabled="chat.isLoading.value"
           >
-            Join Chat
+            Присоединиться
           </button>
-          <button
-            v-else-if="chat.currentDialog.value?.i_am_participant"
-            class="mtchat__btn mtchat__btn--secondary"
-            @click="handleLeaveDialog"
-            :disabled="chat.isLoading.value"
-          >
-            Leave
-          </button>
+          <!-- Menu button for participants -->
+          <div v-else-if="chat.currentDialog.value?.i_am_participant" class="mtchat__menu-container">
+            <button
+              class="mtchat__menu-button"
+              @click="showHeaderMenu = !showHeaderMenu"
+              title="Меню"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="2"/>
+                <circle cx="12" cy="12" r="2"/>
+                <circle cx="12" cy="19" r="2"/>
+              </svg>
+            </button>
+            <!-- Dropdown menu -->
+            <div v-if="showHeaderMenu" class="mtchat__menu-dropdown" @click.stop>
+              <button
+                class="mtchat__menu-item"
+                @click="showInfoPanel = true; showHeaderMenu = false"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                Информация
+              </button>
+              <button
+                class="mtchat__menu-item mtchat__menu-item--danger"
+                @click="handleLeaveDialog(); showHeaderMenu = false"
+                :disabled="chat.isLoading.value"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                Покинуть чат
+              </button>
+            </div>
+          </div>
         </div>
       </header>
+      <!-- Click outside to close menu -->
+      <div
+        v-if="showHeaderMenu"
+        class="mtchat__menu-backdrop"
+        @click="showHeaderMenu = false"
+      ></div>
 
       <!-- No Dialog Selected -->
       <div v-if="!hasDialog" class="mtchat__no-dialog">
@@ -603,7 +685,7 @@ defineExpose({
             <!-- Header: sender name + time -->
             <div class="mtchat__message-header">
               <span class="mtchat__message-sender">
-                {{ message.sender_id === config.userId ? 'Вы' : message.sender_id.slice(0, 8) }}
+                {{ getSenderDisplayName(message.sender_id) }}
               </span>
               <span class="mtchat__message-time">{{ formatTime(message.sent_at) }}</span>
             </div>
@@ -652,7 +734,7 @@ defineExpose({
             <div class="mtchat__reply-indicator"></div>
             <div class="mtchat__reply-content">
               <div class="mtchat__reply-author">
-                {{ chat.replyToMessage.value.sender_id === config.userId ? 'Вы' : chat.replyToMessage.value.sender_id.slice(0, 8) }}
+                {{ getSenderDisplayName(chat.replyToMessage.value.sender_id) }}
               </div>
               <div class="mtchat__reply-text">
                 {{ truncateText(chat.replyToMessage.value.content, 100) }}
@@ -718,12 +800,41 @@ defineExpose({
       </div>
     </main>
 
+    <!-- Info Panel (side column in full mode, overlay in inline mode) -->
+    <Transition name="mtchat-info-panel">
+      <aside
+        v-if="showInfoPanel && hasDialog"
+        :class="['mtchat__info-panel', { 'mtchat__info-panel--inline': isInlineMode }]"
+      >
+        <ChatInfoPanel
+          :dialog-title="dialogTitle"
+          :object-type="chat.currentDialog.value?.object_type"
+          :object-id="chat.currentDialog.value?.object_id"
+          :participants="chat.participants.value"
+          :current-user-id="config.userId"
+          @close="showInfoPanel = false"
+        />
+      </aside>
+    </Transition>
+
     <!-- Unified File Viewer Modal -->
     <FileViewer
       :show="showFileViewer"
       :files="allAttachments"
       :initial-index="fileViewerIndex"
       @close="closeFileViewer"
+    />
+
+    <!-- Join Dialog Modal -->
+    <JoinDialog
+      :show="showJoinDialog"
+      :profile-name="config.userProfile.displayName"
+      :company="config.userProfile.company"
+      :email="config.userProfile.email"
+      :phone="config.userProfile.phone"
+      :loading="isJoining"
+      @cancel="showJoinDialog = false"
+      @join="confirmJoinDialog"
     />
   </div>
 </template>
@@ -738,6 +849,7 @@ defineExpose({
   border: 1px solid var(--mtchat-border, #e0e0e0);
   border-radius: 8px;
   overflow: hidden;
+  position: relative;
 }
 
 .mtchat--inline {
@@ -941,6 +1053,99 @@ defineExpose({
 
 .mtchat__status--connected::before {
   background: #4caf50;
+}
+
+/* Header info as button */
+button.mtchat__header-info {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+button.mtchat__header-info:hover {
+  background: var(--mtchat-hover);
+  padding: 4px 8px;
+  margin: -4px -8px;
+}
+
+/* Menu container */
+.mtchat__menu-container {
+  position: relative;
+}
+
+.mtchat__menu-button {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--mtchat-text-secondary);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.mtchat__menu-button:hover {
+  background: var(--mtchat-hover);
+  color: var(--mtchat-text);
+}
+
+.mtchat__menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 180px;
+  background: var(--mtchat-bg);
+  border: 1px solid var(--mtchat-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.mtchat__menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--mtchat-text);
+  text-align: left;
+  transition: background-color 0.15s;
+}
+
+.mtchat__menu-item:hover {
+  background: var(--mtchat-hover);
+}
+
+.mtchat__menu-item svg {
+  flex-shrink: 0;
+}
+
+.mtchat__menu-item--danger {
+  color: #f44336;
+}
+
+.mtchat__menu-item--danger:hover {
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.mtchat__menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
 }
 
 /* Messages */
@@ -1370,5 +1575,44 @@ defineExpose({
   justify-content: center;
   padding: 24px;
   color: var(--mtchat-text-secondary);
+}
+
+/* Info Panel - side column */
+.mtchat__info-panel {
+  width: 300px;
+  min-width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--mtchat-border);
+  background: var(--mtchat-bg);
+  overflow: hidden;
+}
+
+/* In inline mode, overlay the entire chat */
+.mtchat__info-panel--inline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border-left: none;
+  z-index: 50;
+}
+
+/* Info Panel Transition */
+.mtchat-info-panel-enter-active,
+.mtchat-info-panel-leave-active {
+  transition: width 0.25s ease, opacity 0.25s ease;
+}
+
+.mtchat-info-panel-enter-from,
+.mtchat-info-panel-leave-to {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+}
+
+/* Inline mode transition - fade instead of width */
+.mtchat__info-panel--inline.mtchat-info-panel-enter-from,
+.mtchat__info-panel--inline.mtchat-info-panel-leave-to {
+  width: 100%;
+  opacity: 0;
 }
 </style>

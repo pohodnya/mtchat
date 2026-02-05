@@ -63,6 +63,23 @@ pub struct DialogParticipant {
     pub last_read_message_id: Option<Uuid>,
     /// Number of unread messages for this participant
     pub unread_count: i32,
+    /// Display name (full name, initials, or anonymous)
+    pub display_name: Option<String>,
+    /// Company/organization name
+    pub company: Option<String>,
+    /// Contact email (optional, can be hidden)
+    pub email: Option<String>,
+    /// Contact phone (optional, can be hidden)
+    pub phone: Option<String>,
+}
+
+/// Profile information for a participant
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParticipantProfile {
+    pub display_name: String,
+    pub company: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
 }
 
 impl DialogParticipant {
@@ -75,6 +92,26 @@ impl DialogParticipant {
             notifications_enabled: true,
             last_read_message_id: None,
             unread_count: 0,
+            display_name: None,
+            company: None,
+            email: None,
+            phone: None,
+        }
+    }
+
+    pub fn with_profile(dialog_id: Uuid, user_id: Uuid, joined_as: JoinedAs, profile: ParticipantProfile) -> Self {
+        Self {
+            dialog_id,
+            user_id,
+            joined_at: Utc::now(),
+            joined_as: joined_as.as_str().to_string(),
+            notifications_enabled: true,
+            last_read_message_id: None,
+            unread_count: 0,
+            display_name: Some(profile.display_name),
+            company: profile.company,
+            email: profile.email,
+            phone: profile.phone,
         }
     }
 

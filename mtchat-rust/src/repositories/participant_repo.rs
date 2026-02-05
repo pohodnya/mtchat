@@ -3,7 +3,7 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::{DialogParticipant, JoinedAs};
+use crate::domain::{DialogParticipant, JoinedAs, ParticipantProfile};
 
 pub struct ParticipantRepository {
     pool: PgPool,
@@ -14,7 +14,7 @@ impl ParticipantRepository {
         Self { pool }
     }
 
-    /// Add a participant to a dialog
+    /// Add a participant to a dialog (without profile)
     pub async fn add(
         &self,
         dialog_id: Uuid,
@@ -29,6 +29,31 @@ impl ParticipantRepository {
         .bind(dialog_id)
         .bind(user_id)
         .bind(joined_as.as_str())
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    /// Add a participant with profile information
+    pub async fn add_with_profile(
+        &self,
+        dialog_id: Uuid,
+        user_id: Uuid,
+        joined_as: JoinedAs,
+        profile: &ParticipantProfile,
+    ) -> Result<DialogParticipant, sqlx::Error> {
+        sqlx::query_as::<_, DialogParticipant>(
+            r#"INSERT INTO dialog_participants
+               (dialog_id, user_id, joined_as, joined_at, display_name, company, email, phone)
+               VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7)
+               RETURNING *"#,
+        )
+        .bind(dialog_id)
+        .bind(user_id)
+        .bind(joined_as.as_str())
+        .bind(&profile.display_name)
+        .bind(&profile.company)
+        .bind(&profile.email)
+        .bind(&profile.phone)
         .fetch_one(&self.pool)
         .await
     }
@@ -48,6 +73,32 @@ impl ParticipantRepository {
         .bind(dialog_id)
         .bind(user_id)
         .bind(joined_as.as_str())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Add participant with profile, ignore if already exists
+    pub async fn add_with_profile_if_not_exists(
+        &self,
+        dialog_id: Uuid,
+        user_id: Uuid,
+        joined_as: JoinedAs,
+        profile: &ParticipantProfile,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"INSERT INTO dialog_participants
+               (dialog_id, user_id, joined_as, joined_at, display_name, company, email, phone)
+               VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7)
+               ON CONFLICT (dialog_id, user_id) DO NOTHING"#,
+        )
+        .bind(dialog_id)
+        .bind(user_id)
+        .bind(joined_as.as_str())
+        .bind(&profile.display_name)
+        .bind(&profile.company)
+        .bind(&profile.email)
+        .bind(&profile.phone)
         .execute(&self.pool)
         .await?;
         Ok(())

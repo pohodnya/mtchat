@@ -96,6 +96,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as pdfjsLib from 'pdfjs-dist'
+// @ts-ignore - Vite handles this import
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 // Set worker source (use local file, not CDN)
@@ -226,6 +227,7 @@ async function renderPage(pageNum: number) {
     canvas.width = viewport.width
 
     // Render page
+    // @ts-ignore - pdfjs-dist types are inconsistent across versions
     await page.render({
       canvasContext: context,
       viewport: viewport,

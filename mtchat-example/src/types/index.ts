@@ -22,6 +22,8 @@ export interface Tenant {
 export interface User {
   id: string
   name: string
+  email?: string
+  phone?: string
   tenantId: string
   scopeLevel1: string[] // departments
   scopeLevel2: string[] // permissions/roles

@@ -16,6 +16,7 @@ import type {
   PresignUploadResponse,
   AttachmentInput,
   MessagesResponse,
+  JoinDialogRequest,
 } from '../types'
 
 /**
@@ -160,11 +161,14 @@ export class MTChatApi {
 
   /**
    * Join a dialog (become participant)
+   * @param dialogId - Dialog to join
+   * @param profile - User profile for this dialog
    */
-  async joinDialog(dialogId: string): Promise<{ status: string; dialog_id: string }> {
+  async joinDialog(dialogId: string, profile: JoinDialogRequest): Promise<{ status: string; dialog_id: string }> {
     return this.request<{ status: string; dialog_id: string }>(
       'POST',
-      `/api/v1/dialogs/${dialogId}/join`
+      `/api/v1/dialogs/${dialogId}/join`,
+      { body: profile }
     )
   }
 

@@ -14,6 +14,7 @@ import type {
   UseChatOptions,
   UseChatReturn,
   AttachmentInput,
+  JoinDialogRequest,
 } from '../types'
 
 /**
@@ -136,11 +137,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   // ============ Join/Leave ============
 
-  async function joinDialog(id: string): Promise<void> {
+  async function joinDialog(id: string, profile: JoinDialogRequest): Promise<void> {
     try {
       isLoading.value = true
       error.value = null
-      await client.api.joinDialog(id)
+      await client.api.joinDialog(id, profile)
 
       // Move dialog from available to participating
       const dialogIndex = availableDialogs.value.findIndex((d) => d.id === id)

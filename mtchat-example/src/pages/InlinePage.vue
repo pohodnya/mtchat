@@ -58,7 +58,7 @@ import { MTChat, type MTChatConfig } from '@mtchat/vue'
 import TMSLayout from '../components/TMSLayout.vue'
 import TMSDataTable from '../components/TMSDataTable.vue'
 import TMSChatPanel from '../components/TMSChatPanel.vue'
-import { useUsers, useObjects, useSettings } from '../composables'
+import { useUsers, useObjects, useSettings, useTenants } from '../composables'
 import type { MockObject } from '../types'
 
 const route = useRoute()
@@ -68,6 +68,7 @@ const toast = useToast()
 const { users, currentUser } = useUsers()
 const { sortedObjects, getObject } = useObjects()
 const { settings } = useSettings()
+const { getTenant } = useTenants()
 
 const typeLabels: Record<string, string> = {
   tender: 'Тендер',
@@ -105,8 +106,14 @@ const chatConfig = computed<MTChatConfig>(() => {
         scope_level1: [],
         scope_level2: [],
       },
+      userProfile: {
+        displayName: '',
+        company: '',
+      },
     }
   }
+
+  const tenant = getTenant(currentUser.value.tenantId)
 
   return {
     baseUrl: settings.value.apiBaseUrl,
@@ -115,6 +122,12 @@ const chatConfig = computed<MTChatConfig>(() => {
       tenant_uid: currentUser.value.tenantId,
       scope_level1: currentUser.value.scopeLevel1,
       scope_level2: currentUser.value.scopeLevel2,
+    },
+    userProfile: {
+      displayName: currentUser.value.name,
+      company: tenant?.name || 'Unknown Company',
+      email: currentUser.value.email,
+      phone: currentUser.value.phone,
     },
   }
 })

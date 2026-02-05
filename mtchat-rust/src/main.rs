@@ -25,7 +25,7 @@ mod middleware;
 mod webhooks;
 mod services;
 
-use domain::{Dialog, DialogParticipant, DialogAccessScope, Message, JoinedAs};
+use domain::{Dialog, DialogParticipant, DialogAccessScope, Message, JoinedAs, ParticipantProfile};
 use repositories::{DialogRepository, ParticipantRepository, AccessScopeRepository, MessageRepository, AttachmentRepository};
 use middleware::{ScopeConfig, OptionalScopeConfig, UserId};
 use webhooks::{WebhookSender, WebhookConfig, WebhookEvent};
@@ -67,12 +67,22 @@ impl AppState {
 
 // ============ Request/Response DTOs ============
 
+/// Participant input with profile info for dialog creation
+#[derive(Debug, Deserialize)]
+struct ParticipantInput {
+    user_id: Uuid,
+    display_name: String,
+    company: Option<String>,
+    email: Option<String>,
+    phone: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct CreateDialogRequest {
     object_id: Uuid,
     object_type: String,
     title: Option<String>,
-    participants: Vec<Uuid>,
+    participants: Vec<ParticipantInput>,
     #[serde(default)]
     access_scopes: Vec<AccessScopeInput>,
 }
@@ -89,6 +99,19 @@ struct AccessScopeInput {
 #[derive(Debug, Deserialize)]
 struct AddParticipantRequest {
     user_id: Uuid,
+    display_name: String,
+    company: Option<String>,
+    email: Option<String>,
+    phone: Option<String>,
+}
+
+/// Request body for joining a dialog
+#[derive(Debug, Deserialize)]
+struct JoinDialogRequest {
+    display_name: String,
+    company: String,
+    email: Option<String>,
+    phone: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -240,18 +263,25 @@ async fn management_create_dialog(
     Json(req): Json<CreateDialogRequest>,
 ) -> Result<Json<ApiResponse<Dialog>>, ApiError> {
     // Create dialog
+    let created_by = req.participants.first().map(|p| p.user_id);
     let dialog = Dialog::new(
         req.object_id,
         req.object_type,
         req.title,
-        req.participants.first().copied(),
+        created_by,
     );
     let dialog = state.dialogs.create(&dialog).await?;
 
-    // Add participants
-    for (i, user_id) in req.participants.iter().enumerate() {
+    // Add participants with their profiles
+    for (i, participant) in req.participants.iter().enumerate() {
         let joined_as = if i == 0 { JoinedAs::Creator } else { JoinedAs::Participant };
-        state.participants.add(dialog.id, *user_id, joined_as).await?;
+        let profile = ParticipantProfile {
+            display_name: participant.display_name.clone(),
+            company: participant.company.clone(),
+            email: participant.email.clone(),
+            phone: participant.phone.clone(),
+        };
+        state.participants.add_with_profile(dialog.id, participant.user_id, joined_as, &profile).await?;
     }
 
     // Add access scopes
@@ -277,7 +307,13 @@ async fn management_add_participant(
     state.dialogs.find_by_id(dialog_id).await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
 
-    state.participants.add_if_not_exists(dialog_id, req.user_id, JoinedAs::Participant).await?;
+    let profile = ParticipantProfile {
+        display_name: req.display_name,
+        company: req.company,
+        email: req.email,
+        phone: req.phone,
+    };
+    state.participants.add_with_profile_if_not_exists(dialog_id, req.user_id, JoinedAs::Participant, &profile).await?;
 
     Ok(StatusCode::CREATED)
 }
@@ -457,6 +493,7 @@ async fn join_dialog(
     UserId(user_id): UserId,
     scope_config: ScopeConfig,
     Path(dialog_id): Path<Uuid>,
+    Json(req): Json<JoinDialogRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check dialog exists
     let dialog = state.dialogs.find_by_id(dialog_id).await?
@@ -479,8 +516,14 @@ async fn join_dialog(
         return Err(ApiError::Forbidden("No access to join this dialog".into()));
     }
 
-    // Join
-    let participant = state.participants.add(dialog_id, user_id, JoinedAs::Joined).await?;
+    // Join with profile
+    let profile = ParticipantProfile {
+        display_name: req.display_name,
+        company: Some(req.company),
+        email: req.email,
+        phone: req.phone,
+    };
+    let participant = state.participants.add_with_profile(dialog_id, user_id, JoinedAs::Joined, &profile).await?;
 
     // Set unread count to total messages in dialog
     state.participants.set_unread_count_from_messages(dialog_id, user_id).await?;

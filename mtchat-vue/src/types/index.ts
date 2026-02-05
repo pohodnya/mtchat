@@ -47,6 +47,36 @@ export interface DialogParticipant {
   joined_as: 'creator' | 'participant' | 'joined'
   notifications_enabled: boolean
   last_read_message_id?: string
+  /** Number of unread messages */
+  unread_count: number
+  /** Display name (full name, initials, or anonymous) */
+  display_name?: string
+  /** Company/organization name */
+  company?: string
+  /** Contact email (optional, can be hidden) */
+  email?: string
+  /** Contact phone (optional, can be hidden) */
+  phone?: string
+}
+
+/**
+ * Profile information for joining a dialog
+ */
+export interface ParticipantProfile {
+  display_name: string
+  company?: string
+  email?: string
+  phone?: string
+}
+
+/**
+ * Request body for joining a dialog
+ */
+export interface JoinDialogRequest {
+  display_name: string
+  company: string
+  email?: string
+  phone?: string
 }
 
 /**
@@ -321,6 +351,21 @@ export interface WsClientMessage {
 // ============ SDK Configuration ============
 
 /**
+ * User profile for display in chats
+ * Contains default values that can be customized when joining specific dialogs
+ */
+export interface UserProfile {
+  /** Display name (full name from user's profile) */
+  displayName: string
+  /** Company/organization name */
+  company: string
+  /** Contact email (optional) */
+  email?: string
+  /** Contact phone (optional) */
+  phone?: string
+}
+
+/**
  * MTChat SDK configuration
  */
 export interface MTChatConfig {
@@ -332,6 +377,8 @@ export interface MTChatConfig {
   userId: string
   /** User's scope configuration for access control */
   scopeConfig: ScopeConfig
+  /** User's profile for display in chats */
+  userProfile: UserProfile
   /** Callback when WebSocket connects */
   onConnect?: () => void
   /** Callback when WebSocket disconnects */
@@ -425,7 +472,7 @@ export interface UseChatReturn {
   loadAvailableDialogs: () => Promise<void>
   loadDialogByObject: (objectType: string, objectId: string) => Promise<DialogListItem | null>
   selectDialog: (dialogId: string) => Promise<void>
-  joinDialog: (dialogId: string) => Promise<void>
+  joinDialog: (dialogId: string, profile: JoinDialogRequest) => Promise<void>
   leaveDialog: (dialogId: string) => Promise<void>
   subscribe: (dialogId: string) => void
   unsubscribe: (dialogId: string) => void
