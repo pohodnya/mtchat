@@ -309,10 +309,9 @@ async function handleLeaveDialog() {
   try {
     await chat.leaveDialog(dialogId)
 
-    // Switch to "Available" tab and reload list (full mode only)
+    // Reload available dialogs to get the chat back (if user still has access)
+    // Stay on "My Chats" tab - user will see "Select a chat" message
     if (!isInlineMode.value) {
-      activeTab.value = 'available'
-      // Reload available dialogs to get the chat back (if user still has access)
       await chat.loadAvailableDialogs()
     }
 
