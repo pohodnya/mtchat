@@ -72,6 +72,7 @@
 │  notifications      │        │                                 │
 │  last_read_msg_id   │        │                                 │
 │  unread_count       │        │                                 │
+│  is_archived        │        │                                 │
 └─────────────────────┘        └─────────────────────────────────┘
 ```
 
@@ -145,11 +146,14 @@ DELETE /api/v1/management/dialogs/{id}    # Delete dialog
 
 ```
 GET  /api/v1/dialogs?type=participating   # My chats (includes unread_count)
+GET  /api/v1/dialogs?type=participating&archived=true  # Archived chats
 GET  /api/v1/dialogs?type=available       # Can join
 GET  /api/v1/dialogs/by-object/{type}/{id}  # Inline mode
 POST /api/v1/dialogs/{id}/join            # Join chat
 POST /api/v1/dialogs/{id}/leave           # Leave chat
 POST /api/v1/dialogs/{id}/read            # Mark messages as read
+POST /api/v1/dialogs/{id}/archive         # Archive chat for current user
+POST /api/v1/dialogs/{id}/unarchive       # Unarchive chat for current user
 GET  /api/v1/dialogs/{id}/messages        # Get messages (includes first_unread_message_id)
 POST /api/v1/dialogs/{id}/messages        # Send message
 WS   /api/v1/ws                           # Real-time (message.new, message.read)
@@ -356,8 +360,22 @@ docker-compose up -d
 | i18n (ru/en/zh) | ✅ |
 | Potential chat access control | ✅ |
 | Dialog search | ✅ |
+| Chat archiving (per-user) | ✅ |
 
 ## Changelog
+
+### 2025-02-06 (v3.9) - Chat Archiving
+- Per-user chat archiving (each participant archives independently)
+- Archived chats shown in collapsible accordion below active chats
+- Accordion toggles between 50% height and collapsed states
+- Archive/Unarchive action in chat header menu
+- "Archived" badge in chat header for archived chats
+- Separate scroll areas for active and archived chat lists
+- Search works across both active and archived chats
+- Unread counter tracking for archived chats
+- Database migration: `is_archived` column in dialog_participants
+- API endpoints: POST /dialogs/{id}/archive, POST /dialogs/{id}/unarchive
+- Translations for archive UI elements (ru/en/zh)
 
 ### 2025-02-05 (v3.8) - Dialog Search
 - Search input in sidebar above dialog tabs
