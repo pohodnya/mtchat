@@ -821,8 +821,11 @@ async fn send_message(
         }
     }
 
+    // Sanitize message content (removes XSS, preserves formatting)
+    let sanitized_content = domain::sanitize_html(&req.content);
+
     // Create message
-    let mut message = Message::new(dialog_id, sender_id, req.content);
+    let mut message = Message::new(dialog_id, sender_id, sanitized_content);
     if let Some(reply_to) = req.reply_to {
         message = message.with_reply(reply_to);
     }

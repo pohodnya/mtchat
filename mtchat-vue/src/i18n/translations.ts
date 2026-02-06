@@ -59,6 +59,19 @@ export interface TranslationStrings {
     close: string
     back: string
   }
+  formatting: {
+    bold: string
+    italic: string
+    underline: string
+    strikethrough: string
+    link: string
+    bulletList: string
+    numberedList: string
+    quote: string
+    inlineCode: string
+    codeBlock: string
+    clearFormatting: string
+  }
   dates: {
     today: string
     yesterday: string
@@ -172,6 +185,19 @@ export const translations: Record<Locale, TranslationStrings> = {
       close: 'Закрыть',
       back: 'Назад',
     },
+    formatting: {
+      bold: 'Жирный',
+      italic: 'Курсив',
+      underline: 'Подчёркнутый',
+      strikethrough: 'Зачёркнутый',
+      link: 'Ссылка',
+      bulletList: 'Маркированный список',
+      numberedList: 'Нумерованный список',
+      quote: 'Цитата',
+      inlineCode: 'Код',
+      codeBlock: 'Блок кода',
+      clearFormatting: 'Очистить форматирование',
+    },
     dates: {
       today: 'Сегодня',
       yesterday: 'Вчера',
@@ -284,6 +310,19 @@ export const translations: Record<Locale, TranslationStrings> = {
       close: 'Close',
       back: 'Back',
     },
+    formatting: {
+      bold: 'Bold',
+      italic: 'Italic',
+      underline: 'Underline',
+      strikethrough: 'Strikethrough',
+      link: 'Link',
+      bulletList: 'Bullet List',
+      numberedList: 'Numbered List',
+      quote: 'Quote',
+      inlineCode: 'Inline Code',
+      codeBlock: 'Code Block',
+      clearFormatting: 'Clear Formatting',
+    },
     dates: {
       today: 'Today',
       yesterday: 'Yesterday',
@@ -395,6 +434,19 @@ export const translations: Record<Locale, TranslationStrings> = {
       scrollDown: '向下滚动',
       close: '关闭',
       back: '返回',
+    },
+    formatting: {
+      bold: '粗体',
+      italic: '斜体',
+      underline: '下划线',
+      strikethrough: '删除线',
+      link: '链接',
+      bulletList: '项目符号列表',
+      numberedList: '编号列表',
+      quote: '引用',
+      inlineCode: '行内代码',
+      codeBlock: '代码块',
+      clearFormatting: '清除格式',
     },
     dates: {
       today: '今天',

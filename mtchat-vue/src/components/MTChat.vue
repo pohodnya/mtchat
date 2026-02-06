@@ -17,6 +17,7 @@ import AttachmentList from './chat/AttachmentList.vue'
 import FileViewer from './chat/FileViewer.vue'
 import ChatInfoPanel from './chat/ChatInfoPanel.vue'
 import JoinDialog from './chat/JoinDialog.vue'
+import MessageEditor from './chat/MessageEditor.vue'
 
 // Props
 const props = withDefaults(
@@ -80,9 +81,10 @@ const fileUpload = useFileUpload({
 })
 
 // Local state
-const messageInput = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const messageEditorRef = ref<InstanceType<typeof MessageEditor> | null>(null)
+const editorIsEmpty = ref(true)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const activeTab = ref<'participating' | 'available'>('participating')
 const searchInput = ref('')
@@ -165,7 +167,7 @@ const canJoin = computed(() =>
 
 // Check if we have content to send (text or attachments)
 const hasContentToSend = computed(() =>
-  messageInput.value.trim() || fileUpload.hasUploaded.value
+  !editorIsEmpty.value || fileUpload.hasUploaded.value
 )
 
 const dialogTitle = computed(() => {
@@ -342,20 +344,56 @@ function scrollToBottom() {
   }
 }
 
-async function handleSendMessage() {
-  if (!hasContentToSend.value || !canSendMessage.value) return
+/**
+ * Handle message submission from editor
+ */
+async function handleEditorSubmit(htmlContent: string) {
+  if (!canSendMessage.value) return
 
-  const content = messageInput.value.trim()
   const attachments = fileUpload.getUploadedAttachments()
 
-  messageInput.value = ''
+  // Clear editor and attachments
+  messageEditorRef.value?.clear()
   fileUpload.clearAll()
 
   try {
     const message = await chat.sendMessage(
-      content,
+      htmlContent,
       attachments.length > 0 ? attachments : undefined
     )
+    if (message) {
+      emit('message-sent', message)
+    }
+  } catch (e) {
+    // Error already handled in composable
+  }
+}
+
+/**
+ * Handle send button click (for attachments-only messages)
+ */
+async function handleSendMessage() {
+  if (!hasContentToSend.value || !canSendMessage.value) return
+
+  // If editor has content, let it handle the submit
+  if (!editorIsEmpty.value) {
+    // Get content from editor and submit
+    const editor = messageEditorRef.value?.editor
+    if (editor) {
+      const html = editor.getHTML()
+      await handleEditorSubmit(html)
+    }
+    return
+  }
+
+  // Attachments-only message
+  const attachments = fileUpload.getUploadedAttachments()
+  if (attachments.length === 0) return
+
+  fileUpload.clearAll()
+
+  try {
+    const message = await chat.sendMessage('', attachments)
     if (message) {
       emit('message-sent', message)
     }
@@ -502,10 +540,25 @@ function truncateText(text: string, maxLength: number): string {
   return text.slice(0, maxLength) + '...'
 }
 
+/**
+ * Extract plain text from HTML content
+ */
+function stripHtml(html: string): string {
+  // Create a temporary element to parse HTML
+  if (typeof document !== 'undefined') {
+    const tmp = document.createElement('div')
+    tmp.innerHTML = html
+    return tmp.textContent || tmp.innerText || ''
+  }
+  // Fallback for SSR - simple regex strip
+  return html.replace(/<[^>]*>/g, '')
+}
+
 function getQuotedText(messageId: string): string {
   const msg = chat.messages.value.find((m) => m.id === messageId)
   if (!msg) return t.value.chat.messageDeleted
-  return truncateText(msg.content, 60)
+  const plainText = stripHtml(msg.content)
+  return truncateText(plainText, 60)
 }
 
 /**
@@ -1118,8 +1171,12 @@ defineExpose({
               <span class="mtchat__message-time">{{ formatTime(message.sent_at) }}</span>
             </div>
 
-            <!-- Content -->
-            <div v-if="message.content" class="mtchat__message-content">{{ message.content }}</div>
+            <!-- Content (HTML or plain text) -->
+            <div
+              v-if="message.content"
+              class="mtchat__message-content"
+              v-html="message.content"
+            ></div>
 
             <!-- Attachments -->
             <AttachmentList
@@ -1165,7 +1222,7 @@ defineExpose({
                 {{ chat.replyToMessage.value.sender_id ? getSenderDisplayName(chat.replyToMessage.value.sender_id) : '' }}
               </div>
               <div class="mtchat__reply-text">
-                {{ truncateText(chat.replyToMessage.value.content, 100) }}
+                {{ truncateText(stripHtml(chat.replyToMessage.value.content), 100) }}
               </div>
             </div>
             <button class="mtchat__reply-cancel" @click="chat.clearReplyTo()">
@@ -1182,52 +1239,59 @@ defineExpose({
             @retry="fileUpload.retryUpload"
           />
 
-          <!-- Input Form -->
-          <form class="mtchat__input-form" @submit.prevent="handleSendMessage">
-            <!-- Hidden file input -->
-            <input
-              ref="fileInputRef"
-              type="file"
-              multiple
-              class="mtchat__file-input"
-              @change="handleFileChange"
-            />
+          <!-- Hidden file input -->
+          <input
+            ref="fileInputRef"
+            type="file"
+            multiple
+            class="mtchat__file-input"
+            @change="handleFileChange"
+          />
 
-            <!-- Attach button -->
-            <button
-              type="button"
-              class="mtchat__btn mtchat__btn--attach"
-              :title="t.input.attachFiles"
-              :disabled="chat.isLoading.value || fileUpload.isUploading.value"
-              @click="handleFileSelect"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-              </svg>
-            </button>
-
-            <!-- Message input -->
-            <input
-              v-model="messageInput"
-              type="text"
-              class="mtchat__input"
+          <!-- Message Editor -->
+          <div class="mtchat__editor-container">
+            <MessageEditor
+              ref="messageEditorRef"
               :placeholder="t.input.placeholder"
               :disabled="chat.isLoading.value"
+              :participants="chat.participants.value"
+              :current-user-id="config.userId"
+              @submit="handleEditorSubmit"
+              @update:is-empty="editorIsEmpty = $event"
             />
 
-            <!-- Send button -->
-            <button
-              type="submit"
-              class="mtchat__btn mtchat__btn--send"
-              :title="t.buttons.send"
-              :disabled="!hasContentToSend || chat.isLoading.value || fileUpload.isUploading.value"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-            </button>
-          </form>
+            <!-- Bottom toolbar -->
+            <div class="mtchat__bottom-toolbar">
+              <!-- Attach button -->
+              <button
+                type="button"
+                class="mtchat__toolbar-btn"
+                :title="t.input.attachFiles"
+                :disabled="chat.isLoading.value || fileUpload.isUploading.value"
+                @click="handleFileSelect"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+              </button>
+
+              <div class="mtchat__toolbar-spacer"></div>
+
+              <!-- Send button -->
+              <button
+                type="button"
+                class="mtchat__send-btn"
+                :title="t.buttons.send"
+                :disabled="!hasContentToSend || chat.isLoading.value || fileUpload.isUploading.value"
+                @click="handleSendMessage"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         </template>
       </div>
     </main>
@@ -1864,8 +1928,90 @@ button.mtchat__header-info:focus {
   color: var(--mtchat-text);
   font-size: 14px;
   line-height: 1.5;
-  white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+/* HTML content styles in messages */
+.mtchat__message-content :deep(p) {
+  margin: 0;
+}
+
+.mtchat__message-content :deep(p + p) {
+  margin-top: 8px;
+}
+
+.mtchat__message-content :deep(strong) {
+  font-weight: 600;
+}
+
+.mtchat__message-content :deep(em) {
+  font-style: italic;
+}
+
+.mtchat__message-content :deep(u) {
+  text-decoration: underline;
+}
+
+.mtchat__message-content :deep(s) {
+  text-decoration: line-through;
+}
+
+.mtchat__message-content :deep(code) {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 13px;
+  background: var(--mtchat-bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mtchat__message-content :deep(pre) {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 13px;
+  background: var(--mtchat-bg-secondary);
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin: 8px 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.mtchat__message-content :deep(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.mtchat__message-content :deep(blockquote) {
+  border-left: 3px solid var(--mtchat-primary);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--mtchat-text-secondary);
+}
+
+.mtchat__message-content :deep(ul),
+.mtchat__message-content :deep(ol) {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+
+.mtchat__message-content :deep(li) {
+  margin: 4px 0;
+}
+
+.mtchat__message-content :deep(a) {
+  color: var(--mtchat-primary);
+  text-decoration: underline;
+}
+
+.mtchat__message-content :deep(a:hover) {
+  text-decoration: none;
+}
+
+.mtchat__message-content :deep(.mtchat-mention) {
+  color: var(--mtchat-primary);
+  background: rgba(59, 130, 246, 0.1);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 /* Message actions (top-right, visible on hover) */
@@ -2084,48 +2230,74 @@ button.mtchat__header-info:focus {
   flex-shrink: 0;
 }
 
-.mtchat__input-form {
-  display: flex;
-  gap: var(--mtchat-spacing-sm);
-  align-items: center;
-}
-
 .mtchat__file-input {
   display: none;
 }
 
-.mtchat__btn--attach {
-  width: var(--mtchat-button-size);
-  height: var(--mtchat-button-size);
-  padding: 0;
-  border-radius: var(--mtchat-border-radius-full);
-  background: transparent;
-  color: var(--mtchat-text-secondary);
+/* Editor Container */
+.mtchat__editor-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bottom Toolbar */
+.mtchat__bottom-toolbar {
+  display: flex;
+  align-items: center;
+  padding: var(--mtchat-spacing-sm) var(--mtchat-spacing-md);
+  border-top: 1px solid var(--mtchat-border);
+  background: var(--mtchat-bg);
+}
+
+.mtchat__toolbar-btn {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--mtchat-border-radius-md);
+  cursor: pointer;
+  color: var(--mtchat-text-secondary);
+  transition: all var(--mtchat-transition-fast);
 }
 
-.mtchat__btn--attach:hover:not(:disabled) {
-  background: var(--mtchat-bg-secondary);
-  color: var(--mtchat-primary);
-}
-
-.mtchat__input {
-  flex: 1;
-  height: var(--mtchat-input-height);
-  padding: 0 var(--mtchat-spacing-lg);
-  border: 1px solid var(--mtchat-border);
-  border-radius: calc(var(--mtchat-input-height) / 2);
-  font-size: 14px;
-  outline: none;
-  background: var(--mtchat-bg);
+.mtchat__toolbar-btn:hover:not(:disabled) {
+  background: var(--mtchat-bg-hover);
   color: var(--mtchat-text);
 }
 
-.mtchat__input:focus {
-  border-color: var(--mtchat-primary);
+.mtchat__toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mtchat__toolbar-spacer {
+  flex: 1;
+}
+
+.mtchat__send-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--mtchat-primary);
+  color: white;
+  border-radius: var(--mtchat-border-radius-full);
+  cursor: pointer;
+  transition: all var(--mtchat-transition-fast);
+}
+
+.mtchat__send-btn:hover:not(:disabled) {
+  background: var(--mtchat-primary-hover);
+}
+
+.mtchat__send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .mtchat__join-prompt {
