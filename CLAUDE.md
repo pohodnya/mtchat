@@ -369,16 +369,20 @@ docker-compose up -d
 ### 2025-02-06 (v3.11) - Message Formatting
 - Rich text editor based on Tiptap (ProseMirror)
 - Formatting toolbar: bold, italic, underline, strikethrough, link, lists, quote, code
-- Keyboard shortcuts: Cmd+B (bold), Cmd+I (italic), Cmd+U (underline), etc.
-- Markdown shortcuts: `**bold**`, `*italic*`, `> quote`, etc.
+- Active formatting buttons highlighted with light gray background
+- Keyboard shortcuts: Cmd+B (bold), Cmd+I (italic), Cmd+U (underline), Cmd+K (link), etc.
+- Cmd+Enter to send message (regular Enter for newlines/lists/quotes)
+- Markdown shortcuts: `**bold**`, `*italic*`, `> quote`, `- list`, etc.
 - @mentions with participant suggestions dropdown
 - Link dialog (Cmd+K) for inserting/editing links
+- Compact attach/send buttons in editor footer
+- Send button: disabled state (gray icon), enabled state (blue button)
 - Auto-resize editor (up to 25vh)
 - Backend HTML sanitization with ammonia crate
 - Allowed HTML tags: p, br, strong, em, u, s, a, ul, ol, li, blockquote, code, pre, span
 - XSS prevention: removes scripts, event handlers, javascript: URLs
 - HTML content rendering in messages with proper styling
-- i18n support for formatting toolbar tooltips (ru/en/zh)
+- i18n support for formatting toolbar tooltips and placeholder (ru/en/zh)
 
 ### 2025-02-06 (v3.10) - System Messages
 - System messages for chat events (created, joined, left)

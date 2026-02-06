@@ -165,11 +165,6 @@ const canJoin = computed(() =>
   !chat.currentDialog.value?.i_am_participant
 )
 
-// Check if we have content to send (text or attachments)
-const hasContentToSend = computed(() =>
-  !editorIsEmpty.value || fileUpload.hasUploaded.value
-)
-
 const dialogTitle = computed(() => {
   const dialog = chat.currentDialog.value
   if (!dialog) return ''
@@ -361,39 +356,6 @@ async function handleEditorSubmit(htmlContent: string) {
       htmlContent,
       attachments.length > 0 ? attachments : undefined
     )
-    if (message) {
-      emit('message-sent', message)
-    }
-  } catch (e) {
-    // Error already handled in composable
-  }
-}
-
-/**
- * Handle send button click (for attachments-only messages)
- */
-async function handleSendMessage() {
-  if (!hasContentToSend.value || !canSendMessage.value) return
-
-  // If editor has content, let it handle the submit
-  if (!editorIsEmpty.value) {
-    // Get content from editor and submit
-    const editor = messageEditorRef.value?.editor
-    if (editor) {
-      const html = editor.getHTML()
-      await handleEditorSubmit(html)
-    }
-    return
-  }
-
-  // Attachments-only message
-  const attachments = fileUpload.getUploadedAttachments()
-  if (attachments.length === 0) return
-
-  fileUpload.clearAll()
-
-  try {
-    const message = await chat.sendMessage('', attachments)
     if (message) {
       emit('message-sent', message)
     }
@@ -1249,49 +1211,16 @@ defineExpose({
           />
 
           <!-- Message Editor -->
-          <div class="mtchat__editor-container">
-            <MessageEditor
-              ref="messageEditorRef"
-              :placeholder="t.input.placeholder"
-              :disabled="chat.isLoading.value"
-              :participants="chat.participants.value"
-              :current-user-id="config.userId"
-              @submit="handleEditorSubmit"
-              @update:is-empty="editorIsEmpty = $event"
-            />
-
-            <!-- Bottom toolbar -->
-            <div class="mtchat__bottom-toolbar">
-              <!-- Attach button -->
-              <button
-                type="button"
-                class="mtchat__toolbar-btn"
-                :title="t.input.attachFiles"
-                :disabled="chat.isLoading.value || fileUpload.isUploading.value"
-                @click="handleFileSelect"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                </svg>
-              </button>
-
-              <div class="mtchat__toolbar-spacer"></div>
-
-              <!-- Send button -->
-              <button
-                type="button"
-                class="mtchat__send-btn"
-                :title="t.buttons.send"
-                :disabled="!hasContentToSend || chat.isLoading.value || fileUpload.isUploading.value"
-                @click="handleSendMessage"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"/>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-              </button>
-            </div>
-          </div>
+          <MessageEditor
+            ref="messageEditorRef"
+            :placeholder="t.input.placeholder"
+            :disabled="chat.isLoading.value"
+            :participants="chat.participants.value"
+            :current-user-id="config.userId"
+            @submit="handleEditorSubmit"
+            @update:is-empty="editorIsEmpty = $event"
+            @attach="handleFileSelect"
+          />
         </template>
       </div>
     </main>
@@ -2232,72 +2161,6 @@ button.mtchat__header-info:focus {
 
 .mtchat__file-input {
   display: none;
-}
-
-/* Editor Container */
-.mtchat__editor-container {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Bottom Toolbar */
-.mtchat__bottom-toolbar {
-  display: flex;
-  align-items: center;
-  padding: var(--mtchat-spacing-sm) var(--mtchat-spacing-md);
-  border-top: 1px solid var(--mtchat-border);
-  background: var(--mtchat-bg);
-}
-
-.mtchat__toolbar-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  border-radius: var(--mtchat-border-radius-md);
-  cursor: pointer;
-  color: var(--mtchat-text-secondary);
-  transition: all var(--mtchat-transition-fast);
-}
-
-.mtchat__toolbar-btn:hover:not(:disabled) {
-  background: var(--mtchat-bg-hover);
-  color: var(--mtchat-text);
-}
-
-.mtchat__toolbar-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.mtchat__toolbar-spacer {
-  flex: 1;
-}
-
-.mtchat__send-btn {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: var(--mtchat-primary);
-  color: white;
-  border-radius: var(--mtchat-border-radius-full);
-  cursor: pointer;
-  transition: all var(--mtchat-transition-fast);
-}
-
-.mtchat__send-btn:hover:not(:disabled) {
-  background: var(--mtchat-primary-hover);
-}
-
-.mtchat__send-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .mtchat__join-prompt {

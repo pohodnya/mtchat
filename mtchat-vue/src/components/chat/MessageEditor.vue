@@ -9,13 +9,14 @@
  * - Markdown shortcuts
  */
 
-import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, watch, onBeforeUnmount, computed } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Mention from '@tiptap/extension-mention'
+import { Extension } from '@tiptap/core'
 import { useI18n } from '../../i18n'
 import type { DialogParticipant } from '../../types'
 import MentionList from './MentionList.vue'
@@ -30,6 +31,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   submit: [content: string]
   'update:isEmpty': [isEmpty: boolean]
+  attach: []
 }>()
 
 const { t } = useI18n()
@@ -39,6 +41,7 @@ const mentionListRef = ref<InstanceType<typeof MentionList> | null>(null)
 const showMentionList = ref(false)
 const mentionQuery = ref('')
 const mentionPosition = ref({ top: 0, left: 0 })
+const mentionCommandFn = ref<((props: { id: string; label: string }) => void) | null>(null)
 
 // Filter participants for mention suggestions
 const filteredParticipants = computed(() => {
@@ -52,6 +55,45 @@ const filteredParticipants = computed(() => {
       return name.includes(query) || company.includes(query)
     })
     .slice(0, 5) // Limit to 5 suggestions
+})
+
+// Submit handler reference for extension
+const handleSubmitRef = ref<() => void>(() => {})
+
+// Custom keyboard shortcuts extension
+const CustomKeyboardShortcuts = Extension.create({
+  name: 'customKeyboardShortcuts',
+
+  addKeyboardShortcuts() {
+    return {
+      // Bold - Mod+B (StarterKit has this, but let's ensure it works)
+      'Mod-b': () => this.editor.chain().focus().toggleBold().run(),
+      // Italic - Mod+I
+      'Mod-i': () => this.editor.chain().focus().toggleItalic().run(),
+      // Underline - Mod+U (not in StarterKit)
+      'Mod-u': () => this.editor.chain().focus().toggleUnderline().run(),
+      // Strikethrough - Mod+Shift+S
+      'Mod-Shift-s': () => this.editor.chain().focus().toggleStrike().run(),
+      // Link - Mod+K
+      'Mod-k': () => {
+        openLinkDialog()
+        return true
+      },
+      // Inline code - Mod+E
+      'Mod-e': () => this.editor.chain().focus().toggleCode().run(),
+      // Code block - Mod+Shift+C
+      'Mod-Shift-c': () => this.editor.chain().focus().toggleCodeBlock().run(),
+      // Clear formatting - Mod+\
+      'Mod-\\': () => this.editor.chain().focus().clearNodes().unsetAllMarks().run(),
+      // Submit on Cmd+Enter (Ctrl+Enter on Windows)
+      'Mod-Enter': () => {
+        // Don't handle if mention list is showing
+        if (showMentionList.value) return false
+        handleSubmitRef.value()
+        return true
+      },
+    }
+  },
 })
 
 // Create Tiptap editor
@@ -98,9 +140,11 @@ const editor = useEditor({
             onStart: (props) => {
               showMentionList.value = true
               mentionPosition.value = props.clientRect?.() || { top: 0, left: 0 }
+              mentionCommandFn.value = props.command
             },
             onUpdate: (props) => {
               mentionPosition.value = props.clientRect?.() || { top: 0, left: 0 }
+              mentionCommandFn.value = props.command
             },
             onKeyDown: (props) => {
               if (props.event.key === 'Escape') {
@@ -123,22 +167,20 @@ const editor = useEditor({
             },
             onExit: () => {
               showMentionList.value = false
+              mentionCommandFn.value = null
             },
           }
         },
         command: ({ editor, range, props: mentionProps }) => {
-          // Props contains DialogParticipant data
-          const participant = mentionProps as unknown as DialogParticipant
+          // Props contains { id, label } from selectMention
+          const { id, label } = mentionProps as { id: string; label: string }
           editor
             .chain()
             .focus()
             .insertContentAt(range, [
               {
                 type: 'mention',
-                attrs: {
-                  id: participant.user_id,
-                  label: participant.display_name || 'User',
-                },
+                attrs: { id, label },
               },
               { type: 'text', text: ' ' },
             ])
@@ -146,19 +188,11 @@ const editor = useEditor({
         },
       },
     }),
+    CustomKeyboardShortcuts,
   ],
   editorProps: {
     attributes: {
       class: 'mtchat-editor__content',
-    },
-    handleKeyDown: (_view, event) => {
-      // Submit on Enter (without Shift)
-      if (event.key === 'Enter' && !event.shiftKey && !showMentionList.value) {
-        event.preventDefault()
-        handleSubmit()
-        return true
-      }
-      return false
     },
   },
   onUpdate: ({ editor }) => {
@@ -173,6 +207,9 @@ const showToolbar = ref(true)
 const isActive = (name: string, attrs?: Record<string, unknown>) => {
   return editor.value?.isActive(name, attrs) || false
 }
+
+// Check if editor has content
+const isEmpty = computed(() => editor.value?.isEmpty ?? true)
 
 // Format commands
 const toggleBold = () => editor.value?.chain().focus().toggleBold().run()
@@ -226,24 +263,23 @@ const handleSubmit = () => {
   editor.value.commands.clearContent()
 }
 
+// Update the ref for use in extension
+handleSubmitRef.value = handleSubmit
+
+// Attach button handler
+const handleAttach = () => {
+  emit('attach')
+}
+
 // Select mention from list
 const selectMention = (participant: DialogParticipant) => {
-  if (!editor.value) return
+  if (!mentionCommandFn.value) return
 
-  editor.value
-    .chain()
-    .focus()
-    .insertContent([
-      {
-        type: 'mention',
-        attrs: {
-          id: participant.user_id,
-          label: participant.display_name || 'User',
-        },
-      },
-      { type: 'text', text: ' ' },
-    ])
-    .run()
+  // Use Tiptap's command function which properly handles the range
+  mentionCommandFn.value({
+    id: participant.user_id,
+    label: participant.display_name || 'User',
+  })
 
   showMentionList.value = false
 }
@@ -258,45 +294,7 @@ const clear = () => {
   editor.value?.commands.clearContent()
 }
 
-// Keyboard shortcuts
-const handleKeydown = (e: KeyboardEvent) => {
-  if (!editor.value?.isFocused) return
-
-  const isMod = e.metaKey || e.ctrlKey
-
-  if (isMod && e.key === 'b') {
-    e.preventDefault()
-    toggleBold()
-  } else if (isMod && e.key === 'i') {
-    e.preventDefault()
-    toggleItalic()
-  } else if (isMod && e.key === 'u') {
-    e.preventDefault()
-    toggleUnderline()
-  } else if (isMod && e.shiftKey && e.key === 's') {
-    e.preventDefault()
-    toggleStrike()
-  } else if (isMod && e.key === 'k') {
-    e.preventDefault()
-    openLinkDialog()
-  } else if (isMod && e.key === 'e') {
-    e.preventDefault()
-    toggleCode()
-  } else if (isMod && e.shiftKey && e.key === 'c') {
-    e.preventDefault()
-    toggleCodeBlock()
-  } else if (isMod && e.key === '\\') {
-    e.preventDefault()
-    clearFormatting()
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
-})
-
 onBeforeUnmount(() => {
-  document.removeEventListener('keydown', handleKeydown)
   editor.value?.destroy()
 })
 
@@ -310,6 +308,7 @@ defineExpose({
   focus,
   clear,
   editor,
+  isEmpty,
 })
 </script>
 
@@ -480,6 +479,36 @@ defineExpose({
       <EditorContent :editor="editor" class="mtchat-editor__input" />
     </div>
 
+    <!-- Bottom Toolbar (attach + send) -->
+    <div class="mtchat-editor__bottom">
+      <button
+        type="button"
+        class="mtchat-editor__bottom-btn"
+        :title="t.input.attachFiles"
+        @click="handleAttach"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </svg>
+      </button>
+
+      <div class="mtchat-editor__bottom-spacer"></div>
+
+      <button
+        type="button"
+        class="mtchat-editor__send-btn"
+        :class="{ 'mtchat-editor__send-btn--disabled': isEmpty }"
+        :title="t.buttons.send"
+        :disabled="isEmpty"
+        @click="handleSubmit"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+
     <!-- Link Dialog -->
     <div v-if="showLinkDialog" class="mtchat-editor__link-dialog">
       <div class="mtchat-editor__link-dialog-backdrop" @click="cancelLink"></div>
@@ -541,7 +570,6 @@ defineExpose({
   align-items: center;
   gap: 4px;
   padding: 6px 8px;
-  background: var(--mtchat-bg-secondary);
   border-bottom: 1px solid var(--mtchat-border);
   flex-wrap: wrap;
 }
@@ -579,13 +607,8 @@ defineExpose({
 }
 
 .mtchat-editor__btn--active {
-  background: var(--mtchat-primary);
-  color: white;
-}
-
-.mtchat-editor__btn--active:hover {
-  background: var(--mtchat-primary-hover);
-  color: white;
+  background: var(--mtchat-bg-hover);
+  color: var(--mtchat-text);
 }
 
 /* Editor wrapper */
@@ -682,6 +705,62 @@ defineExpose({
   padding: 2px 4px;
   border-radius: 4px;
   font-weight: 500;
+}
+
+/* Bottom toolbar */
+.mtchat-editor__bottom {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 4px;
+}
+
+.mtchat-editor__bottom-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--mtchat-text-secondary);
+  transition: all 0.15s;
+}
+
+.mtchat-editor__bottom-btn:hover {
+  background: var(--mtchat-bg-hover);
+  color: var(--mtchat-text);
+}
+
+.mtchat-editor__bottom-spacer {
+  flex: 1;
+}
+
+.mtchat-editor__send-btn {
+  height: 28px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--mtchat-primary);
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mtchat-editor__send-btn:hover:not(:disabled) {
+  background: var(--mtchat-primary-hover);
+}
+
+.mtchat-editor__send-btn--disabled,
+.mtchat-editor__send-btn:disabled {
+  background: transparent;
+  color: var(--mtchat-text-secondary);
+  cursor: not-allowed;
 }
 
 /* Link Dialog */
