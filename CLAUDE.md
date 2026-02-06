@@ -73,6 +73,7 @@
 │  last_read_msg_id   │        │                                 │
 │  unread_count       │        │                                 │
 │  is_archived        │        │                                 │
+│  is_pinned          │        │                                 │
 └─────────────────────┘        └─────────────────────────────────┘
 ```
 
@@ -154,6 +155,8 @@ POST /api/v1/dialogs/{id}/leave           # Leave chat
 POST /api/v1/dialogs/{id}/read            # Mark messages as read
 POST /api/v1/dialogs/{id}/archive         # Archive chat for current user
 POST /api/v1/dialogs/{id}/unarchive       # Unarchive chat for current user
+POST /api/v1/dialogs/{id}/pin             # Pin chat for current user
+POST /api/v1/dialogs/{id}/unpin           # Unpin chat for current user
 GET  /api/v1/dialogs/{id}/messages        # Get messages (includes first_unread_message_id)
 POST /api/v1/dialogs/{id}/messages        # Send message
 WS   /api/v1/ws                           # Real-time (message.new, message.read)
@@ -365,8 +368,23 @@ docker-compose up -d
 | Message formatting (Tiptap) | ✅ |
 | User online status | ✅ |
 | Message editing & deletion | ✅ |
+| Chat pinning | ✅ |
 
 ## Changelog
+
+### 2026-02-07 (v3.14) - Chat Pinning & Sorting
+- Pin/unpin chats via header menu (⋮) or context menu (right-click)
+- Pinned chats displayed at top of list with pin icon
+- Sorting: pinned first, then by last_message_at (newest first)
+- Added `last_message_at` field to dialog list API response (batch query)
+- Real-time update of dialog position when new message sent/received
+- Context menu on dialog items in sidebar (right-click)
+- Lazy loading of archived dialogs (only on accordion open)
+- Removed archived count display from accordion
+- Database migration: `is_pinned` column in dialog_participants
+- API endpoints: POST /dialogs/{id}/pin, POST /dialogs/{id}/unpin
+- i18n translations for pin/unpin (ru/en/zh)
+- Esc closes context menu
 
 ### 2026-02-06 (v3.13) - Message Editing & Deletion
 - Edit and delete messages via dropdown menu (⋮)

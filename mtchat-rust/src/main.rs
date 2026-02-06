@@ -206,6 +206,10 @@ struct DialogResponse {
     unread_count: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     is_archived: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_pinned: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_message_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -454,21 +458,28 @@ async fn list_dialogs(
         }
     };
 
+    // Batch fetch last_message_at for all dialogs
+    let dialog_ids: Vec<Uuid> = dialogs.iter().map(|d| d.id).collect();
+    let last_message_map = state.dialogs.get_last_message_at_batch(&dialog_ids).await?;
+
     // Build responses with counts
     let mut responses = Vec::new();
     for dialog in dialogs {
         let participants_count = state.dialogs.count_participants(dialog.id).await?;
 
         // Get participant info for participating dialogs
-        let (unread_count, is_archived) = if dialog_type == "participating" {
+        let (unread_count, is_archived, is_pinned) = if dialog_type == "participating" {
             let participant = state.participants.find(dialog.id, user_id).await?;
             (
                 participant.as_ref().map(|p| p.unread_count as i64),
                 participant.as_ref().map(|p| p.is_archived),
+                participant.as_ref().map(|p| p.is_pinned),
             )
         } else {
-            (None, None)
+            (None, None, None)
         };
+
+        let last_message_at = last_message_map.get(&dialog.id).copied();
 
         responses.push(DialogResponse {
             dialog,
@@ -477,6 +488,8 @@ async fn list_dialogs(
             can_join: Some(dialog_type == "available"),
             unread_count,
             is_archived,
+            is_pinned,
+            last_message_at,
         });
     }
 
@@ -515,6 +528,8 @@ async fn get_dialog_by_object(
 
         let participants_count = state.dialogs.count_participants(dialog.id).await?;
 
+        let last_message_at = state.dialogs.get_last_message_at(dialog.id).await?;
+
         Ok(Json(ApiResponse {
             data: Some(DialogResponse {
                 dialog,
@@ -523,6 +538,8 @@ async fn get_dialog_by_object(
                 can_join: Some(can_join),
                 unread_count: None,
                 is_archived: None,
+                is_pinned: None,
+                last_message_at,
             })
         }))
     } else {
@@ -653,6 +670,36 @@ async fn unarchive_dialog(
     state.participants.set_archived(dialog_id, user_id, false).await?;
 
     Ok(Json(serde_json::json!({ "status": "unarchived" })))
+}
+
+async fn pin_dialog(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+    Path(dialog_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // Check user is participant
+    if !state.participants.exists(dialog_id, user_id).await? {
+        return Err(ApiError::Forbidden("Not a participant".into()));
+    }
+
+    state.participants.set_pinned(dialog_id, user_id, true).await?;
+
+    Ok(Json(serde_json::json!({ "status": "pinned" })))
+}
+
+async fn unpin_dialog(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+    Path(dialog_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // Check user is participant
+    if !state.participants.exists(dialog_id, user_id).await? {
+        return Err(ApiError::Forbidden("Not a participant".into()));
+    }
+
+    state.participants.set_pinned(dialog_id, user_id, false).await?;
+
+    Ok(Json(serde_json::json!({ "status": "unpinned" })))
 }
 
 async fn get_dialog(
@@ -1243,6 +1290,8 @@ async fn main() {
         .route("/api/v1/dialogs/{id}/leave", post(leave_dialog))
         .route("/api/v1/dialogs/{id}/archive", post(archive_dialog))
         .route("/api/v1/dialogs/{id}/unarchive", post(unarchive_dialog))
+        .route("/api/v1/dialogs/{id}/pin", post(pin_dialog))
+        .route("/api/v1/dialogs/{id}/unpin", post(unpin_dialog))
         .route("/api/v1/dialogs/{id}/read", post(mark_as_read))
         .route("/api/v1/dialogs/{id}/participants", get(list_participants))
 

@@ -36,6 +36,10 @@ export interface DialogListItem extends Dialog {
   unread_count?: number
   /** Whether dialog is archived for current user */
   is_archived?: boolean
+  /** Whether dialog is pinned for current user */
+  is_pinned?: boolean
+  /** Timestamp of the last message in this dialog */
+  last_message_at?: string
 }
 
 /**
@@ -521,6 +525,8 @@ export interface UseChatReturn {
   deleteMessage: (messageId: string) => Promise<void>
   loadMessages: (options?: PaginationOptions) => Promise<void>
   loadParticipatingDialogs: () => Promise<void>
+  /** Load archived dialogs (lazy) */
+  loadArchivedDialogs: () => Promise<void>
   loadAvailableDialogs: () => Promise<void>
   loadDialogByObject: (objectType: string, objectId: string) => Promise<DialogListItem | null>
   selectDialog: (dialogId: string) => Promise<void>
@@ -530,6 +536,10 @@ export interface UseChatReturn {
   archiveDialog: (dialogId: string) => Promise<void>
   /** Unarchive a dialog for current user */
   unarchiveDialog: (dialogId: string) => Promise<void>
+  /** Pin a dialog for current user */
+  pinDialog: (dialogId: string) => Promise<void>
+  /** Unpin a dialog for current user */
+  unpinDialog: (dialogId: string) => Promise<void>
   subscribe: (dialogId: string) => void
   unsubscribe: (dialogId: string) => void
   /** Mark messages as read up to specified message */

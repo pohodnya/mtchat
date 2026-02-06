@@ -210,6 +210,20 @@ export class MTChatApi {
   }
 
   /**
+   * Pin a dialog for the current user
+   */
+  async pinDialog(dialogId: string): Promise<void> {
+    await this.request<{ status: string }>('POST', `/api/v1/dialogs/${dialogId}/pin`)
+  }
+
+  /**
+   * Unpin a dialog for the current user
+   */
+  async unpinDialog(dialogId: string): Promise<void> {
+    await this.request<{ status: string }>('POST', `/api/v1/dialogs/${dialogId}/unpin`)
+  }
+
+  /**
    * Get dialog participants
    */
   async getParticipants(dialogId: string): Promise<DialogParticipant[]> {

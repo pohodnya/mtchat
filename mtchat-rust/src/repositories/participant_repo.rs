@@ -296,4 +296,24 @@ impl ParticipantRepository {
         .fetch_all(&self.pool)
         .await
     }
+
+    /// Pin or unpin a dialog for a specific user
+    pub async fn set_pinned(
+        &self,
+        dialog_id: Uuid,
+        user_id: Uuid,
+        pinned: bool,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            r#"UPDATE dialog_participants
+               SET is_pinned = $3
+               WHERE dialog_id = $1 AND user_id = $2"#,
+        )
+        .bind(dialog_id)
+        .bind(user_id)
+        .bind(pinned)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
 }

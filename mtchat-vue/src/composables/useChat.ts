@@ -63,13 +63,25 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
       const search = searchQuery.value || undefined
 
-      // Load both active and archived dialogs in parallel
-      const [active, archived] = await Promise.all([
-        client.api.getParticipatingDialogs(search, false),
-        client.api.getParticipatingDialogs(search, true),
-      ])
-
+      // Load only active dialogs (non-archived)
+      // Archived dialogs are loaded lazily when accordion is opened
+      const active = await client.api.getParticipatingDialogs(search, false)
       participatingDialogs.value = active
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function loadArchivedDialogs(): Promise<void> {
+    try {
+      isLoading.value = true
+      error.value = null
+      const search = searchQuery.value || undefined
+
+      const archived = await client.api.getParticipatingDialogs(search, true)
       archivedDialogs.value = archived
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
@@ -279,6 +291,50 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  // ============ Pin/Unpin ============
+
+  async function pinDialog(dialogId: string): Promise<void> {
+    try {
+      error.value = null
+      await client.api.pinDialog(dialogId)
+
+      // Update local state
+      const dialog = participatingDialogs.value.find((d) => d.id === dialogId)
+      if (dialog) {
+        dialog.is_pinned = true
+      }
+
+      // Update current dialog if it was pinned
+      if (currentDialog.value?.id === dialogId) {
+        currentDialog.value.is_pinned = true
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    }
+  }
+
+  async function unpinDialog(dialogId: string): Promise<void> {
+    try {
+      error.value = null
+      await client.api.unpinDialog(dialogId)
+
+      // Update local state
+      const dialog = participatingDialogs.value.find((d) => d.id === dialogId)
+      if (dialog) {
+        dialog.is_pinned = false
+      }
+
+      // Update current dialog if it was unpinned
+      if (currentDialog.value?.id === dialogId) {
+        currentDialog.value.is_pinned = false
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    }
+  }
+
   // ============ Messages ============
 
   async function loadMessages(opts?: PaginationOptions): Promise<void> {
@@ -392,6 +448,36 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  // ============ Helper: Update dialog last_message_at ============
+
+  function updateDialogLastMessageAt(dialogId: string, sentAt: string): void {
+    // Update in participating dialogs
+    const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
+    if (activeIdx !== -1) {
+      participatingDialogs.value[activeIdx] = {
+        ...participatingDialogs.value[activeIdx],
+        last_message_at: sentAt,
+      }
+    }
+
+    // Update in archived dialogs
+    const archivedIdx = archivedDialogs.value.findIndex((d) => d.id === dialogId)
+    if (archivedIdx !== -1) {
+      archivedDialogs.value[archivedIdx] = {
+        ...archivedDialogs.value[archivedIdx],
+        last_message_at: sentAt,
+      }
+    }
+
+    // Update current dialog
+    if (currentDialog.value?.id === dialogId) {
+      currentDialog.value = {
+        ...currentDialog.value,
+        last_message_at: sentAt,
+      }
+    }
+  }
+
   // ============ Reply ============
 
   function setReplyTo(message: Message): void {
@@ -489,6 +575,9 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         messages.value = [...messages.value, message]
       }
 
+      // Update last_message_at so dialog moves up in the list
+      updateDialogLastMessageAt(currentDialog.value.id, message.sent_at)
+
       // Sending a message marks all previous as read - clear divider
       firstUnreadMessageId.value = null
 
@@ -534,7 +623,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     if (!message) return
 
-    // Only add if it's for the current dialog
+    // Update last_message_at for the dialog (even if not current dialog)
+    updateDialogLastMessageAt(message.dialog_id, message.sent_at)
+
+    // Only add message to local list if it's for the current dialog
     if (currentDialog.value && message.dialog_id === currentDialog.value.id) {
       // Check for duplicates
       if (!messages.value.some((m) => m.id === message!.id)) {
@@ -764,6 +856,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     loadMessages,
     setSearchQuery,
     loadParticipatingDialogs,
+    loadArchivedDialogs,
     loadAvailableDialogs,
     loadDialogByObject,
     selectDialog,
@@ -771,6 +864,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     leaveDialog,
     archiveDialog,
     unarchiveDialog,
+    pinDialog,
+    unpinDialog,
     subscribe,
     unsubscribe,
     markAsRead,

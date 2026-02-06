@@ -73,6 +73,8 @@ pub struct DialogParticipant {
     pub phone: Option<String>,
     /// Whether this dialog is archived for this participant
     pub is_archived: bool,
+    /// Whether this dialog is pinned for this participant
+    pub is_pinned: bool,
 }
 
 /// Profile information for a participant
@@ -99,6 +101,7 @@ impl DialogParticipant {
             email: None,
             phone: None,
             is_archived: false,
+            is_pinned: false,
         }
     }
 
@@ -116,6 +119,7 @@ impl DialogParticipant {
             email: profile.email,
             phone: profile.phone,
             is_archived: false,
+            is_pinned: false,
         }
     }
 

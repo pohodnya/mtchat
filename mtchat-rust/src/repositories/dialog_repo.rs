@@ -133,4 +133,40 @@ impl DialogRepository {
         .await?;
         Ok(count)
     }
+
+    /// Get last message timestamp for a dialog
+    pub async fn get_last_message_at(
+        &self,
+        dialog_id: Uuid,
+    ) -> Result<Option<chrono::DateTime<chrono::Utc>>, sqlx::Error> {
+        let result: Option<(chrono::DateTime<chrono::Utc>,)> = sqlx::query_as(
+            "SELECT sent_at FROM messages WHERE dialog_id = $1 ORDER BY sent_at DESC LIMIT 1",
+        )
+        .bind(dialog_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(result.map(|(ts,)| ts))
+    }
+
+    /// Get last message timestamps for multiple dialogs in one query
+    pub async fn get_last_message_at_batch(
+        &self,
+        dialog_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, chrono::DateTime<chrono::Utc>>, sqlx::Error> {
+        if dialog_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let rows: Vec<(Uuid, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
+            r#"SELECT DISTINCT ON (dialog_id) dialog_id, sent_at
+               FROM messages
+               WHERE dialog_id = ANY($1)
+               ORDER BY dialog_id, sent_at DESC"#,
+        )
+        .bind(dialog_ids)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().collect())
+    }
 }

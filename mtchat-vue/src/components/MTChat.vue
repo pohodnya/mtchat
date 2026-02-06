@@ -119,6 +119,10 @@ const openMenuId = ref<string | null>(null)
 
 // Archived accordion state
 const showArchivedAccordion = ref(false)
+const archivedLoaded = ref(false)
+
+// Context menu state
+const contextMenu = ref<{ x: number; y: number; dialog: DialogListItem } | null>(null)
 
 // Responsive state
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1200)
@@ -180,9 +184,29 @@ const currentDialogsList = computed(() =>
     : chat.availableDialogs.value
 )
 
-const hasArchivedDialogs = computed(() =>
-  chat.archivedDialogs.value.length > 0
-)
+// Sorted active dialogs: pinned first, then by last_message_at (newest first)
+const sortedActiveDialogs = computed(() => {
+  const dialogs = [...currentDialogsList.value]
+  return dialogs.sort((a, b) => {
+    // Pinned first
+    if (a.is_pinned && !b.is_pinned) return -1
+    if (!a.is_pinned && b.is_pinned) return 1
+    // Then by last_message_at (newest first), fallback to created_at
+    const aTime = a.last_message_at || a.created_at
+    const bTime = b.last_message_at || b.created_at
+    return new Date(bTime).getTime() - new Date(aTime).getTime()
+  })
+})
+
+// Sorted archived dialogs: by last_message_at (newest first)
+const sortedArchivedDialogs = computed(() => {
+  const dialogs = [...chat.archivedDialogs.value]
+  return dialogs.sort((a, b) => {
+    const aTime = a.last_message_at || a.created_at
+    const bTime = b.last_message_at || b.created_at
+    return new Date(bTime).getTime() - new Date(aTime).getTime()
+  })
+})
 
 // Watch for connection changes
 watch(
@@ -452,6 +476,77 @@ async function handleToggleArchive() {
     }
   } catch (e) {
     // Error handled in composable
+  }
+}
+
+async function handleTogglePin() {
+  if (!chat.currentDialog.value) return
+
+  const dialogId = chat.currentDialog.value.id
+
+  try {
+    if (chat.currentDialog.value.is_pinned) {
+      await chat.unpinDialog(dialogId)
+    } else {
+      await chat.pinDialog(dialogId)
+    }
+  } catch (e) {
+    // Error handled in composable
+  }
+}
+
+// Context menu handlers
+function handleDialogContextMenu(e: MouseEvent, dialog: DialogListItem): void {
+  e.preventDefault()
+  contextMenu.value = {
+    x: e.clientX,
+    y: e.clientY,
+    dialog,
+  }
+}
+
+function closeContextMenu(): void {
+  contextMenu.value = null
+}
+
+async function handleContextPin(): Promise<void> {
+  if (!contextMenu.value) return
+  const dialog = contextMenu.value.dialog
+  try {
+    if (dialog.is_pinned) {
+      await chat.unpinDialog(dialog.id)
+    } else {
+      await chat.pinDialog(dialog.id)
+    }
+  } catch (e) {
+    // Error handled in composable
+  }
+  closeContextMenu()
+}
+
+async function handleContextArchive(): Promise<void> {
+  if (!contextMenu.value) return
+  const dialog = contextMenu.value.dialog
+  try {
+    if (dialog.is_archived) {
+      await chat.unarchiveDialog(dialog.id)
+    } else {
+      await chat.archiveDialog(dialog.id)
+    }
+  } catch (e) {
+    // Error handled in composable
+  }
+  closeContextMenu()
+}
+
+// Toggle archived accordion and load archived dialogs lazily
+async function toggleArchivedAccordion(): Promise<void> {
+  showArchivedAccordion.value = !showArchivedAccordion.value
+
+  // Load archived dialogs on first open
+  if (showArchivedAccordion.value && !archivedLoaded.value) {
+    await chat.loadArchivedDialogs()
+    archivedLoaded.value = true
   }
 }
 
@@ -817,9 +912,11 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
-  // Esc - close menu, clear edit, clear reply
+  // Esc - close menu, context menu, clear edit, clear reply
   if (e.key === 'Escape') {
-    if (openMenuId.value) {
+    if (contextMenu.value) {
+      closeContextMenu()
+    } else if (openMenuId.value) {
       closeMessageMenu()
     } else if (chat.editingMessage.value) {
       cancelEdit()
@@ -837,6 +934,14 @@ function handleDocumentClick(e: MouseEvent) {
     const btn = (e.target as Element).closest('.mtchat__action-btn')
     if (!menu && !btn) {
       closeMessageMenu()
+    }
+  }
+
+  // Close context menu when clicking outside
+  if (contextMenu.value) {
+    const menu = (e.target as Element).closest('.mtchat__context-menu')
+    if (!menu) {
+      closeContextMenu()
     }
   }
 }
@@ -879,6 +984,8 @@ defineExpose({
   leaveDialog: chat.leaveDialog,
   archiveDialog: chat.archiveDialog,
   unarchiveDialog: chat.unarchiveDialog,
+  pinDialog: chat.pinDialog,
+  unpinDialog: chat.unpinDialog,
 })
 </script>
 
@@ -955,25 +1062,39 @@ defineExpose({
         <!-- Scrollable Dialog List -->
         <div class="mtchat__dialog-list">
           <div
-            v-for="dialog in currentDialogsList"
+            v-for="dialog in sortedActiveDialogs"
             :key="dialog.id"
             :class="['mtchat__dialog-item', { 'mtchat__dialog-item--active': chat.currentDialog.value?.id === dialog.id }]"
             @click="handleSelectDialogResponsive(dialog)"
+            @contextmenu="handleDialogContextMenu($event, dialog)"
           >
-            <div class="mtchat__dialog-title">
-              {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
-            </div>
-            <div class="mtchat__dialog-meta">
-              <span class="mtchat__dialog-participants">
-                {{ tt('chat.participants', { count: dialog.participants_count }) }}
-              </span>
+            <!-- Pin icon for pinned dialogs -->
+            <svg
+              v-if="dialog.is_pinned"
+              class="mtchat__pin-icon"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/>
+            </svg>
+            <div class="mtchat__dialog-content">
+              <div class="mtchat__dialog-title">
+                {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
+              </div>
+              <div class="mtchat__dialog-meta">
+                <span class="mtchat__dialog-participants">
+                  {{ tt('chat.participants', { count: dialog.participants_count }) }}
+                </span>
+              </div>
             </div>
             <span v-if="dialog.unread_count && dialog.unread_count > 0" class="mtchat__unread-badge">
               {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
             </span>
           </div>
 
-          <div v-if="currentDialogsList.length === 0 && !hasArchivedDialogs" class="mtchat__empty">
+          <div v-if="sortedActiveDialogs.length === 0" class="mtchat__empty">
             {{ searchInput
               ? t.search.noResults
               : (activeTab === 'participating' ? t.chat.noActiveChats : t.chat.noAvailableChats)
@@ -983,12 +1104,12 @@ defineExpose({
 
         <!-- Archived Accordion (sticky at bottom, only in participating tab) -->
         <div
-          v-if="activeTab === 'participating' && hasArchivedDialogs"
+          v-if="activeTab === 'participating'"
           :class="['mtchat__archived-section', { 'mtchat__archived-section--open': showArchivedAccordion }]"
         >
           <button
             class="mtchat__archived-toggle"
-            @click="showArchivedAccordion = !showArchivedAccordion"
+            @click="toggleArchivedAccordion"
           >
             <svg
               width="12"
@@ -1002,12 +1123,12 @@ defineExpose({
             >
               <polyline points="9 18 15 12 9 6"/>
             </svg>
-            {{ t.chat.archived }} ({{ chat.archivedDialogs.value.length }})
+            {{ t.chat.archived }}
           </button>
 
           <div v-if="showArchivedAccordion" class="mtchat__archived-list">
             <div
-              v-for="dialog in chat.archivedDialogs.value"
+              v-for="dialog in sortedArchivedDialogs"
               :key="dialog.id"
               :class="[
                 'mtchat__dialog-item',
@@ -1015,14 +1136,17 @@ defineExpose({
                 { 'mtchat__dialog-item--active': chat.currentDialog.value?.id === dialog.id }
               ]"
               @click="handleSelectDialogResponsive(dialog)"
+              @contextmenu="handleDialogContextMenu($event, dialog)"
             >
-              <div class="mtchat__dialog-title">
-                {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
-              </div>
-              <div class="mtchat__dialog-meta">
-                <span class="mtchat__dialog-participants">
-                  {{ tt('chat.participants', { count: dialog.participants_count }) }}
-                </span>
+              <div class="mtchat__dialog-content">
+                <div class="mtchat__dialog-title">
+                  {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
+                </div>
+                <div class="mtchat__dialog-meta">
+                  <span class="mtchat__dialog-participants">
+                    {{ tt('chat.participants', { count: dialog.participants_count }) }}
+                  </span>
+                </div>
               </div>
               <span v-if="dialog.unread_count && dialog.unread_count > 0" class="mtchat__unread-badge">
                 {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
@@ -1031,6 +1155,34 @@ defineExpose({
           </div>
         </div>
       </div>
+
+      <!-- Context Menu (Teleport to body) -->
+      <Teleport to="body">
+        <div
+          v-if="contextMenu"
+          class="mtchat__context-menu"
+          :class="{ 'mtchat__context-menu--dark': theme === 'dark' }"
+          :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+          @click.stop
+        >
+          <!-- Pin/Unpin (only for participating non-archived dialogs) -->
+          <button v-if="contextMenu.dialog.i_am_participant && !contextMenu.dialog.is_archived" @click="handleContextPin">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/>
+            </svg>
+            {{ contextMenu.dialog.is_pinned ? t.buttons.unpin : t.buttons.pin }}
+          </button>
+          <!-- Archive/Unarchive (only for participating dialogs) -->
+          <button v-if="contextMenu.dialog.i_am_participant" @click="handleContextArchive">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="21 8 21 21 3 21 3 8"/>
+              <rect x="1" y="3" width="22" height="5"/>
+              <line x1="10" y1="12" x2="14" y2="12"/>
+            </svg>
+            {{ contextMenu.dialog.is_archived ? t.buttons.unarchive : t.buttons.archive }}
+          </button>
+        </div>
+      </Teleport>
     </aside>
 
     <!-- Sidebar Resizer (Desktop only) -->
@@ -1112,6 +1264,17 @@ defineExpose({
                   <path d="M12 8h.01"/>
                 </svg>
                 {{ t.buttons.info }}
+              </button>
+              <button
+                v-if="!chat.currentDialog.value?.is_archived"
+                class="mtchat__menu-item"
+                @click="handleTogglePin(); showHeaderMenu = false"
+                :disabled="chat.isLoading.value"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/>
+                </svg>
+                {{ chat.currentDialog.value?.is_pinned ? t.buttons.unpin : t.buttons.pin }}
               </button>
               <button
                 class="mtchat__menu-item"
@@ -1692,6 +1855,9 @@ defineExpose({
   cursor: pointer;
   transition: background var(--mtchat-transition-fast);
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .mtchat__dialog-item:hover {
@@ -1701,6 +1867,19 @@ defineExpose({
 .mtchat__dialog-item--active {
   background: var(--mtchat-bg-secondary);
   border-left: 3px solid var(--mtchat-primary);
+}
+
+/* Pin icon in dialog list */
+.mtchat__pin-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--mtchat-text-secondary);
+}
+
+/* Dialog content (title + meta) */
+.mtchat__dialog-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .mtchat__dialog-title {
@@ -1934,6 +2113,49 @@ button.mtchat__header-info:focus {
   position: fixed;
   inset: 0;
   z-index: 99;
+}
+
+/* Context menu (right-click on dialog list item) */
+.mtchat__context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--mtchat-bg, #ffffff);
+  border: 1px solid var(--mtchat-border, #e0e0e0);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 160px;
+}
+
+.mtchat__context-menu--dark {
+  --mtchat-bg: #1f2937;
+  --mtchat-border: #374151;
+  --mtchat-text: #f8fafc;
+  --mtchat-bg-hover: #374151;
+}
+
+.mtchat__context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: var(--mtchat-text, #333);
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+
+.mtchat__context-menu button:hover {
+  background: var(--mtchat-bg-hover, #f5f5f5);
+}
+
+.mtchat__context-menu button svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 /* Messages */

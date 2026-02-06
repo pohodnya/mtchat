@@ -28,6 +28,8 @@ export interface TranslationStrings {
     info: string
     archive: string
     unarchive: string
+    pin: string
+    unpin: string
   }
   chat: {
     participants: string
@@ -142,7 +144,7 @@ export const translations: Record<Locale, TranslationStrings> = {
   // Russian (default)
   ru: {
     tabs: {
-      myChats: 'Мои чаты',
+      myChats: 'Участвую',
       available: 'Доступные',
     },
     status: {
@@ -162,6 +164,8 @@ export const translations: Record<Locale, TranslationStrings> = {
       info: 'Информация',
       archive: 'Архивировать',
       unarchive: 'Разархивировать',
+      pin: 'Закрепить',
+      unpin: 'Открепить',
     },
     chat: {
       participants: '{count} участников',
@@ -295,6 +299,8 @@ export const translations: Record<Locale, TranslationStrings> = {
       info: 'Info',
       archive: 'Archive',
       unarchive: 'Unarchive',
+      pin: 'Pin',
+      unpin: 'Unpin',
     },
     chat: {
       participants: '{count} participants',
@@ -428,6 +434,8 @@ export const translations: Record<Locale, TranslationStrings> = {
       info: '信息',
       archive: '归档',
       unarchive: '取消归档',
+      pin: '置顶',
+      unpin: '取消置顶',
     },
     chat: {
       participants: '{count} 位参与者',
