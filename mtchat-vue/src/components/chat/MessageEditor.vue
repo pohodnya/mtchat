@@ -75,8 +75,8 @@ const CustomKeyboardShortcuts = Extension.create({
       'Mod-u': () => this.editor.chain().focus().toggleUnderline().run(),
       // Strikethrough - Mod+Shift+S
       'Mod-Shift-s': () => this.editor.chain().focus().toggleStrike().run(),
-      // Link - Mod+K
-      'Mod-k': () => {
+      // Link - Mod+Shift+L (Cmd+Shift+L on Mac, Ctrl+Shift+L on Windows/Linux)
+      'Mod-Shift-l': () => {
         openLinkDialog()
         return true
       },
@@ -401,7 +401,7 @@ defineExpose({
           type="button"
           class="mtchat-editor__btn"
           :class="{ 'mtchat-editor__btn--active': isActive('link') }"
-          :title="`${t.formatting.link} (⌘K)`"
+          :title="`${t.formatting.link} (⇧⌘L)`"
           @click="openLinkDialog"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
