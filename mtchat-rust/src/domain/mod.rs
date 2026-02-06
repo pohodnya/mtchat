@@ -7,9 +7,10 @@ mod participant;
 mod access_scope;
 mod message;
 mod attachment;
+pub mod system_messages;
 
 pub use dialog::Dialog;
 pub use participant::{DialogParticipant, JoinedAs, ParticipantProfile};
 pub use access_scope::DialogAccessScope;
-pub use message::Message;
+pub use message::{Message, MessageType};
 pub use attachment::{Attachment, AttachmentResponse, AttachmentInput, AttachmentType, limits as attachment_limits};

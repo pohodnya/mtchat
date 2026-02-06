@@ -25,7 +25,7 @@ mod middleware;
 mod webhooks;
 mod services;
 
-use domain::{Dialog, DialogParticipant, DialogAccessScope, Message, JoinedAs, ParticipantProfile};
+use domain::{Dialog, DialogParticipant, DialogAccessScope, Message, JoinedAs, ParticipantProfile, system_messages};
 use repositories::{DialogRepository, ParticipantRepository, AccessScopeRepository, MessageRepository, AttachmentRepository};
 use middleware::{ScopeConfig, OptionalScopeConfig, UserId};
 use webhooks::{WebhookSender, WebhookConfig, WebhookEvent};
@@ -301,6 +301,23 @@ async fn management_create_dialog(
         state.scopes.create(&scope).await?;
     }
 
+    // Create system message "chat created"
+    if !req.participants.is_empty() {
+        let participant_infos: Vec<system_messages::ParticipantInfo> = req.participants
+            .iter()
+            .map(|p| system_messages::ParticipantInfo {
+                name: p.display_name.clone(),
+                company: p.company.clone(),
+            })
+            .collect();
+        let system_msg = Message::system(
+            dialog.id,
+            system_messages::chat_created_content(participant_infos),
+        );
+        // System messages don't increment unread_count
+        state.messages.create(&system_msg).await?;
+    }
+
     Ok(Json(ApiResponse { data: dialog }))
 }
 
@@ -534,15 +551,25 @@ async fn join_dialog(
 
     // Join with profile
     let profile = ParticipantProfile {
-        display_name: req.display_name,
-        company: Some(req.company),
-        email: req.email,
-        phone: req.phone,
+        display_name: req.display_name.clone(),
+        company: Some(req.company.clone()),
+        email: req.email.clone(),
+        phone: req.phone.clone(),
     };
     let participant = state.participants.add_with_profile(dialog_id, user_id, JoinedAs::Joined, &profile).await?;
 
     // Set unread count to total messages in dialog
     state.participants.set_unread_count_from_messages(dialog_id, user_id).await?;
+
+    // Create system message "participant joined"
+    let system_msg = Message::system(
+        dialog_id,
+        system_messages::participant_joined_content(&req.display_name, Some(&req.company)),
+    );
+    let system_msg = state.messages.create(&system_msg).await?;
+
+    // Broadcast system message via WebSocket
+    ws::broadcast_message(&state.connections, dialog_id, &system_msg).await;
 
     // Send webhook
     state.webhooks.send(WebhookEvent::participant_joined(&dialog, &participant)).await;
@@ -562,7 +589,24 @@ async fn leave_dialog(
     let dialog = state.dialogs.find_by_id(dialog_id).await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
 
+    // Get participant before removing to get display_name
+    let participant = state.participants.find(dialog_id, user_id).await?;
+    let display_name = participant
+        .as_ref()
+        .and_then(|p| p.display_name.clone())
+        .unwrap_or_else(|| "Участник".to_string());
+
     state.participants.remove(dialog_id, user_id).await?;
+
+    // Create system message "participant left"
+    let system_msg = Message::system(
+        dialog_id,
+        system_messages::participant_left_content(&display_name),
+    );
+    let system_msg = state.messages.create(&system_msg).await?;
+
+    // Broadcast system message via WebSocket
+    ws::broadcast_message(&state.connections, dialog_id, &system_msg).await;
 
     // Send webhook
     state.webhooks.send(WebhookEvent::participant_left(&dialog, user_id)).await;

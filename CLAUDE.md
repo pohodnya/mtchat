@@ -361,8 +361,23 @@ docker-compose up -d
 | Potential chat access control | ✅ |
 | Dialog search | ✅ |
 | Chat archiving (per-user) | ✅ |
+| System messages | ✅ |
 
 ## Changelog
+
+### 2025-02-06 (v3.10) - System Messages
+- System messages for chat events (created, joined, left)
+- Message types: 'user' (default) and 'system'
+- System messages have no sender_id (NULL in DB)
+- JSON content format for i18n support on frontend
+- Backend creates system messages on: dialog creation, join, leave
+- Frontend formats system messages based on locale (ru/en/zh)
+- System messages displayed centered with gray text
+- System messages don't increment unread_count
+- Reply button hidden for system messages
+- Database migration: `message_type` column, nullable `sender_id`
+- WebSocket broadcasts system messages with message_type field
+- Translations for all system message types (ru/en/zh)
 
 ### 2025-02-06 (v3.9) - Chat Archiving
 - Per-user chat archiving (each participant archives independently)

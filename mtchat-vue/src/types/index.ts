@@ -94,18 +94,44 @@ export interface DialogAccessScope {
 }
 
 /**
+ * Message type
+ */
+export type MessageType = 'user' | 'system'
+
+/**
+ * System message event types
+ */
+export type SystemMessageEvent = 'chat_created' | 'participant_joined' | 'participant_left'
+
+/**
+ * System message content structure (parsed from JSON)
+ */
+export interface SystemMessageContent {
+  event: SystemMessageEvent
+  /** Participants list for chat_created event */
+  participants?: Array<{ name: string; company?: string }>
+  /** Participant name for joined/left events */
+  name?: string
+  /** Participant company for joined event */
+  company?: string
+}
+
+/**
  * Chat message
  */
 export interface Message {
   id: string
   dialog_id: string
-  sender_id: string
+  /** Sender ID. Null for system messages. */
+  sender_id: string | null
   content: string
   sent_at: string
   last_edited_at?: string
   reply_to_id?: string
   /** Attachments with presigned URLs */
   attachments?: Attachment[]
+  /** Message type: 'user' or 'system' (default: 'user') */
+  message_type?: MessageType
 }
 
 // ============ Attachments ============

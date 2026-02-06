@@ -19,9 +19,11 @@ pub enum WsEvent {
     MessageNew {
         id: Uuid,
         dialog_id: Uuid,
-        sender_id: Uuid,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        sender_id: Option<Uuid>,
         content: String,
         sent_at: DateTime<Utc>,
+        message_type: String,
     },
     #[serde(rename = "message.read")]
     MessageRead {
@@ -100,20 +102,10 @@ pub async fn handle_socket(socket: WebSocket, connections: Connections, employee
     tracing::info!("WebSocket disconnected: {}", employee_id);
 }
 
-// Simple message for broadcast
-#[derive(Debug, Serialize)]
-struct SimpleMessage {
-    id: Uuid,
-    dialog_id: Uuid,
-    sender_id: Uuid,
-    content: String,
-    sent_at: DateTime<Utc>,
-}
-
 pub async fn broadcast_message(
     connections: &Connections,
     dialog_id: Uuid,
-    message: &super::Message,
+    message: &crate::domain::Message,
 ) {
     let event = WsEvent::MessageNew {
         id: message.id,
@@ -121,6 +113,7 @@ pub async fn broadcast_message(
         sender_id: message.sender_id,
         content: message.content.clone(),
         sent_at: message.sent_at,
+        message_type: message.message_type.as_str().to_string(),
     };
 
     let json = match serde_json::to_string(&event) {

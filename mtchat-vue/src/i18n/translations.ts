@@ -38,6 +38,11 @@ export interface TranslationStrings {
     joinRequired: string
     archived: string
   }
+  system: {
+    chatCreated: string
+    participantJoined: string
+    participantLeft: string
+  }
   input: {
     placeholder: string
     attachFiles: string
@@ -146,6 +151,11 @@ export const translations: Record<Locale, TranslationStrings> = {
       joinRequired: 'Присоединитесь к чату, чтобы просматривать сообщения',
       archived: 'Архивные',
     },
+    system: {
+      chatCreated: 'Чат создан с участниками: {participants}',
+      participantJoined: '{name} присоединился к чату',
+      participantLeft: '{name} покинул чат',
+    },
     input: {
       placeholder: 'Введите сообщение...',
       attachFiles: 'Прикрепить файлы',
@@ -253,6 +263,11 @@ export const translations: Record<Locale, TranslationStrings> = {
       joinRequired: 'Join this chat to view messages',
       archived: 'Archived',
     },
+    system: {
+      chatCreated: 'Chat created with participants: {participants}',
+      participantJoined: '{name} joined the chat',
+      participantLeft: '{name} left the chat',
+    },
     input: {
       placeholder: 'Type a message...',
       attachFiles: 'Attach files',
@@ -359,6 +374,11 @@ export const translations: Record<Locale, TranslationStrings> = {
       joinToSend: '加入此聊天以发送消息',
       joinRequired: '加入此聊天以查看消息',
       archived: '已归档',
+    },
+    system: {
+      chatCreated: '聊天已创建，参与者：{participants}',
+      participantJoined: '{name} 加入了聊天',
+      participantLeft: '{name} 离开了聊天',
     },
     input: {
       placeholder: '输入消息...',

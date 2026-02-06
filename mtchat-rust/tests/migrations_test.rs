@@ -721,3 +721,113 @@ async fn test_no_fk_to_legacy_tables() {
         "No FK constraints should reference employees or tenants tables"
     );
 }
+
+#[tokio::test]
+async fn test_system_messages_support() {
+    let pool = setup_test_db().await;
+    let mut tx = pool.begin().await.unwrap();
+
+    // Create dialog
+    let dialog_id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO dialogs (id, object_id, object_type, created_at)
+           VALUES ($1, $2, $3, NOW())"#
+    )
+    .bind(dialog_id)
+    .bind(Uuid::new_v4())
+    .bind("tender")
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+
+    // Test 1: Verify message_type column exists with default 'user'
+    let user_msg_id = Uuid::new_v4();
+    let sender_id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at)
+           VALUES ($1, $2, $3, $4, NOW())"#
+    )
+    .bind(user_msg_id)
+    .bind(dialog_id)
+    .bind(sender_id)
+    .bind("User message")
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+
+    let row = sqlx::query("SELECT message_type FROM messages WHERE id = $1")
+        .bind(user_msg_id)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+
+    let msg_type: String = row.get("message_type");
+    assert_eq!(msg_type, "user", "Default message_type should be 'user'");
+
+    // Test 2: Create system message (sender_id = NULL, message_type = 'system')
+    let sys_msg_id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, message_type)
+           VALUES ($1, $2, NULL, $3, NOW(), 'system')"#
+    )
+    .bind(sys_msg_id)
+    .bind(dialog_id)
+    .bind(r#"{"event":"participant_joined","name":"Test User"}"#)
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+
+    let row = sqlx::query("SELECT sender_id, message_type FROM messages WHERE id = $1")
+        .bind(sys_msg_id)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+
+    let sys_sender_id: Option<Uuid> = row.get("sender_id");
+    let sys_msg_type: String = row.get("message_type");
+    assert!(sys_sender_id.is_none(), "System message should have NULL sender_id");
+    assert_eq!(sys_msg_type, "system", "System message should have type 'system'");
+
+    // Test 3: Verify constraint - user message must have sender_id
+    let result = sqlx::query(
+        r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, message_type)
+           VALUES ($1, $2, NULL, $3, NOW(), 'user')"#
+    )
+    .bind(Uuid::new_v4())
+    .bind(dialog_id)
+    .bind("Should fail")
+    .execute(&mut *tx)
+    .await;
+
+    assert!(result.is_err(), "User message with NULL sender_id should fail constraint");
+
+    // Test 4: Verify constraint - system message must have NULL sender_id
+    let result = sqlx::query(
+        r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, message_type)
+           VALUES ($1, $2, $3, $4, NOW(), 'system')"#
+    )
+    .bind(Uuid::new_v4())
+    .bind(dialog_id)
+    .bind(sender_id)
+    .bind("Should fail")
+    .execute(&mut *tx)
+    .await;
+
+    assert!(result.is_err(), "System message with sender_id should fail constraint");
+
+    // Test 5: Verify invalid message_type is rejected
+    let result = sqlx::query(
+        r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, message_type)
+           VALUES ($1, $2, $3, $4, NOW(), 'invalid')"#
+    )
+    .bind(Uuid::new_v4())
+    .bind(dialog_id)
+    .bind(sender_id)
+    .bind("Should fail")
+    .execute(&mut *tx)
+    .await;
+
+    assert!(result.is_err(), "Invalid message_type should fail constraint");
+
+    tx.rollback().await.unwrap();
+}

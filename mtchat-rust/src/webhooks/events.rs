@@ -73,6 +73,7 @@ impl WebhookEvent {
                     content: message.content.clone(),
                     reply_to: message.reply_to_id,
                     created_at: message.sent_at,
+                    message_type: message.message_type.as_str().to_string(),
                 },
             }),
         )
@@ -130,11 +131,19 @@ pub struct MessageNewPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageData {
     pub id: Uuid,
-    pub sender_id: Uuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_id: Option<Uuid>,
     pub content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<Uuid>,
     pub created_at: DateTime<Utc>,
+    /// Message type: 'user' or 'system'
+    #[serde(default = "default_message_type")]
+    pub message_type: String,
+}
+
+fn default_message_type() -> String {
+    "user".to_string()
 }
 
 /// Payload for participant.joined events
@@ -179,10 +188,11 @@ mod tests {
                 object_type: "tender".to_string(),
                 message: MessageData {
                     id: Uuid::nil(),
-                    sender_id: Uuid::nil(),
+                    sender_id: Some(Uuid::nil()),
                     content: "Hello".to_string(),
                     reply_to: None,
                     created_at: Utc::now(),
+                    message_type: "user".to_string(),
                 },
             }),
         );

@@ -11,7 +11,7 @@ import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useChat } from '../composables/useChat'
 import { useFileUpload } from '../composables/useFileUpload'
 import { provideI18n } from '../i18n'
-import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment } from '../types'
+import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment, SystemMessageContent } from '../types'
 import AttachmentPreview from './chat/AttachmentPreview.vue'
 import AttachmentList from './chat/AttachmentList.vue'
 import FileViewer from './chat/FileViewer.vue'
@@ -530,7 +530,41 @@ function getSenderDisplayName(senderId: string): string {
 function getMessageAuthor(messageId: string): string {
   const msg = chat.messages.value.find((m) => m.id === messageId)
   if (!msg) return '...'
+  if (!msg.sender_id) return '' // System message
   return getSenderDisplayName(msg.sender_id)
+}
+
+/**
+ * Format system message content from JSON to localized string
+ */
+function formatSystemMessage(message: Message): string {
+  if (message.message_type !== 'system') return message.content
+
+  try {
+    const data: SystemMessageContent = JSON.parse(message.content)
+
+    switch (data.event) {
+      case 'chat_created': {
+        const participants = data.participants
+          ?.map(p => p.company ? `${p.name} (${p.company})` : p.name)
+          .join(', ') || ''
+        return t.value.system.chatCreated.replace('{participants}', participants)
+      }
+      case 'participant_joined': {
+        const name = data.company
+          ? `${data.name} (${data.company})`
+          : data.name || ''
+        return t.value.system.participantJoined.replace('{name}', name)
+      }
+      case 'participant_left': {
+        return t.value.system.participantLeft.replace('{name}', data.name || '')
+      }
+      default:
+        return message.content
+    }
+  } catch {
+    return message.content // Fallback for invalid JSON
+  }
 }
 
 function scrollToMessage(messageId: string) {
@@ -1030,7 +1064,18 @@ defineExpose({
             <span>{{ t.chat.newMessages }}</span>
           </div>
 
+          <!-- SYSTEM MESSAGE -->
           <div
+            v-if="message.message_type === 'system'"
+            :data-message-id="message.id"
+            class="mtchat__system-message"
+          >
+            {{ formatSystemMessage(message) }}
+          </div>
+
+          <!-- USER MESSAGE -->
+          <div
+            v-else
             :data-message-id="message.id"
             class="mtchat__message"
           >
@@ -1068,7 +1113,7 @@ defineExpose({
             <!-- Header: sender name + time -->
             <div class="mtchat__message-header">
               <span class="mtchat__message-sender">
-                {{ getSenderDisplayName(message.sender_id) }}
+                {{ message.sender_id ? getSenderDisplayName(message.sender_id) : '' }}
               </span>
               <span class="mtchat__message-time">{{ formatTime(message.sent_at) }}</span>
             </div>
@@ -1117,7 +1162,7 @@ defineExpose({
             <div class="mtchat__reply-indicator"></div>
             <div class="mtchat__reply-content">
               <div class="mtchat__reply-author">
-                {{ getSenderDisplayName(chat.replyToMessage.value.sender_id) }}
+                {{ chat.replyToMessage.value.sender_id ? getSenderDisplayName(chat.replyToMessage.value.sender_id) : '' }}
               </div>
               <div class="mtchat__reply-text">
                 {{ truncateText(chat.replyToMessage.value.content, 100) }}
@@ -1772,6 +1817,15 @@ button.mtchat__header-info:focus {
   font-size: 12px;
   font-weight: 500;
   color: var(--mtchat-text-secondary);
+}
+
+/* System message (centered, gray text) */
+.mtchat__system-message {
+  text-align: center;
+  color: var(--mtchat-text-secondary);
+  font-size: 13px;
+  padding: 8px 16px;
+  margin: 4px 0;
 }
 
 /* Message (list-style, full width) */
