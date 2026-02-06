@@ -39,6 +39,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const firstUnreadMessageId: Ref<string | null> = ref(null)
   const replyToMessage: Ref<Message | null> = ref(null)
   const searchQuery: Ref<string> = ref('')
+  const onlineUsers: Ref<Set<string>> = ref(new Set())
 
   // Track subscribed dialog
   let subscribedDialogId: string | null = null
@@ -372,7 +373,12 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
 
     try {
-      participants.value = await client.api.getParticipants(currentDialog.value.id)
+      const loadedParticipants = await client.api.getParticipants(currentDialog.value.id)
+      participants.value = loadedParticipants
+
+      // Populate onlineUsers from is_online field
+      const online = loadedParticipants.filter((p) => p.is_online).map((p) => p.user_id)
+      onlineUsers.value = new Set(online)
     } catch (e) {
       // 403 = not a participant, expected
       const err = e instanceof Error ? e : new Error(String(e))
@@ -566,6 +572,39 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  function handlePresenceUpdate(event: { user_id?: string; is_online?: boolean; payload?: { user_id?: string; is_online?: boolean } }): void {
+    // Support both flat and payload formats
+    const userId = event.user_id || event.payload?.user_id
+    const isOnline = event.is_online ?? event.payload?.is_online
+    if (!userId || isOnline === undefined) return
+
+    // Update onlineUsers set (immutable update for reactivity)
+    const newSet = new Set(onlineUsers.value)
+    if (isOnline) {
+      newSet.add(userId)
+    } else {
+      newSet.delete(userId)
+    }
+    onlineUsers.value = newSet
+
+    // Update participant in the list
+    const idx = participants.value.findIndex((p) => p.user_id === userId)
+    if (idx !== -1) {
+      participants.value = [
+        ...participants.value.slice(0, idx),
+        { ...participants.value[idx], is_online: isOnline },
+        ...participants.value.slice(idx + 1),
+      ]
+    }
+  }
+
+  /**
+   * Check if a user is currently online
+   */
+  function isUserOnline(userId: string): boolean {
+    return onlineUsers.value.has(userId)
+  }
+
   // ============ Lifecycle ============
 
   onMounted(async () => {
@@ -582,6 +621,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     client.on('message.read', handleMessageRead as any)
     client.on('participant.joined', handleParticipantJoined as any)
     client.on('participant.left', handleParticipantLeft as any)
+    client.on('presence.update', handlePresenceUpdate as any)
 
     // Auto-connect
     if (autoConnect) {
@@ -625,6 +665,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     firstUnreadMessageId,
     replyToMessage,
     searchQuery,
+    onlineUsers,
 
     // API access for file uploads
     api: client.api,
@@ -648,6 +689,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     markAsRead,
     setReplyTo,
     clearReplyTo,
+    isUserOnline,
   }
 }
 

@@ -35,9 +35,15 @@
           :key="participant.user_id"
           class="chat-info-panel__participant"
         >
-          <!-- Avatar -->
-          <div class="chat-info-panel__avatar">
-            {{ getInitials(participant.display_name || 'U') }}
+          <!-- Avatar with online indicator -->
+          <div class="chat-info-panel__avatar-wrapper">
+            <div class="chat-info-panel__avatar">
+              {{ getInitials(participant.display_name || 'U') }}
+            </div>
+            <span
+              v-if="participant.is_online"
+              class="chat-info-panel__online-indicator"
+            ></span>
           </div>
 
           <!-- Info -->
@@ -235,6 +241,13 @@ function getInitials(name: string): string {
   background: var(--mtchat-bg-hover, rgba(0, 0, 0, 0.05));
 }
 
+.chat-info-panel__avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+}
+
 .chat-info-panel__avatar {
   width: 40px;
   height: 40px;
@@ -246,7 +259,18 @@ function getInitials(name: string): string {
   justify-content: center;
   font-size: 14px;
   font-weight: 600;
-  flex-shrink: 0;
+}
+
+.chat-info-panel__online-indicator {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 12px;
+  height: 12px;
+  background: #4CAF50;
+  border: 2px solid var(--mtchat-bg, #ffffff);
+  border-radius: 50%;
+  z-index: 1;
 }
 
 .chat-info-panel__participant-info {

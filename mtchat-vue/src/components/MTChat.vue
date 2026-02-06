@@ -542,6 +542,17 @@ function getSenderDisplayName(senderId: string): string {
   return isCurrentUser ? t.value.user.you : senderId.slice(0, 8)
 }
 
+/**
+ * Get initials from a name (first two letters of first two words, or first two chars)
+ */
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return name.slice(0, 2).toUpperCase()
+}
+
 function getMessageAuthor(messageId: string): string {
   const msg = chat.messages.value.find((m) => m.id === messageId)
   if (!msg) return '...'
@@ -1094,59 +1105,73 @@ defineExpose({
             :data-message-id="message.id"
             class="mtchat__message"
           >
-            <!-- Message actions (top-right, visible on hover) -->
-            <div class="mtchat__message-actions">
-              <button
-                class="mtchat__action-btn"
-                :title="t.tooltips.reply"
-                @click.stop="chat.setReplyTo(message)"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 14L4 9l5-5"/>
-                  <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
-                </svg>
-              </button>
+            <!-- Avatar with online indicator -->
+            <div class="mtchat__message-avatar-wrapper">
+              <div class="mtchat__message-avatar">
+                {{ message.sender_id ? getInitials(getSenderDisplayName(message.sender_id)) : '?' }}
+              </div>
+              <span
+                v-if="message.sender_id && chat.isUserOnline(message.sender_id)"
+                class="mtchat__message-avatar-online"
+              ></span>
             </div>
 
-            <!-- Quoted message (if reply) -->
-            <div
-              v-if="message.reply_to_id"
-              class="mtchat__quoted-message"
-              @click.stop="scrollToMessage(message.reply_to_id)"
-            >
-              <div class="mtchat__quoted-indicator"></div>
-              <div class="mtchat__quoted-content">
-                <div class="mtchat__quoted-author">
-                  {{ getMessageAuthor(message.reply_to_id) }}
-                </div>
-                <div class="mtchat__quoted-text">
-                  {{ getQuotedText(message.reply_to_id) }}
+            <!-- Message body -->
+            <div class="mtchat__message-body">
+              <!-- Message actions (top-right, visible on hover) -->
+              <div class="mtchat__message-actions">
+                <button
+                  class="mtchat__action-btn"
+                  :title="t.tooltips.reply"
+                  @click.stop="chat.setReplyTo(message)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 14L4 9l5-5"/>
+                    <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Quoted message (if reply) -->
+              <div
+                v-if="message.reply_to_id"
+                class="mtchat__quoted-message"
+                @click.stop="scrollToMessage(message.reply_to_id)"
+              >
+                <div class="mtchat__quoted-indicator"></div>
+                <div class="mtchat__quoted-content">
+                  <div class="mtchat__quoted-author">
+                    {{ getMessageAuthor(message.reply_to_id) }}
+                  </div>
+                  <div class="mtchat__quoted-text">
+                    {{ getQuotedText(message.reply_to_id) }}
+                  </div>
                 </div>
               </div>
+
+              <!-- Header: sender name + time -->
+              <div class="mtchat__message-header">
+                <span class="mtchat__message-sender">
+                  {{ message.sender_id ? getSenderDisplayName(message.sender_id) : '' }}
+                </span>
+                <span class="mtchat__message-time">{{ formatTime(message.sent_at) }}</span>
+              </div>
+
+              <!-- Content (HTML or plain text) -->
+              <div
+                v-if="message.content"
+                class="mtchat__message-content"
+                v-html="message.content"
+              ></div>
+
+              <!-- Attachments -->
+              <AttachmentList
+                v-if="message.attachments && message.attachments.length > 0"
+                :attachments="message.attachments"
+                @open-gallery="(index) => openGalleryAtIndex(message, index)"
+                @open-file="openFileViewer"
+              />
             </div>
-
-            <!-- Header: sender name + time -->
-            <div class="mtchat__message-header">
-              <span class="mtchat__message-sender">
-                {{ message.sender_id ? getSenderDisplayName(message.sender_id) : '' }}
-              </span>
-              <span class="mtchat__message-time">{{ formatTime(message.sent_at) }}</span>
-            </div>
-
-            <!-- Content (HTML or plain text) -->
-            <div
-              v-if="message.content"
-              class="mtchat__message-content"
-              v-html="message.content"
-            ></div>
-
-            <!-- Attachments -->
-            <AttachmentList
-              v-if="message.attachments && message.attachments.length > 0"
-              :attachments="message.attachments"
-              @open-gallery="(index) => openGalleryAtIndex(message, index)"
-              @open-file="openFileViewer"
-            />
           </div>
         </template>
 
@@ -1821,9 +1846,11 @@ button.mtchat__header-info:focus {
   margin: 4px 0;
 }
 
-/* Message (list-style, full width) */
+/* Message (list-style with avatar) */
 .mtchat__message {
   position: relative;
+  display: flex;
+  gap: 12px;
   padding: 8px 12px;
   border-radius: 4px;
   transition: background 0.15s;
@@ -1831,6 +1858,46 @@ button.mtchat__header-info:focus {
 
 .mtchat__message:hover {
   background: var(--mtchat-bg-hover);
+}
+
+/* Message avatar */
+.mtchat__message-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+}
+
+.mtchat__message-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--mtchat-primary, #007AFF);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mtchat__message-avatar-online {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 12px;
+  height: 12px;
+  background: #4CAF50;
+  border: 2px solid var(--mtchat-bg, #ffffff);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+/* Message body (content area) */
+.mtchat__message-body {
+  flex: 1;
+  min-width: 0;
+  position: relative;
 }
 
 /* Message header: sender + datetime */
@@ -2052,12 +2119,6 @@ button.mtchat__header-info:focus {
   background: var(--mtchat-bg-secondary);
   color: var(--mtchat-primary);
   border-color: var(--mtchat-primary);
-}
-
-.mtchat__message-sender {
-  font-size: 11px;
-  color: var(--mtchat-text-secondary);
-  margin-bottom: 2px;
 }
 
 .mtchat__message-content {

@@ -271,4 +271,29 @@ impl ParticipantRepository {
         .await?;
         Ok(result.rows_affected() > 0)
     }
+
+    /// Get all dialog IDs that a user participates in
+    pub async fn get_user_dialogs(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+        sqlx::query_scalar("SELECT dialog_id FROM dialog_participants WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_all(&self.pool)
+            .await
+    }
+
+    /// Get all distinct user IDs who participate in any of the given dialogs
+    pub async fn get_dialog_participants_user_ids(
+        &self,
+        dialog_ids: &[Uuid],
+    ) -> Result<Vec<Uuid>, sqlx::Error> {
+        if dialog_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        sqlx::query_scalar(
+            "SELECT DISTINCT user_id FROM dialog_participants WHERE dialog_id = ANY($1)",
+        )
+        .bind(dialog_ids)
+        .fetch_all(&self.pool)
+        .await
+    }
 }

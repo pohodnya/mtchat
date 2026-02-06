@@ -59,6 +59,8 @@ export interface DialogParticipant {
   email?: string
   /** Contact phone (optional, can be hidden) */
   phone?: string
+  /** Whether user is currently online */
+  is_online?: boolean
 }
 
 /**
@@ -346,6 +348,7 @@ export type WsEventType =
   | 'message.deleted'
   | 'participant.joined'
   | 'participant.left'
+  | 'presence.update'
   | 'typing'
   | 'pong'
   | 'error'
@@ -498,6 +501,8 @@ export interface UseChatReturn {
   replyToMessage: import('vue').Ref<Message | null>
   /** Current search query for filtering dialogs */
   searchQuery: import('vue').Ref<string>
+  /** Set of online user IDs */
+  onlineUsers: import('vue').Ref<Set<string>>
 
   // API access for file uploads
   api: import('../sdk/api').MTChatApi
@@ -527,4 +532,6 @@ export interface UseChatReturn {
   setReplyTo: (message: Message) => void
   /** Clear reply */
   clearReplyTo: () => void
+  /** Check if a user is currently online */
+  isUserOnline: (userId: string) => boolean
 }

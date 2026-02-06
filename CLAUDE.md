@@ -363,8 +363,24 @@ docker-compose up -d
 | Chat archiving (per-user) | ✅ |
 | System messages | ✅ |
 | Message formatting (Tiptap) | ✅ |
+| User online status | ✅ |
 
 ## Changelog
+
+### 2026-02-06 (v3.12) - User Online Status
+- Real-time online status tracking via Redis with 60s TTL
+- Message avatars: circular avatar with initials (36x36px) next to each message
+- Green online indicator on message avatars (bottom-right, 10x10px)
+- Green indicator dot on participant avatars in chat info panel
+- Presence service with set_online/refresh_online/set_offline operations
+- WebSocket presence.update events for real-time status changes
+- Batch MGET for efficient online status checking
+- Heartbeat-based TTL refresh (30s ping refreshes 60s TTL)
+- Graceful degradation when Redis is not configured
+- is_online field in participants API response
+- Frontend onlineUsers Set with reactive updates
+- isUserOnline() helper function in useChat composable
+- getInitials() helper for generating avatar letters
 
 ### 2025-02-06 (v3.11) - Message Formatting
 - Rich text editor based on Tiptap (ProseMirror)

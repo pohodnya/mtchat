@@ -29,7 +29,9 @@ use domain::{Dialog, DialogParticipant, DialogAccessScope, Message, JoinedAs, Pa
 use repositories::{DialogRepository, ParticipantRepository, AccessScopeRepository, MessageRepository, AttachmentRepository};
 use middleware::{ScopeConfig, OptionalScopeConfig, UserId};
 use webhooks::{WebhookSender, WebhookConfig, WebhookEvent};
-use services::{S3Service, S3Config};
+use services::{S3Service, S3Config, PresenceService};
+use fred::prelude::*;
+use fred::types::Builder;
 
 // ============ App State ============
 
@@ -45,12 +47,13 @@ struct AppState {
     attachments: Arc<AttachmentRepository>,
     // Services
     s3: Arc<S3Service>,
+    presence: Arc<PresenceService>,
     // Webhooks
     webhooks: WebhookSender,
 }
 
 impl AppState {
-    fn new(db: PgPool, webhooks: WebhookSender, s3: S3Service) -> Self {
+    fn new(db: PgPool, webhooks: WebhookSender, s3: S3Service, presence: PresenceService) -> Self {
         Self {
             dialogs: Arc::new(DialogRepository::new(db.clone())),
             participants: Arc::new(ParticipantRepository::new(db.clone())),
@@ -60,6 +63,7 @@ impl AppState {
             connections: Arc::new(RwLock::new(HashMap::new())),
             db,
             s3: Arc::new(s3),
+            presence: Arc::new(presence),
             webhooks,
         }
     }
@@ -991,18 +995,40 @@ async fn get_attachment_url(
 
 // ============ Handlers: Participants ============
 
+/// Participant response with online status
+#[derive(Debug, Serialize)]
+struct ParticipantResponse {
+    #[serde(flatten)]
+    participant: DialogParticipant,
+    is_online: bool,
+}
+
 async fn list_participants(
     State(state): State<AppState>,
     UserId(user_id): UserId,
     Path(dialog_id): Path<Uuid>,
-) -> Result<Json<ApiResponse<Vec<DialogParticipant>>>, ApiError> {
+) -> Result<Json<ApiResponse<Vec<ParticipantResponse>>>, ApiError> {
     // Check user is participant
     if !state.participants.exists(dialog_id, user_id).await? {
         return Err(ApiError::Forbidden("Not a participant".into()));
     }
 
     let participants = state.participants.list_by_dialog(dialog_id).await?;
-    Ok(Json(ApiResponse { data: participants }))
+
+    // Get online status for all participants
+    let user_ids: Vec<Uuid> = participants.iter().map(|p| p.user_id).collect();
+    let online_users = state.presence.get_online_users(&user_ids).await.unwrap_or_default();
+
+    // Build response with online status
+    let responses: Vec<ParticipantResponse> = participants
+        .into_iter()
+        .map(|p| ParticipantResponse {
+            is_online: online_users.contains(&p.user_id),
+            participant: p,
+        })
+        .collect();
+
+    Ok(Json(ApiResponse { data: responses }))
 }
 
 async fn mark_as_read(
@@ -1041,7 +1067,15 @@ async fn ws_handler(
         .and_then(|s| s.parse().ok())
         .unwrap_or_else(Uuid::new_v4);
 
-    ws.on_upgrade(move |socket| ws::handle_socket(socket, state.connections, user_id))
+    ws.on_upgrade(move |socket| {
+        ws::handle_socket(
+            socket,
+            state.connections,
+            user_id,
+            state.presence,
+            state.participants,
+        )
+    })
 }
 
 // ============ Main ============
@@ -1096,7 +1130,26 @@ async fn main() {
         }
     };
 
-    let state = AppState::new(db, webhooks, s3);
+    // Initialize Redis and presence service
+    let presence = match env::var("REDIS_URL") {
+        Ok(url) => {
+            tracing::info!("Connecting to Redis...");
+            let config = Config::from_url(&url)
+                .expect("Failed to parse REDIS_URL");
+            let pool = Builder::from_config(config)
+                .build_pool(5)
+                .expect("Failed to create Redis pool");
+            pool.init().await.expect("Failed to connect to Redis");
+            tracing::info!("Redis connected, presence tracking enabled");
+            PresenceService::new(Arc::new(pool))
+        }
+        Err(_) => {
+            tracing::info!("Redis disabled (REDIS_URL not set), presence tracking disabled");
+            PresenceService::noop()
+        }
+    };
+
+    let state = AppState::new(db, webhooks, s3, presence);
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
