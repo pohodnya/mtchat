@@ -32,6 +32,7 @@ const emit = defineEmits<{
   submit: [content: string]
   'update:isEmpty': [isEmpty: boolean]
   attach: []
+  'arrow-up': []
 }>()
 
 const { t } = useI18n()
@@ -92,6 +93,15 @@ const CustomKeyboardShortcuts = Extension.create({
         handleSubmitRef.value()
         return true
       },
+      // Arrow Up when empty - edit last message
+      'ArrowUp': () => {
+        // Only trigger when editor is empty and cursor is at the start
+        if (isEmpty.value) {
+          emit('arrow-up')
+          return true
+        }
+        return false
+      },
     }
   },
 })
@@ -125,9 +135,32 @@ const editor = useEditor({
     Placeholder.configure({
       placeholder: () => props.placeholder || t.value.input.placeholder,
     }),
-    Mention.configure({
+    Mention.extend({
+      // Add fallback parseHTML for legacy mentions (class only, no data-type)
+      parseHTML() {
+        return [
+          { tag: `span[data-type="${this.name}"]` },
+          // Fallback for legacy mentions without data-type
+          {
+            tag: 'span.mtchat-mention',
+            getAttrs: (element) => {
+              const el = element as HTMLElement
+              // Only match if there's no data-type (legacy format)
+              if (el.getAttribute('data-type')) return false
+              return {
+                id: el.getAttribute('data-id') || el.textContent?.replace(/^@/, '') || '',
+                label: el.getAttribute('data-label') || el.textContent?.replace(/^@/, '') || '',
+              }
+            },
+          },
+        ]
+      },
+    }).configure({
       HTMLAttributes: {
         class: 'mtchat-mention',
+      },
+      renderLabel: ({ options, node }) => {
+        return `${options.suggestion?.char ?? '@'}${node.attrs.label ?? node.attrs.id}`
       },
       suggestion: {
         char: '@',
@@ -294,6 +327,11 @@ const clear = () => {
   editor.value?.commands.clearContent()
 }
 
+// Set content (for edit mode)
+const setContent = (content: string) => {
+  editor.value?.commands.setContent(content)
+}
+
 onBeforeUnmount(() => {
   editor.value?.destroy()
 })
@@ -307,6 +345,7 @@ watch(() => props.disabled, (disabled) => {
 defineExpose({
   focus,
   clear,
+  setContent,
   editor,
   isEmpty,
 })

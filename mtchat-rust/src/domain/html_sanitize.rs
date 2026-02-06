@@ -33,7 +33,8 @@ fn create_sanitizer() -> Builder<'static> {
     // Note: "rel" is handled specially by ammonia via link_rel()
     let mut tag_attributes: HashMap<&str, HashSet<&str>> = HashMap::new();
     tag_attributes.insert("a", ["href", "target"].into_iter().collect());
-    tag_attributes.insert("span", ["data-mention", "class"].into_iter().collect());
+    // Allow Tiptap mention attributes: data-type, data-id, data-label
+    tag_attributes.insert("span", ["data-type", "data-id", "data-label", "data-mention", "class"].into_iter().collect());
     tag_attributes.insert("code", ["class"].into_iter().collect());
     tag_attributes.insert("pre", ["class"].into_iter().collect());
 
@@ -153,6 +154,18 @@ mod tests {
         let output = sanitize_html(input);
         assert!(output.contains("<span"));
         assert!(output.contains("data-mention"));
+        assert!(output.contains("class="));
+    }
+
+    #[test]
+    fn test_allows_tiptap_mentions() {
+        // Tiptap Mention extension format
+        let input = r#"<span data-type="mention" data-id="user-uuid-123" data-label="John Doe" class="mtchat-mention">@John Doe</span>"#;
+        let output = sanitize_html(input);
+        assert!(output.contains("<span"));
+        assert!(output.contains("data-type=\"mention\""));
+        assert!(output.contains("data-id=\"user-uuid-123\""));
+        assert!(output.contains("data-label=\"John Doe\""));
         assert!(output.contains("class="));
     }
 

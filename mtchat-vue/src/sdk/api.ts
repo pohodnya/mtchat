@@ -287,6 +287,30 @@ export class MTChatApi {
     return response.data
   }
 
+  /**
+   * Edit a message
+   */
+  async editMessage(dialogId: string, messageId: string, content: string): Promise<Message> {
+    const response = await this.request<ApiResponse<Message>>(
+      'PUT',
+      `/api/v1/dialogs/${dialogId}/messages/${messageId}`,
+      {
+        body: { content },
+      }
+    )
+    return response.data
+  }
+
+  /**
+   * Delete a message
+   */
+  async deleteMessage(dialogId: string, messageId: string): Promise<void> {
+    await this.request<void>(
+      'DELETE',
+      `/api/v1/dialogs/${dialogId}/messages/${messageId}`
+    )
+  }
+
   // ============ Upload ============
 
   /**

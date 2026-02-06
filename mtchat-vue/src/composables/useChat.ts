@@ -38,6 +38,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const error: Ref<Error | null> = ref(null)
   const firstUnreadMessageId: Ref<string | null> = ref(null)
   const replyToMessage: Ref<Message | null> = ref(null)
+  const editingMessage: Ref<Message | null> = ref(null)
   const searchQuery: Ref<string> = ref('')
   const onlineUsers: Ref<Set<string>> = ref(new Set())
 
@@ -395,10 +396,64 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   function setReplyTo(message: Message): void {
     replyToMessage.value = message
+    // Clear edit mode when setting reply
+    editingMessage.value = null
   }
 
   function clearReplyTo(): void {
     replyToMessage.value = null
+  }
+
+  // ============ Edit/Delete ============
+
+  function setEditMessage(message: Message): void {
+    editingMessage.value = message
+    // Clear reply when editing
+    replyToMessage.value = null
+  }
+
+  function clearEditMessage(): void {
+    editingMessage.value = null
+  }
+
+  async function editMessage(messageId: string, content: string): Promise<Message | undefined> {
+    if (!currentDialog.value) return undefined
+
+    try {
+      error.value = null
+      const updated = await client.api.editMessage(currentDialog.value.id, messageId, content)
+
+      // Update in local list
+      const idx = messages.value.findIndex((m) => m.id === messageId)
+      if (idx !== -1) {
+        messages.value = [
+          ...messages.value.slice(0, idx),
+          updated,
+          ...messages.value.slice(idx + 1),
+        ]
+      }
+
+      clearEditMessage()
+      return updated
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    }
+  }
+
+  async function deleteMessage(messageId: string): Promise<void> {
+    if (!currentDialog.value) return
+
+    try {
+      error.value = null
+      await client.api.deleteMessage(currentDialog.value.id, messageId)
+
+      // Remove from local list
+      messages.value = messages.value.filter((m) => m.id !== messageId)
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    }
   }
 
   async function sendMessage(
@@ -598,6 +653,33 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  function handleMessageEdited(event: { id?: string; dialog_id?: string; content?: string; last_edited_at?: string }): void {
+    const { id, dialog_id, content, last_edited_at } = event
+    if (!id || !dialog_id || !content) return
+
+    // Only update if it's for the current dialog
+    if (currentDialog.value?.id !== dialog_id) return
+
+    const idx = messages.value.findIndex((m) => m.id === id)
+    if (idx !== -1) {
+      messages.value = [
+        ...messages.value.slice(0, idx),
+        { ...messages.value[idx], content, last_edited_at },
+        ...messages.value.slice(idx + 1),
+      ]
+    }
+  }
+
+  function handleMessageDeleted(event: { id?: string; dialog_id?: string }): void {
+    const { id, dialog_id } = event
+    if (!id || !dialog_id) return
+
+    // Only update if it's for the current dialog
+    if (currentDialog.value?.id !== dialog_id) return
+
+    messages.value = messages.value.filter((m) => m.id !== id)
+  }
+
   /**
    * Check if a user is currently online
    */
@@ -619,6 +701,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     client.on('message.new', handleMessageNew as any)
     client.on('message.read', handleMessageRead as any)
+    client.on('message.edited', handleMessageEdited as any)
+    client.on('message.deleted', handleMessageDeleted as any)
     client.on('participant.joined', handleParticipantJoined as any)
     client.on('participant.left', handleParticipantLeft as any)
     client.on('presence.update', handlePresenceUpdate as any)
@@ -664,6 +748,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     error,
     firstUnreadMessageId,
     replyToMessage,
+    editingMessage,
     searchQuery,
     onlineUsers,
 
@@ -674,6 +759,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     connect,
     disconnect,
     sendMessage,
+    editMessage,
+    deleteMessage,
     loadMessages,
     setSearchQuery,
     loadParticipatingDialogs,
@@ -689,6 +776,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     markAsRead,
     setReplyTo,
     clearReplyTo,
+    setEditMessage,
+    clearEditMessage,
     isUserOnline,
   }
 }

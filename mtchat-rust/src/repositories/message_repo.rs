@@ -91,6 +91,24 @@ impl MessageRepository {
         Ok(messages.into_iter().rev().collect())
     }
 
+    /// Save old content to edit history before updating
+    pub async fn save_edit_history(
+        &self,
+        message_id: Uuid,
+        old_content: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"INSERT INTO message_edit_history (id, message_id, old_content, edited_at)
+               VALUES ($1, $2, $3, NOW())"#,
+        )
+        .bind(Uuid::now_v7())
+        .bind(message_id)
+        .bind(old_content)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     /// Update message content
     pub async fn update_content(
         &self,

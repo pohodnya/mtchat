@@ -15,6 +15,11 @@ export interface TranslationStrings {
     connected: string
     disconnected: string
   }
+  actions: {
+    reply: string
+    edit: string
+    delete: string
+  }
   buttons: {
     join: string
     send: string
@@ -37,6 +42,9 @@ export interface TranslationStrings {
     joinToSend: string
     joinRequired: string
     archived: string
+    edited: string
+    editing: string
+    deleteConfirm: string
   }
   system: {
     chatCreated: string
@@ -141,6 +149,11 @@ export const translations: Record<Locale, TranslationStrings> = {
       connected: 'Подключено',
       disconnected: 'Отключено',
     },
+    actions: {
+      reply: 'Ответить',
+      edit: 'Редактировать',
+      delete: 'Удалить',
+    },
     buttons: {
       join: 'Присоединиться',
       send: 'Отправить',
@@ -163,6 +176,9 @@ export const translations: Record<Locale, TranslationStrings> = {
       joinToSend: 'Присоединитесь к чату, чтобы отправлять сообщения',
       joinRequired: 'Присоединитесь к чату, чтобы просматривать сообщения',
       archived: 'Архивные',
+      edited: 'ред.',
+      editing: 'Редактирование',
+      deleteConfirm: 'Удалить сообщение?',
     },
     system: {
       chatCreated: 'Чат создан с участниками: {participants}',
@@ -266,6 +282,11 @@ export const translations: Record<Locale, TranslationStrings> = {
       connected: 'Connected',
       disconnected: 'Disconnected',
     },
+    actions: {
+      reply: 'Reply',
+      edit: 'Edit',
+      delete: 'Delete',
+    },
     buttons: {
       join: 'Join',
       send: 'Send',
@@ -288,6 +309,9 @@ export const translations: Record<Locale, TranslationStrings> = {
       joinToSend: 'Join this chat to send messages',
       joinRequired: 'Join this chat to view messages',
       archived: 'Archived',
+      edited: 'edited',
+      editing: 'Editing',
+      deleteConfirm: 'Delete message?',
     },
     system: {
       chatCreated: 'Chat created with participants: {participants}',
@@ -391,6 +415,11 @@ export const translations: Record<Locale, TranslationStrings> = {
       connected: '已连接',
       disconnected: '已断开',
     },
+    actions: {
+      reply: '回复',
+      edit: '编辑',
+      delete: '删除',
+    },
     buttons: {
       join: '加入',
       send: '发送',
@@ -413,6 +442,9 @@ export const translations: Record<Locale, TranslationStrings> = {
       joinToSend: '加入此聊天以发送消息',
       joinRequired: '加入此聊天以查看消息',
       archived: '已归档',
+      edited: '已编辑',
+      editing: '编辑中',
+      deleteConfirm: '删除消息？',
     },
     system: {
       chatCreated: '聊天已创建，参与者：{participants}',

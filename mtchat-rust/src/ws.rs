@@ -28,6 +28,18 @@ pub enum WsEvent {
         sent_at: DateTime<Utc>,
         message_type: String,
     },
+    #[serde(rename = "message.edited")]
+    MessageEdited {
+        id: Uuid,
+        dialog_id: Uuid,
+        content: String,
+        last_edited_at: DateTime<Utc>,
+    },
+    #[serde(rename = "message.deleted")]
+    MessageDeleted {
+        id: Uuid,
+        dialog_id: Uuid,
+    },
     #[serde(rename = "message.read")]
     MessageRead {
         dialog_id: Uuid,
@@ -219,6 +231,54 @@ pub async fn broadcast_read(
         dialog_id,
         user_id,
         last_read_message_id,
+    };
+
+    let json = match serde_json::to_string(&event) {
+        Ok(j) => j,
+        Err(_) => return,
+    };
+
+    let conns = connections.read().await;
+    for (_, tx) in conns.iter() {
+        let _ = tx.send(json.clone()).await;
+    }
+}
+
+pub async fn broadcast_message_edited(
+    connections: &Connections,
+    message: &crate::domain::Message,
+) {
+    let last_edited_at = match message.last_edited_at {
+        Some(ts) => ts,
+        None => return,
+    };
+
+    let event = WsEvent::MessageEdited {
+        id: message.id,
+        dialog_id: message.dialog_id,
+        content: message.content.clone(),
+        last_edited_at,
+    };
+
+    let json = match serde_json::to_string(&event) {
+        Ok(j) => j,
+        Err(_) => return,
+    };
+
+    let conns = connections.read().await;
+    for (_, tx) in conns.iter() {
+        let _ = tx.send(json.clone()).await;
+    }
+}
+
+pub async fn broadcast_message_deleted(
+    connections: &Connections,
+    dialog_id: Uuid,
+    message_id: Uuid,
+) {
+    let event = WsEvent::MessageDeleted {
+        id: message_id,
+        dialog_id,
     };
 
     let json = match serde_json::to_string(&event) {

@@ -364,8 +364,24 @@ docker-compose up -d
 | System messages | ✅ |
 | Message formatting (Tiptap) | ✅ |
 | User online status | ✅ |
+| Message editing & deletion | ✅ |
 
 ## Changelog
+
+### 2026-02-06 (v3.13) - Message Editing & Deletion
+- Edit and delete messages via dropdown menu (⋮)
+- Dropdown menu with Reply, Edit, Delete actions
+- Edit/Delete only available for own messages
+- "(ред.)" / "(edited)" badge on edited messages
+- Arrow Up keyboard shortcut to edit last own message when editor is empty
+- Edit mode preview above input (similar to reply preview)
+- Edit history saved to message_edit_history table in DB
+- WebSocket events: message.edited, message.deleted for real-time sync
+- Backend validation: only author can edit/delete, system messages protected
+- HTML sanitization preserved on edit
+- i18n translations for ru/en/zh
+- Esc key cancels edit mode
+- Click outside closes dropdown menu
 
 ### 2026-02-06 (v3.12) - User Online Status
 - Real-time online status tracking via Redis with 60s TTL

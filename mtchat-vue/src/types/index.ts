@@ -499,6 +499,8 @@ export interface UseChatReturn {
   firstUnreadMessageId: import('vue').Ref<string | null>
   /** Message being replied to */
   replyToMessage: import('vue').Ref<Message | null>
+  /** Message being edited */
+  editingMessage: import('vue').Ref<Message | null>
   /** Current search query for filtering dialogs */
   searchQuery: import('vue').Ref<string>
   /** Set of online user IDs */
@@ -513,6 +515,10 @@ export interface UseChatReturn {
   /** Set search query and reload dialogs */
   setSearchQuery: (query: string) => void
   sendMessage: (content: string, attachments?: AttachmentInput[]) => Promise<Message | undefined>
+  /** Edit a message */
+  editMessage: (messageId: string, content: string) => Promise<Message | undefined>
+  /** Delete a message */
+  deleteMessage: (messageId: string) => Promise<void>
   loadMessages: (options?: PaginationOptions) => Promise<void>
   loadParticipatingDialogs: () => Promise<void>
   loadAvailableDialogs: () => Promise<void>
@@ -532,6 +538,10 @@ export interface UseChatReturn {
   setReplyTo: (message: Message) => void
   /** Clear reply */
   clearReplyTo: () => void
+  /** Set message to edit */
+  setEditMessage: (message: Message) => void
+  /** Clear edit mode */
+  clearEditMessage: () => void
   /** Check if a user is currently online */
   isUserOnline: (userId: string) => boolean
 }

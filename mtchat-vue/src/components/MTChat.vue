@@ -114,6 +114,9 @@ const showHeaderMenu = ref(false)
 const showJoinDialog = ref(false)
 const isJoining = ref(false)
 
+// Message menu state
+const openMenuId = ref<string | null>(null)
+
 // Archived accordion state
 const showArchivedAccordion = ref(false)
 
@@ -345,6 +348,22 @@ function scrollToBottom() {
 async function handleEditorSubmit(htmlContent: string) {
   if (!canSendMessage.value) return
 
+  // Check if we're in edit mode
+  if (chat.editingMessage.value) {
+    const messageId = chat.editingMessage.value.id
+
+    // Clear editor
+    messageEditorRef.value?.clear()
+
+    try {
+      await chat.editMessage(messageId, htmlContent)
+    } catch (e) {
+      // Error already handled in composable
+    }
+    return
+  }
+
+  // Normal send mode
   const attachments = fileUpload.getUploadedAttachments()
 
   // Clear editor and attachments
@@ -439,6 +458,74 @@ async function handleToggleArchive() {
 function formatTime(dateString: string): string {
   const date = new Date(dateString)
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+// Message actions
+function canEditMessage(message: Message): boolean {
+  return message.sender_id === props.config.userId && message.message_type !== 'system'
+}
+
+function canDeleteMessage(message: Message): boolean {
+  return message.sender_id === props.config.userId && message.message_type !== 'system'
+}
+
+function toggleMessageMenu(messageId: string) {
+  openMenuId.value = openMenuId.value === messageId ? null : messageId
+}
+
+function closeMessageMenu() {
+  openMenuId.value = null
+}
+
+function handleReplyFromMenu(message: Message) {
+  closeMessageMenu()
+  chat.setReplyTo(message)
+}
+
+function handleEditFromMenu(message: Message) {
+  closeMessageMenu()
+  chat.setEditMessage(message)
+  // Focus editor and set content
+  nextTick(() => {
+    messageEditorRef.value?.setContent(message.content)
+    messageEditorRef.value?.focus()
+  })
+}
+
+async function handleDeleteFromMenu(message: Message) {
+  closeMessageMenu()
+  // Simple confirmation
+  if (window.confirm(t.value.chat.deleteConfirm)) {
+    try {
+      await chat.deleteMessage(message.id)
+    } catch (e) {
+      // Error handled in composable
+    }
+  }
+}
+
+// Arrow Up to edit last message
+function handleEditorArrowUp() {
+  if (!editorIsEmpty.value || chat.editingMessage.value) return
+
+  // Find last own message
+  const lastOwnMessage = [...chat.messages.value]
+    .reverse()
+    .find(m => m.sender_id === props.config.userId && m.message_type !== 'system')
+
+  if (lastOwnMessage && canEditMessage(lastOwnMessage)) {
+    chat.setEditMessage(lastOwnMessage)
+    nextTick(() => {
+      messageEditorRef.value?.setContent(lastOwnMessage.content)
+      messageEditorRef.value?.focus()
+    })
+  }
+}
+
+// Cancel edit mode
+function cancelEdit() {
+  chat.clearEditMessage()
+  messageEditorRef.value?.clear()
 }
 
 function getDateKey(dateString: string): string {
@@ -730,15 +817,34 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
-  // Esc - clear reply
-  if (e.key === 'Escape' && chat.replyToMessage.value) {
-    chat.clearReplyTo()
+  // Esc - close menu, clear edit, clear reply
+  if (e.key === 'Escape') {
+    if (openMenuId.value) {
+      closeMessageMenu()
+    } else if (chat.editingMessage.value) {
+      cancelEdit()
+    } else if (chat.replyToMessage.value) {
+      chat.clearReplyTo()
+    }
+  }
+}
+
+// Click outside to close menu
+function handleDocumentClick(e: MouseEvent) {
+  // Close message menu when clicking outside
+  if (openMenuId.value) {
+    const menu = (e.target as Element).closest('.mtchat__message-menu')
+    const btn = (e.target as Element).closest('.mtchat__action-btn')
+    if (!menu && !btn) {
+      closeMessageMenu()
+    }
   }
 }
 
 // Lifecycle - keyboard handlers and window resize
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
+  document.addEventListener('click', handleDocumentClick)
   window.addEventListener('resize', handleWindowResize)
 })
 
@@ -753,6 +859,7 @@ onUnmounted(() => {
     searchTimeout = null
   }
   document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', handleWindowResize)
   stopResize()
 })
@@ -1122,14 +1229,42 @@ defineExpose({
               <div class="mtchat__message-actions">
                 <button
                   class="mtchat__action-btn"
-                  :title="t.tooltips.reply"
-                  @click.stop="chat.setReplyTo(message)"
+                  :title="t.tooltips.menu"
+                  @click.stop="toggleMessageMenu(message.id)"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 14L4 9l5-5"/>
-                    <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+                    <circle cx="12" cy="5" r="1.5"/>
+                    <circle cx="12" cy="12" r="1.5"/>
+                    <circle cx="12" cy="19" r="1.5"/>
                   </svg>
                 </button>
+
+                <!-- Dropdown menu -->
+                <div v-if="openMenuId === message.id" class="mtchat__message-menu">
+                  <button @click.stop="handleReplyFromMenu(message)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M9 14L4 9l5-5"/>
+                      <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+                    </svg>
+                    {{ t.actions.reply }}
+                  </button>
+
+                  <button v-if="canEditMessage(message)" @click.stop="handleEditFromMenu(message)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    {{ t.actions.edit }}
+                  </button>
+
+                  <button v-if="canDeleteMessage(message)" @click.stop="handleDeleteFromMenu(message)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                    {{ t.actions.delete }}
+                  </button>
+                </div>
               </div>
 
               <!-- Quoted message (if reply) -->
@@ -1149,12 +1284,15 @@ defineExpose({
                 </div>
               </div>
 
-              <!-- Header: sender name + time -->
+              <!-- Header: sender name + time + edited badge -->
               <div class="mtchat__message-header">
                 <span class="mtchat__message-sender">
                   {{ message.sender_id ? getSenderDisplayName(message.sender_id) : '' }}
                 </span>
                 <span class="mtchat__message-time">{{ formatTime(message.sent_at) }}</span>
+                <span v-if="message.last_edited_at" class="mtchat__edited-badge">
+                  ({{ t.chat.edited }})
+                </span>
               </div>
 
               <!-- Content (HTML or plain text) -->
@@ -1201,8 +1339,24 @@ defineExpose({
           </button>
         </div>
         <template v-else-if="canSendMessage">
+          <!-- Edit Preview -->
+          <div v-if="chat.editingMessage.value" class="mtchat__edit-preview">
+            <div class="mtchat__edit-indicator"></div>
+            <div class="mtchat__edit-content">
+              <div class="mtchat__edit-label">{{ t.chat.editing }}</div>
+              <div class="mtchat__edit-text">
+                {{ truncateText(stripHtml(chat.editingMessage.value.content), 100) }}
+              </div>
+            </div>
+            <button class="mtchat__edit-cancel" @click="cancelEdit">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
           <!-- Reply Preview -->
-          <div v-if="chat.replyToMessage.value" class="mtchat__reply-preview">
+          <div v-if="chat.replyToMessage.value && !chat.editingMessage.value" class="mtchat__reply-preview">
             <div class="mtchat__reply-indicator"></div>
             <div class="mtchat__reply-content">
               <div class="mtchat__reply-author">
@@ -1245,6 +1399,7 @@ defineExpose({
             @submit="handleEditorSubmit"
             @update:is-empty="editorIsEmpty = $event"
             @attach="handleFileSelect"
+            @arrow-up="handleEditorArrowUp"
           />
         </template>
       </div>
@@ -2042,6 +2197,106 @@ button.mtchat__header-info:focus {
 .mtchat__action-btn:hover {
   background: var(--mtchat-bg-secondary);
   color: var(--mtchat-primary);
+}
+
+/* Message dropdown menu */
+.mtchat__message-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 140px;
+  background: var(--mtchat-bg);
+  border: 1px solid var(--mtchat-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.mtchat__message-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: var(--mtchat-text);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.mtchat__message-menu button:hover {
+  background: var(--mtchat-bg-hover);
+}
+
+.mtchat__message-menu button svg {
+  flex-shrink: 0;
+  color: var(--mtchat-text-secondary);
+}
+
+/* Edited badge */
+.mtchat__edited-badge {
+  font-size: 11px;
+  color: var(--mtchat-text-secondary);
+  font-style: italic;
+}
+
+/* Edit preview (above input) */
+.mtchat__edit-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--mtchat-bg-secondary);
+  border-radius: 6px;
+  border-left: 3px solid var(--mtchat-primary);
+}
+
+.mtchat__edit-indicator {
+  display: none;
+}
+
+.mtchat__edit-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mtchat__edit-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mtchat-primary);
+  margin-bottom: 2px;
+}
+
+.mtchat__edit-text {
+  font-size: 13px;
+  color: var(--mtchat-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mtchat__edit-cancel {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--mtchat-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mtchat__edit-cancel:hover {
+  background: var(--mtchat-bg-hover);
+  color: var(--mtchat-text);
 }
 
 /* Quoted message */

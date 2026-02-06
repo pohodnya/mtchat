@@ -126,6 +126,11 @@ struct SendMessageRequest {
     attachments: Vec<domain::AttachmentInput>,
 }
 
+#[derive(Debug, Deserialize)]
+struct EditMessageRequest {
+    content: String,
+}
+
 // ============ Upload DTOs ============
 
 #[derive(Debug, Deserialize)]
@@ -904,11 +909,68 @@ async fn get_message(
     Ok(Json(ApiResponse { data: message }))
 }
 
+async fn edit_message(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+    Path((dialog_id, message_id)): Path<(Uuid, Uuid)>,
+    Json(req): Json<EditMessageRequest>,
+) -> Result<Json<ApiResponse<Message>>, ApiError> {
+    // Find message
+    let message = state.messages.find_by_id_and_dialog(message_id, dialog_id).await?
+        .ok_or_else(|| ApiError::NotFound("Message not found".into()))?;
+
+    // Check ownership (only author can edit)
+    if message.sender_id != Some(user_id) {
+        return Err(ApiError::Forbidden("Can only edit own messages".into()));
+    }
+
+    // Can't edit system messages
+    if message.message_type != domain::MessageType::User {
+        return Err(ApiError::BadRequest("Cannot edit system messages".into()));
+    }
+
+    // Save old content to history
+    state.messages.save_edit_history(message_id, &message.content).await?;
+
+    // Sanitize and update content
+    let sanitized = domain::sanitize_html(&req.content);
+    let updated = state.messages.update_content(message_id, &sanitized).await?
+        .ok_or_else(|| ApiError::Internal("Failed to update message".into()))?;
+
+    // Broadcast via WebSocket
+    ws::broadcast_message_edited(&state.connections, &updated).await;
+
+    Ok(Json(ApiResponse { data: updated }))
+}
+
+async fn delete_message(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+    Path((dialog_id, message_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    // Find message
+    let message = state.messages.find_by_id_and_dialog(message_id, dialog_id).await?
+        .ok_or_else(|| ApiError::NotFound("Message not found".into()))?;
+
+    // Check ownership
+    if message.sender_id != Some(user_id) {
+        return Err(ApiError::Forbidden("Can only delete own messages".into()));
+    }
+
+    // Delete message
+    state.messages.delete(message_id).await?;
+
+    // Broadcast via WebSocket
+    ws::broadcast_message_deleted(&state.connections, dialog_id, message_id).await;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
 // ============ Handlers: Upload ============
 
 async fn presign_upload(
     State(state): State<AppState>,
-    UserId(user_id): UserId,
+    UserId(_user_id): UserId,
     Json(req): Json<PresignUploadRequest>,
 ) -> Result<Json<ApiResponse<PresignUploadResponse>>, ApiError> {
     // Check S3 is configured
@@ -1186,7 +1248,7 @@ async fn main() {
 
         // Chat API - Messages
         .route("/api/v1/dialogs/{dialog_id}/messages", get(list_messages).post(send_message))
-        .route("/api/v1/dialogs/{dialog_id}/messages/{id}", get(get_message))
+        .route("/api/v1/dialogs/{dialog_id}/messages/{id}", get(get_message).put(edit_message).delete(delete_message))
 
         // Upload API
         .route("/api/v1/upload/presign", post(presign_upload))
