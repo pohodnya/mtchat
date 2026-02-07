@@ -604,11 +604,12 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   // ============ Event Handlers ============
 
-  function handleMessageNew(event: { payload?: { message?: Message }; id?: string; dialog_id?: string; sender_id?: string; content?: string; sent_at?: string }): void {
+  function handleMessageNew(event: { payload?: { message?: Message }; id?: string; dialog_id?: string; sender_id?: string; content?: string; sent_at?: string; message_type?: string }): void {
     // Support both formats:
     // 1. { payload: { message: {...} } } - expected format
     // 2. { id, dialog_id, sender_id, content, sent_at } - backend format
     let message: Message | undefined = event.payload?.message
+    const messageType = event.message_type || message?.message_type
 
     if (!message && event.id && event.dialog_id) {
       // Backend sends flat structure
@@ -618,6 +619,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         sender_id: event.sender_id!,
         content: event.content!,
         sent_at: event.sent_at!,
+        message_type: messageType as Message['message_type'],
       }
     }
 
@@ -625,6 +627,31 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     // Update last_message_at for the dialog (even if not current dialog)
     updateDialogLastMessageAt(message.dialog_id, message.sent_at)
+
+    // Increment unread_count for messages from other users (not system messages)
+    const isFromOtherUser = message.sender_id !== config.userId
+    const isSystemMessage = messageType === 'system'
+    const isCurrentlyViewingDialog = currentDialog.value?.id === message.dialog_id
+
+    if (isFromOtherUser && !isSystemMessage && !isCurrentlyViewingDialog) {
+      // Increment unread in participating dialogs
+      const activeIdx = participatingDialogs.value.findIndex((d) => d.id === message!.dialog_id)
+      if (activeIdx !== -1) {
+        participatingDialogs.value[activeIdx] = {
+          ...participatingDialogs.value[activeIdx],
+          unread_count: (participatingDialogs.value[activeIdx].unread_count || 0) + 1,
+        }
+      }
+
+      // Increment unread in archived dialogs
+      const archivedIdx = archivedDialogs.value.findIndex((d) => d.id === message!.dialog_id)
+      if (archivedIdx !== -1) {
+        archivedDialogs.value[archivedIdx] = {
+          ...archivedDialogs.value[archivedIdx],
+          unread_count: (archivedDialogs.value[archivedIdx].unread_count || 0) + 1,
+        }
+      }
+    }
 
     // Only add message to local list if it's for the current dialog
     if (currentDialog.value && message.dialog_id === currentDialog.value.id) {
