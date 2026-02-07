@@ -45,10 +45,6 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   // Track subscribed dialog
   let subscribedDialogId: string | null = null
 
-  // Presence refresh interval
-  let presenceRefreshInterval: ReturnType<typeof setInterval> | null = null
-  const PRESENCE_REFRESH_MS = 15000 // Refresh online statuses every 15 seconds
-
   // ============ Connection ============
 
   function connect(): void {
@@ -673,23 +669,6 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     if (!message) return
 
-    // Mark sender as online (if they sent a message, they must be online)
-    if (message.sender_id && message.sender_id !== config.userId) {
-      const newSet = new Set(onlineUsers.value)
-      newSet.add(message.sender_id)
-      onlineUsers.value = newSet
-
-      // Also update participant in the list
-      const idx = participants.value.findIndex((p) => p.user_id === message.sender_id)
-      if (idx !== -1 && !participants.value[idx].is_online) {
-        participants.value = [
-          ...participants.value.slice(0, idx),
-          { ...participants.value[idx], is_online: true },
-          ...participants.value.slice(idx + 1),
-        ]
-      }
-    }
-
     // Update last_message_at for the dialog (even if not current dialog)
     updateDialogLastMessageAt(message.dialog_id, message.sent_at)
 
@@ -873,68 +852,32 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   // ============ Lifecycle ============
 
-  // Browser online/offline handlers
-  function handleBrowserOffline() {
-    isConnected.value = false
-    // Remove current user from onlineUsers immediately
-    const newSet = new Set(onlineUsers.value)
-    newSet.delete(config.userId)
-    onlineUsers.value = newSet
-  }
-
-  function handleBrowserOnline() {
-    // Reconnect WebSocket when browser comes back online
-    client.disconnect()
-    client.connect()
-  }
-
   onMounted(async () => {
-    // Listen for browser online/offline events
-    window.addEventListener('offline', handleBrowserOffline)
-    window.addEventListener('online', handleBrowserOnline)
-
     // Set up event handlers
     client.on('connected', () => {
       isConnected.value = true
-      // Add current user to onlineUsers (we are now online)
-      const newSet = new Set(onlineUsers.value)
-      newSet.add(config.userId)
-      onlineUsers.value = newSet
-      // Reload participants to get fresh online statuses
+      // Reload participants to get current online statuses
       if (currentDialog.value?.i_am_participant) {
         loadParticipants()
       }
-      // Start periodic presence refresh
-      if (presenceRefreshInterval) {
-        clearInterval(presenceRefreshInterval)
-      }
-      presenceRefreshInterval = setInterval(() => {
-        if (currentDialog.value?.i_am_participant) {
-          loadParticipants()
-        }
-      }, PRESENCE_REFRESH_MS)
     })
 
     client.on('disconnected' as any, () => {
       isConnected.value = false
-      // Remove current user from onlineUsers (we are now offline)
-      const newSet = new Set(onlineUsers.value)
-      newSet.delete(config.userId)
-      onlineUsers.value = newSet
-      // Stop presence refresh
-      if (presenceRefreshInterval) {
-        clearInterval(presenceRefreshInterval)
-        presenceRefreshInterval = null
-      }
+      // Clear online users - we don't know their status when disconnected
+      onlineUsers.value = new Set()
     })
 
+    // Real-time presence updates from server
+    client.on('presence.update', handlePresenceUpdate as any)
+
+    // Other events
     client.on('message.new', handleMessageNew as any)
     client.on('message.read', handleMessageRead as any)
     client.on('message.edited', handleMessageEdited as any)
     client.on('message.deleted', handleMessageDeleted as any)
     client.on('participant.joined', handleParticipantJoined as any)
     client.on('participant.left', handleParticipantLeft as any)
-    client.on('presence.update', handlePresenceUpdate as any)
 
     // Auto-connect
     if (autoConnect) {
@@ -957,17 +900,6 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   })
 
   onUnmounted(() => {
-    // Cleanup event listeners
-    window.removeEventListener('offline', handleBrowserOffline)
-    window.removeEventListener('online', handleBrowserOnline)
-
-    // Cleanup presence refresh interval
-    if (presenceRefreshInterval) {
-      clearInterval(presenceRefreshInterval)
-      presenceRefreshInterval = null
-    }
-
-    // Cleanup WebSocket
     if (subscribedDialogId) {
       client.unsubscribe(subscribedDialogId)
     }
