@@ -852,7 +852,26 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   // ============ Lifecycle ============
 
+  // Browser online/offline handlers
+  function handleBrowserOffline() {
+    isConnected.value = false
+    // Remove current user from onlineUsers immediately
+    const newSet = new Set(onlineUsers.value)
+    newSet.delete(config.userId)
+    onlineUsers.value = newSet
+  }
+
+  function handleBrowserOnline() {
+    // Reconnect WebSocket when browser comes back online
+    client.disconnect()
+    client.connect()
+  }
+
   onMounted(async () => {
+    // Listen for browser online/offline events
+    window.addEventListener('offline', handleBrowserOffline)
+    window.addEventListener('online', handleBrowserOnline)
+
     // Set up event handlers
     client.on('connected', () => {
       isConnected.value = true
@@ -903,7 +922,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   })
 
   onUnmounted(() => {
-    // Cleanup
+    // Cleanup event listeners
+    window.removeEventListener('offline', handleBrowserOffline)
+    window.removeEventListener('online', handleBrowserOnline)
+
+    // Cleanup WebSocket
     if (subscribedDialogId) {
       client.unsubscribe(subscribedDialogId)
     }
