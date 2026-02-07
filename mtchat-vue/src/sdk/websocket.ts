@@ -66,6 +66,11 @@ export class MTChatWebSocket {
     this.subscribedDialogs.clear()
 
     if (this.ws) {
+      // Remove event handlers before closing to prevent stale callbacks
+      this.ws.onopen = null
+      this.ws.onclose = null
+      this.ws.onerror = null
+      this.ws.onmessage = null
       this.ws.close()
       this.ws = null
     }
