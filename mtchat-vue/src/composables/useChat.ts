@@ -45,6 +45,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   // Track subscribed dialog
   let subscribedDialogId: string | null = null
 
+  // Presence refresh interval
+  let presenceRefreshInterval: ReturnType<typeof setInterval> | null = null
+  const PRESENCE_REFRESH_MS = 15000 // Refresh online statuses every 15 seconds
+
   // ============ Connection ============
 
   function connect(): void {
@@ -900,6 +904,15 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       if (currentDialog.value?.i_am_participant) {
         loadParticipants()
       }
+      // Start periodic presence refresh
+      if (presenceRefreshInterval) {
+        clearInterval(presenceRefreshInterval)
+      }
+      presenceRefreshInterval = setInterval(() => {
+        if (currentDialog.value?.i_am_participant) {
+          loadParticipants()
+        }
+      }, PRESENCE_REFRESH_MS)
     })
 
     client.on('disconnected' as any, () => {
@@ -908,6 +921,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       const newSet = new Set(onlineUsers.value)
       newSet.delete(config.userId)
       onlineUsers.value = newSet
+      // Stop presence refresh
+      if (presenceRefreshInterval) {
+        clearInterval(presenceRefreshInterval)
+        presenceRefreshInterval = null
+      }
     })
 
     client.on('message.new', handleMessageNew as any)
@@ -942,6 +960,12 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     // Cleanup event listeners
     window.removeEventListener('offline', handleBrowserOffline)
     window.removeEventListener('online', handleBrowserOnline)
+
+    // Cleanup presence refresh interval
+    if (presenceRefreshInterval) {
+      clearInterval(presenceRefreshInterval)
+      presenceRefreshInterval = null
+    }
 
     // Cleanup WebSocket
     if (subscribedDialogId) {
