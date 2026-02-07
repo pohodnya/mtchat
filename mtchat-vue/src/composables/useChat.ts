@@ -138,6 +138,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       client.unsubscribe(subscribedDialogId)
     }
 
+    // Clear messages from previous dialog so the watch can detect initial load
+    messages.value = []
+    firstUnreadMessageId.value = null
+
     // Find dialog in our lists (active, archived, or available)
     let dialog = participatingDialogs.value.find((d) => d.id === id)
     if (!dialog) {
@@ -356,9 +360,9 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         // Prepend older messages
         messages.value = [...response.messages, ...messages.value]
       } else {
-        messages.value = response.messages
-        // Set first unread message ID for divider
+        // Set first unread message ID BEFORE messages so the watcher sees it
         firstUnreadMessageId.value = response.first_unread_message_id || null
+        messages.value = response.messages
       }
     } catch (e) {
       // 403 = not a participant, expected for potential participants
