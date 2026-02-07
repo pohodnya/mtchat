@@ -856,10 +856,22 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     // Set up event handlers
     client.on('connected', () => {
       isConnected.value = true
+      // Add current user to onlineUsers (we are now online)
+      const newSet = new Set(onlineUsers.value)
+      newSet.add(config.userId)
+      onlineUsers.value = newSet
+      // Reload participants to get fresh online statuses
+      if (currentDialog.value?.i_am_participant) {
+        loadParticipants()
+      }
     })
 
     client.on('disconnected' as any, () => {
       isConnected.value = false
+      // Remove current user from onlineUsers (we are now offline)
+      const newSet = new Set(onlineUsers.value)
+      newSet.delete(config.userId)
+      onlineUsers.value = newSet
     })
 
     client.on('message.new', handleMessageNew as any)
