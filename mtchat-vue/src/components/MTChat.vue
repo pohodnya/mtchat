@@ -495,6 +495,16 @@ async function handleTogglePin() {
   }
 }
 
+async function handleToggleNotifications() {
+  if (!chat.currentDialog.value) return
+
+  try {
+    await chat.toggleNotifications(chat.currentDialog.value.id)
+  } catch (e) {
+    // Error handled in composable
+  }
+}
+
 // Context menu handlers
 function handleDialogContextMenu(e: MouseEvent, dialog: DialogListItem): void {
   e.preventDefault()
@@ -556,6 +566,16 @@ async function handleContextArchive(): Promise<void> {
     } else {
       await chat.archiveDialog(dialog.id)
     }
+  } catch (e) {
+    // Error handled in composable
+  }
+  closeContextMenu()
+}
+
+async function handleContextNotifications(): Promise<void> {
+  if (!contextMenu.value) return
+  try {
+    await chat.toggleNotifications(contextMenu.value.dialog.id)
   } catch (e) {
     // Error handled in composable
   }
@@ -1009,6 +1029,7 @@ defineExpose({
   unarchiveDialog: chat.unarchiveDialog,
   pinDialog: chat.pinDialog,
   unpinDialog: chat.unpinDialog,
+  toggleNotifications: chat.toggleNotifications,
 })
 </script>
 
@@ -1101,6 +1122,24 @@ defineExpose({
               fill="currentColor"
             >
               <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/>
+            </svg>
+            <!-- Muted icon for dialogs with notifications disabled -->
+            <svg
+              v-if="dialog.notifications_enabled === false"
+              class="mtchat__muted-icon"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              :title="t.tooltips.muted"
+            >
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
+              <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
+              <path d="M18 8a6 6 0 0 0-9.33-5"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
             </svg>
             <div class="mtchat__dialog-content">
               <div class="mtchat__dialog-title">
@@ -1195,6 +1234,21 @@ defineExpose({
             </svg>
             {{ contextMenu.dialog.is_pinned ? t.buttons.unpin : t.buttons.pin }}
           </button>
+          <!-- Notifications toggle (only for participating dialogs) -->
+          <button v-if="contextMenu.dialog.i_am_participant" @click="handleContextNotifications">
+            <svg v-if="contextMenu.dialog.notifications_enabled !== false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
+              <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
+              <path d="M18 8a6 6 0 0 0-9.33-5"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+            {{ contextMenu.dialog.notifications_enabled !== false ? t.buttons.muteNotifications : t.buttons.unmuteNotifications }}
+          </button>
           <!-- Archive/Unarchive (only for participating dialogs) -->
           <button v-if="contextMenu.dialog.i_am_participant" @click="handleContextArchive">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1287,6 +1341,25 @@ defineExpose({
                   <path d="M12 8h.01"/>
                 </svg>
                 {{ t.buttons.info }}
+              </button>
+              <!-- Notifications toggle -->
+              <button
+                class="mtchat__menu-item"
+                @click="handleToggleNotifications(); showHeaderMenu = false"
+                :disabled="chat.isLoading.value"
+              >
+                <svg v-if="chat.currentDialog.value?.notifications_enabled !== false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
+                  <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
+                  <path d="M18 8a6 6 0 0 0-9.33-5"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+                {{ chat.currentDialog.value?.notifications_enabled !== false ? t.buttons.muteNotifications : t.buttons.unmuteNotifications }}
               </button>
               <button
                 v-if="!chat.currentDialog.value?.is_archived"
@@ -1894,6 +1967,13 @@ defineExpose({
 
 /* Pin icon in dialog list */
 .mtchat__pin-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--mtchat-text-secondary);
+}
+
+/* Muted icon in dialog list */
+.mtchat__muted-icon {
   flex-shrink: 0;
   margin-top: 2px;
   color: var(--mtchat-text-secondary);

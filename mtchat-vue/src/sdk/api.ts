@@ -224,6 +224,15 @@ export class MTChatApi {
   }
 
   /**
+   * Set notification preference for a dialog
+   */
+  async setDialogNotifications(dialogId: string, enabled: boolean): Promise<void> {
+    await this.request<{ status: string }>('POST', `/api/v1/dialogs/${dialogId}/notifications`, {
+      body: { enabled },
+    })
+  }
+
+  /**
    * Get dialog participants
    */
   async getParticipants(dialogId: string): Promise<DialogParticipant[]> {

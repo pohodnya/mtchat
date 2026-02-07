@@ -131,6 +131,11 @@ struct EditMessageRequest {
     content: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct SetNotificationsRequest {
+    enabled: bool,
+}
+
 // ============ Upload DTOs ============
 
 #[derive(Debug, Deserialize)]
@@ -208,6 +213,8 @@ struct DialogResponse {
     is_archived: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     is_pinned: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    notifications_enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     last_message_at: Option<chrono::DateTime<chrono::Utc>>,
 }
@@ -468,15 +475,16 @@ async fn list_dialogs(
         let participants_count = state.dialogs.count_participants(dialog.id).await?;
 
         // Get participant info for participating dialogs
-        let (unread_count, is_archived, is_pinned) = if dialog_type == "participating" {
+        let (unread_count, is_archived, is_pinned, notifications_enabled) = if dialog_type == "participating" {
             let participant = state.participants.find(dialog.id, user_id).await?;
             (
                 participant.as_ref().map(|p| p.unread_count as i64),
                 participant.as_ref().map(|p| p.is_archived),
                 participant.as_ref().map(|p| p.is_pinned),
+                participant.as_ref().map(|p| p.notifications_enabled),
             )
         } else {
-            (None, None, None)
+            (None, None, None, None)
         };
 
         let last_message_at = last_message_map.get(&dialog.id).copied();
@@ -489,6 +497,7 @@ async fn list_dialogs(
             unread_count,
             is_archived,
             is_pinned,
+            notifications_enabled,
             last_message_at,
         });
     }
@@ -539,6 +548,7 @@ async fn get_dialog_by_object(
                 unread_count: None,
                 is_archived: None,
                 is_pinned: None,
+                notifications_enabled: None,
                 last_message_at,
             })
         }))
@@ -700,6 +710,24 @@ async fn unpin_dialog(
     state.participants.set_pinned(dialog_id, user_id, false).await?;
 
     Ok(Json(serde_json::json!({ "status": "unpinned" })))
+}
+
+async fn set_dialog_notifications(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+    Path(dialog_id): Path<Uuid>,
+    Json(body): Json<SetNotificationsRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    // Check user is participant
+    if !state.participants.exists(dialog_id, user_id).await? {
+        return Err(ApiError::Forbidden("Not a participant".into()));
+    }
+
+    state.participants.set_notifications(dialog_id, user_id, body.enabled).await?;
+
+    Ok(Json(serde_json::json!({
+        "status": if body.enabled { "enabled" } else { "disabled" }
+    })))
 }
 
 async fn get_dialog(
@@ -1292,6 +1320,7 @@ async fn main() {
         .route("/api/v1/dialogs/{id}/unarchive", post(unarchive_dialog))
         .route("/api/v1/dialogs/{id}/pin", post(pin_dialog))
         .route("/api/v1/dialogs/{id}/unpin", post(unpin_dialog))
+        .route("/api/v1/dialogs/{id}/notifications", post(set_dialog_notifications))
         .route("/api/v1/dialogs/{id}/read", post(mark_as_read))
         .route("/api/v1/dialogs/{id}/participants", get(list_participants))
 

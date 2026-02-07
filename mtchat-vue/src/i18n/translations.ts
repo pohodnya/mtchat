@@ -30,6 +30,8 @@ export interface TranslationStrings {
     unarchive: string
     pin: string
     unpin: string
+    muteNotifications: string
+    unmuteNotifications: string
   }
   chat: {
     participants: string
@@ -68,6 +70,7 @@ export interface TranslationStrings {
     scrollDown: string
     close: string
     back: string
+    muted: string
   }
   formatting: {
     bold: string
@@ -166,6 +169,8 @@ export const translations: Record<Locale, TranslationStrings> = {
       unarchive: 'Разархивировать',
       pin: 'Закрепить',
       unpin: 'Открепить',
+      muteNotifications: 'Отключить уведомления',
+      unmuteNotifications: 'Включить уведомления',
     },
     chat: {
       participants: '{count} участников',
@@ -204,6 +209,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       scrollDown: 'Вниз',
       close: 'Закрыть',
       back: 'Назад',
+      muted: 'Уведомления отключены',
     },
     formatting: {
       bold: 'Жирный',
@@ -301,6 +307,8 @@ export const translations: Record<Locale, TranslationStrings> = {
       unarchive: 'Unarchive',
       pin: 'Pin',
       unpin: 'Unpin',
+      muteNotifications: 'Mute notifications',
+      unmuteNotifications: 'Unmute notifications',
     },
     chat: {
       participants: '{count} participants',
@@ -339,6 +347,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       scrollDown: 'Scroll down',
       close: 'Close',
       back: 'Back',
+      muted: 'Notifications muted',
     },
     formatting: {
       bold: 'Bold',
@@ -436,6 +445,8 @@ export const translations: Record<Locale, TranslationStrings> = {
       unarchive: '取消归档',
       pin: '置顶',
       unpin: '取消置顶',
+      muteNotifications: '关闭通知',
+      unmuteNotifications: '开启通知',
     },
     chat: {
       participants: '{count} 位参与者',
@@ -474,6 +485,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       scrollDown: '向下滚动',
       close: '关闭',
       back: '返回',
+      muted: '通知已关闭',
     },
     formatting: {
       bold: '粗体',

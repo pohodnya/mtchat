@@ -369,8 +369,17 @@ docker-compose up -d
 | User online status | ✅ |
 | Message editing & deletion | ✅ |
 | Chat pinning | ✅ |
+| Per-chat notification toggle | ✅ |
 
 ## Changelog
+
+### 2026-02-07 (v3.15) - Per-Chat Notification Toggle
+- Mute/unmute notifications for individual chats
+- Toggle via header menu (⋮) or context menu (right-click)
+- Bell-off icon displayed in chat list for muted chats
+- API endpoint: POST /dialogs/{id}/notifications with { enabled: bool }
+- `notifications_enabled` field in dialog list API response
+- i18n translations for mute/unmute (ru/en/zh)
 
 ### 2026-02-07 (v3.14) - Chat Pinning & Sorting
 - Pin/unpin chats via header menu (⋮) or context menu (right-click)

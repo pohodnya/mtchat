@@ -38,6 +38,8 @@ export interface DialogListItem extends Dialog {
   is_archived?: boolean
   /** Whether dialog is pinned for current user */
   is_pinned?: boolean
+  /** Whether notifications are enabled for current user */
+  notifications_enabled?: boolean
   /** Timestamp of the last message in this dialog */
   last_message_at?: string
 }
@@ -540,6 +542,8 @@ export interface UseChatReturn {
   pinDialog: (dialogId: string) => Promise<void>
   /** Unpin a dialog for current user */
   unpinDialog: (dialogId: string) => Promise<void>
+  /** Toggle notifications for a dialog */
+  toggleNotifications: (dialogId: string) => Promise<void>
   subscribe: (dialogId: string) => void
   unsubscribe: (dialogId: string) => void
   /** Mark messages as read up to specified message */

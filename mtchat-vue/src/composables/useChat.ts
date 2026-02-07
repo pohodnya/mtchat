@@ -339,6 +339,46 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  // ============ Notifications ============
+
+  async function toggleNotifications(dialogId: string): Promise<void> {
+    try {
+      error.value = null
+
+      // Find current state in active or archived dialogs
+      const dialog =
+        participatingDialogs.value.find((d) => d.id === dialogId) ||
+        archivedDialogs.value.find((d) => d.id === dialogId)
+
+      const newEnabled = !(dialog?.notifications_enabled ?? true)
+
+      await client.api.setDialogNotifications(dialogId, newEnabled)
+
+      // Update local state in active dialogs
+      const activeDialog = participatingDialogs.value.find((d) => d.id === dialogId)
+      if (activeDialog) {
+        activeDialog.notifications_enabled = newEnabled
+      }
+
+      // Update local state in archived dialogs
+      const archivedDialog = archivedDialogs.value.find((d) => d.id === dialogId)
+      if (archivedDialog) {
+        archivedDialog.notifications_enabled = newEnabled
+      }
+
+      // Update current dialog if it's the one we toggled
+      if (currentDialog.value?.id === dialogId) {
+        currentDialog.value = {
+          ...currentDialog.value,
+          notifications_enabled: newEnabled,
+        }
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    }
+  }
+
   // ============ Messages ============
 
   async function loadMessages(opts?: PaginationOptions): Promise<void> {
@@ -897,6 +937,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     unarchiveDialog,
     pinDialog,
     unpinDialog,
+    toggleNotifications,
     subscribe,
     unsubscribe,
     markAsRead,
