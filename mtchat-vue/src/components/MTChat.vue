@@ -498,9 +498,32 @@ async function handleTogglePin() {
 // Context menu handlers
 function handleDialogContextMenu(e: MouseEvent, dialog: DialogListItem): void {
   e.preventDefault()
+
+  // Menu dimensions (approximate)
+  const menuWidth = 160
+  const menuHeight = 80
+
+  // Calculate position, keeping menu within viewport
+  let x = e.clientX
+  let y = e.clientY
+
+  // Check right edge
+  if (x + menuWidth > window.innerWidth) {
+    x = window.innerWidth - menuWidth - 8
+  }
+
+  // Check bottom edge
+  if (y + menuHeight > window.innerHeight) {
+    y = window.innerHeight - menuHeight - 8
+  }
+
+  // Ensure not negative
+  x = Math.max(8, x)
+  y = Math.max(8, y)
+
   contextMenu.value = {
-    x: e.clientX,
-    y: e.clientY,
+    x,
+    y,
     dialog,
   }
 }
