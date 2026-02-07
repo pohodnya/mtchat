@@ -669,6 +669,23 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     if (!message) return
 
+    // Mark sender as online (if they sent a message, they must be online)
+    if (message.sender_id && message.sender_id !== config.userId) {
+      const newSet = new Set(onlineUsers.value)
+      newSet.add(message.sender_id)
+      onlineUsers.value = newSet
+
+      // Also update participant in the list
+      const idx = participants.value.findIndex((p) => p.user_id === message.sender_id)
+      if (idx !== -1 && !participants.value[idx].is_online) {
+        participants.value = [
+          ...participants.value.slice(0, idx),
+          { ...participants.value[idx], is_online: true },
+          ...participants.value.slice(idx + 1),
+        ]
+      }
+    }
+
     // Update last_message_at for the dialog (even if not current dialog)
     updateDialogLastMessageAt(message.dialog_id, message.sent_at)
 
