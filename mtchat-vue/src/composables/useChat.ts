@@ -852,14 +852,28 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   // ============ Lifecycle ============
 
+  // Track if we've connected before (to distinguish reconnect from initial connect)
+  let hasConnectedBefore = false
+
   onMounted(async () => {
     // Set up event handlers
-    client.on('connected', () => {
+    client.on('connected', async () => {
       isConnected.value = true
-      // Reload participants to get current online statuses
-      if (currentDialog.value?.i_am_participant) {
-        loadParticipants()
+
+      // On reconnect, reload data that may have changed while disconnected
+      if (hasConnectedBefore) {
+        // Reload dialog lists
+        loadParticipatingDialogs().catch(() => {})
+        loadAvailableDialogs().catch(() => {})
+
+        // Reload current dialog data
+        if (currentDialog.value?.i_am_participant) {
+          loadMessages().catch(() => {})
+          loadParticipants().catch(() => {})
+        }
       }
+
+      hasConnectedBefore = true
     })
 
     client.on('disconnected' as any, () => {
