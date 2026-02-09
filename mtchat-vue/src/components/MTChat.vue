@@ -1432,8 +1432,9 @@ defineExpose({
         </div>
       </div>
 
-      <!-- Messages (only for participants) -->
-      <div v-else ref="messagesContainer" class="mtchat__messages" @scroll="handleScroll">
+      <!-- Messages wrapper (contains scrollable messages + scroll button) -->
+      <div v-else class="mtchat__messages-wrapper">
+        <div ref="messagesContainer" class="mtchat__messages" @scroll="handleScroll">
         <!-- Floating sticky date (appears when scrolled 40px+) -->
         <div v-if="stickyDate" class="mtchat__sticky-date">
           <span>{{ stickyDate }}</span>
@@ -1572,22 +1573,23 @@ defineExpose({
           </div>
         </template>
 
-        <div v-if="chat.messages.value.length === 0" class="mtchat__empty">
-          {{ t.chat.noMessages }}
+          <div v-if="chat.messages.value.length === 0" class="mtchat__empty">
+            {{ t.chat.noMessages }}
+          </div>
         </div>
-      </div>
 
-      <!-- Scroll to bottom button (fixed position, outside scroll container) -->
-      <button
-        v-if="showScrollButton && hasDialog"
-        class="mtchat__scroll-bottom"
-        :title="t.tooltips.scrollDown"
-        @click="handleScrollToBottom"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </button>
+        <!-- Scroll to bottom button (inside wrapper, positioned at bottom-right of messages area) -->
+        <button
+          v-if="showScrollButton"
+          class="mtchat__scroll-bottom"
+          :title="t.tooltips.scrollDown"
+          @click="handleScrollToBottom"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+      </div>
 
       <!-- Input Area -->
       <div v-if="hasDialog" class="mtchat__input-area">
@@ -2675,10 +2677,20 @@ button.mtchat__header-info:focus {
   100% { background: transparent; }
 }
 
+/* Messages wrapper (contains scrollable area + scroll button) */
+.mtchat__messages-wrapper {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Scroll to bottom button */
 .mtchat__scroll-bottom {
   position: absolute;
-  bottom: 84px; /* input area (~68px) + 16px spacing */
+  bottom: 16px;
   right: 16px;
   width: 36px;
   height: 36px;
