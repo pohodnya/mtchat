@@ -22,11 +22,22 @@
         :show-header="true"
         :show-sidebar="true"
         :theme="settings.theme"
+        header-menu-action="Действие-заглушка"
         @connected="onConnected"
         @disconnected="onDisconnected"
         @error="onError"
         @message-sent="onMessageSent"
+        @header-menu-action="onHeaderMenuAction"
       >
+        <!-- Custom icon for header menu action -->
+        <template #header-menu-action-icon>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </template>
+
         <!-- Custom action button in sidebar -->
         <template #sidebar-action>
           <button
@@ -54,6 +65,19 @@
         Chat creation form will be here
       </p>
     </Dialog>
+
+    <!-- Stub Dialog -->
+    <Dialog
+      v-model:visible="showStubDialog"
+      header="Заглушка"
+      :modal="true"
+      :closable="true"
+      :style="{ width: '300px' }"
+    >
+      <p class="stub-dialog-content">
+        Заглушка
+      </p>
+    </Dialog>
   </TMSLayout>
   <Toast />
 </template>
@@ -74,6 +98,9 @@ const { getTenant } = useTenants()
 
 // Create chat dialog
 const showCreateDialog = ref(false)
+
+// Stub dialog
+const showStubDialog = ref(false)
 
 // Build chat config from current user
 const chatConfig = computed<MTChatConfig>(() => {
@@ -143,6 +170,10 @@ function onError(error: Error) {
 
 function onMessageSent(message: Message) {
   console.log('Message sent:', message)
+}
+
+function onHeaderMenuAction() {
+  showStubDialog.value = true
 }
 </script>
 
@@ -233,5 +264,12 @@ function onMessageSent(message: Message) {
   text-align: center;
   padding: 24px;
   margin: 0;
+}
+
+.stub-dialog-content {
+  text-align: center;
+  padding: 24px;
+  margin: 0;
+  color: var(--p-text-color, #e0e0e0);
 }
 </style>

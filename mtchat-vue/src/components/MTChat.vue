@@ -31,6 +31,8 @@ const props = withDefaults(
     showHeader?: boolean
     showSidebar?: boolean
     theme?: 'light' | 'dark'
+    /** Custom action label in header menu (before "Leave chat") */
+    headerMenuAction?: string
   }>(),
   {
     mode: 'full',
@@ -49,6 +51,7 @@ const emit = defineEmits<{
   'dialog-selected': [dialog: DialogListItem]
   'dialog-joined': [dialogId: string]
   'dialog-left': [dialogId: string]
+  'header-menu-action': [dialog: DialogListItem]
 }>()
 
 // i18n setup - provide locale to child components and get i18n for this component
@@ -1510,6 +1513,23 @@ defineExpose({
                 </svg>
                 {{ chat.currentDialog.value?.is_archived ? t.buttons.unarchive : t.buttons.archive }}
               </button>
+              <!-- Custom action before Leave (if prop provided) -->
+              <button
+                v-if="props.headerMenuAction"
+                class="mtchat__menu-item"
+                @click="emit('header-menu-action', chat.currentDialog.value!); showHeaderMenu = false"
+              >
+                <slot name="header-menu-action-icon">
+                  <!-- Default icon if no slot provided -->
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="1"/>
+                    <circle cx="12" cy="5" r="1"/>
+                    <circle cx="12" cy="19" r="1"/>
+                  </svg>
+                </slot>
+                {{ props.headerMenuAction }}
+              </button>
+
               <button
                 class="mtchat__menu-item mtchat__menu-item--danger"
                 @click="handleLeaveDialog(); showHeaderMenu = false"
