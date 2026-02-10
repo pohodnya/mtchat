@@ -46,7 +46,7 @@
           @mousemove="onDrag"
           @mouseup="endDrag"
           @mouseleave="endDrag"
-          @wheel="handleContentWheel"
+          @wheel="handleWheel"
           @click.stop
         >
           <!-- Image -->
@@ -100,7 +100,13 @@
           <template v-else>
             <div class="viewer-file-preview">
               <component :is="getFileIcon(currentFile?.content_type)" class="viewer-file-icon" />
-              <span class="viewer-file-name">{{ currentFile?.filename }}</span>
+              <a
+                class="viewer-file-name viewer-file-name--clickable"
+                href="#"
+                @click.prevent="downloadCurrentFile"
+              >
+                {{ currentFile?.filename }}
+              </a>
               <span class="viewer-file-type">{{ getFileTypeLabel(currentFile?.content_type) }}</span>
             </div>
           </template>
@@ -229,9 +235,24 @@ const dragStartPanY = ref(0)
 // Allow drag for zoomed content OR for PDFs (which may be longer than viewport)
 const canDrag = computed(() => zoom.value > 1 || currentFileType.value === 'pdf')
 
+// Track if we're in interactive zoom/pan (disable CSS transition)
+const isInteracting = ref(false)
+let interactionTimeout: ReturnType<typeof setTimeout> | null = null
+
+function setInteracting(value: boolean) {
+  if (value) {
+    isInteracting.value = true
+    if (interactionTimeout) clearTimeout(interactionTimeout)
+    interactionTimeout = setTimeout(() => {
+      isInteracting.value = false
+    }, 150)
+  }
+}
+
 const contentTransformStyle = computed(() => ({
   transform: `scale(${zoom.value}) translate(${panX.value}px, ${panY.value}px)`,
   cursor: isDragging.value ? 'grabbing' : (canDrag.value ? 'grab' : 'default'),
+  transition: (isInteracting.value || isDragging.value) ? 'none' : 'transform 0.15s ease-out',
 }))
 
 // PDF state
@@ -433,26 +454,52 @@ async function renderPdfPage(pageNum: number) {
 }
 
 // Zoom functions
-const ZOOM_STEP_SCROLL = 0.0125 // 1.25% per step for smooth scroll zooming
-const ZOOM_STEP_BUTTON = 0.1 // 10% per step for button controls
+const MIN_ZOOM = 0.5
+const MAX_ZOOM = 5
 
-function zoomIn(step = ZOOM_STEP_BUTTON) {
-  if (zoom.value < 5) {
-    zoom.value = Math.min(5, zoom.value + step)
-    clampPan()
+function zoomAt(newZoom: number, clientX?: number, clientY?: number) {
+  newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom))
+  if (newZoom === zoom.value) return
+
+  // Zoom to cursor position if provided
+  if (clientX !== undefined && clientY !== undefined && contentRef.value) {
+    const rect = contentRef.value.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+
+    // Point relative to center, in "content" coordinates
+    const pointX = (clientX - centerX) / zoom.value - panX.value
+    const pointY = (clientY - centerY) / zoom.value - panY.value
+
+    // After zoom, adjust pan so the same point stays under cursor
+    panX.value = (clientX - centerX) / newZoom - pointX
+    panY.value = (clientY - centerY) / newZoom - pointY
   }
+
+  zoom.value = newZoom
+
+  // Reset pan if zoomed out to 1x (except PDFs which may be tall)
+  if (zoom.value <= 1 && currentFileType.value !== 'pdf') {
+    panX.value = 0
+    panY.value = 0
+  }
+
+  clampPan()
 }
 
-function zoomOut(step = ZOOM_STEP_BUTTON) {
-  if (zoom.value > 0.5) {
-    zoom.value = Math.max(0.5, zoom.value - step)
-    // Reset pan if zoomed out to fit (but not for PDFs which may need vertical pan)
-    if (zoom.value <= 1 && currentFileType.value !== 'pdf') {
-      panX.value = 0
-      panY.value = 0
-    }
-    clampPan()
-  }
+function zoomIn() {
+  zoomAt(zoom.value * 1.25)
+}
+
+function zoomOut() {
+  zoomAt(zoom.value / 1.25)
+}
+
+function handleZoomWheel(deltaY: number, clientX: number, clientY: number) {
+  setInteracting(true)
+  // Zoom factor: ~10% per 100px of scroll
+  const factor = Math.pow(1.01, -deltaY)
+  zoomAt(zoom.value * factor, clientX, clientY)
 }
 
 // Cached content dimensions (updated on content change, not on every pan)
@@ -569,18 +616,17 @@ async function downloadCurrentFile() {
   }
 }
 
-function handleContentWheel(e: WheelEvent) {
+function handleWheel(e: WheelEvent) {
+  if (currentFileType.value !== 'image' && currentFileType.value !== 'pdf') return
+
   // Ctrl+wheel or pinch for zoom
   if (e.ctrlKey || e.metaKey) {
     e.preventDefault()
-    if (e.deltaY < 0) {
-      zoomIn(ZOOM_STEP_SCROLL)
-    } else {
-      zoomOut(ZOOM_STEP_SCROLL)
-    }
-  } else if (currentFileType.value === 'image' || currentFileType.value === 'pdf') {
-    // Two-finger trackpad scroll for panning (works as scroll for long PDFs too)
+    handleZoomWheel(e.deltaY, e.clientX, e.clientY)
+  } else {
+    // Two-finger trackpad scroll for panning
     e.preventDefault()
+    setInteracting(true)
     panX.value -= e.deltaX / zoom.value
     panY.value -= e.deltaY / zoom.value
     clampPan()
@@ -706,18 +752,11 @@ function handleKeydown(e: KeyboardEvent) {
 
 function handleGlobalWheel(e: WheelEvent) {
   if (!props.show) return
-  if (currentFileType.value !== 'image' && currentFileType.value !== 'pdf') return
-
-  // Ctrl+wheel for zoom
-  if (e.ctrlKey || e.metaKey) {
+  // Only handle Ctrl+wheel for zoom globally (content wheel handles pan)
+  if ((e.ctrlKey || e.metaKey) && (currentFileType.value === 'image' || currentFileType.value === 'pdf')) {
     e.preventDefault()
-    if (e.deltaY < 0) {
-      zoomIn(ZOOM_STEP_SCROLL)
-    } else {
-      zoomOut(ZOOM_STEP_SCROLL)
-    }
+    handleZoomWheel(e.deltaY, e.clientX, e.clientY)
   }
-  // Don't prevent default for normal scrolling - let PDFs scroll naturally
 }
 
 onMounted(() => {
@@ -815,7 +854,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  padding: 60px 80px 80px;
+  padding: 80px 120px 100px;
   user-select: none;
   opacity: 0;
   transition: opacity 0.5s ease-out;
@@ -839,7 +878,6 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   transform-origin: center center;
-  transition: transform 0.1s ease-out;
   max-width: 60vw;
   max-height: 100%;
 }
@@ -855,8 +893,7 @@ onUnmounted(() => {
 .viewer-pdf-wrapper {
   display: flex;
   justify-content: center;
-  transform-origin: center top;
-  transition: transform 0.1s ease-out;
+  transform-origin: center center;
   max-width: 60vw;
 }
 
@@ -894,6 +931,17 @@ onUnmounted(() => {
   color: white;
   max-width: 400px;
   word-break: break-word;
+}
+
+.viewer-file-name--clickable {
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.viewer-file-name--clickable:hover {
+  color: #4fc3f7;
+  text-decoration: underline;
 }
 
 .viewer-file-type {
