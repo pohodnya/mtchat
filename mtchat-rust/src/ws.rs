@@ -46,6 +46,16 @@ pub enum WsEvent {
         user_id: Uuid,
         last_read_message_id: Uuid,
     },
+    #[serde(rename = "participant.joined")]
+    ParticipantJoined {
+        dialog_id: Uuid,
+        user_id: Uuid,
+    },
+    #[serde(rename = "participant.left")]
+    ParticipantLeft {
+        dialog_id: Uuid,
+        user_id: Uuid,
+    },
     #[serde(rename = "presence.update")]
     PresenceUpdate {
         user_id: Uuid,
@@ -279,6 +289,48 @@ pub async fn broadcast_message_deleted(
     let event = WsEvent::MessageDeleted {
         id: message_id,
         dialog_id,
+    };
+
+    let json = match serde_json::to_string(&event) {
+        Ok(j) => j,
+        Err(_) => return,
+    };
+
+    let conns = connections.read().await;
+    for (_, tx) in conns.iter() {
+        let _ = tx.send(json.clone()).await;
+    }
+}
+
+pub async fn broadcast_participant_joined(
+    connections: &Connections,
+    dialog_id: Uuid,
+    user_id: Uuid,
+) {
+    let event = WsEvent::ParticipantJoined {
+        dialog_id,
+        user_id,
+    };
+
+    let json = match serde_json::to_string(&event) {
+        Ok(j) => j,
+        Err(_) => return,
+    };
+
+    let conns = connections.read().await;
+    for (_, tx) in conns.iter() {
+        let _ = tx.send(json.clone()).await;
+    }
+}
+
+pub async fn broadcast_participant_left(
+    connections: &Connections,
+    dialog_id: Uuid,
+    user_id: Uuid,
+) {
+    let event = WsEvent::ParticipantLeft {
+        dialog_id,
+        user_id,
     };
 
     let json = match serde_json::to_string(&event) {

@@ -310,6 +310,9 @@ async fn management_create_dialog(
             phone: participant.phone.clone(),
         };
         state.participants.add_with_profile(dialog.id, participant.user_id, joined_as, &profile).await?;
+
+        // Broadcast participant joined event (for dialog list updates)
+        ws::broadcast_participant_joined(&state.connections, dialog.id, participant.user_id).await;
     }
 
     // Add access scopes
@@ -360,6 +363,9 @@ async fn management_add_participant(
     };
     state.participants.add_with_profile_if_not_exists(dialog_id, req.user_id, JoinedAs::Participant, &profile).await?;
 
+    // Broadcast participant joined event (for dialog list updates)
+    ws::broadcast_participant_joined(&state.connections, dialog_id, req.user_id).await;
+
     Ok(StatusCode::CREATED)
 }
 
@@ -368,6 +374,10 @@ async fn management_remove_participant(
     Path((dialog_id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     state.participants.remove(dialog_id, user_id).await?;
+
+    // Broadcast participant left event (for dialog list updates)
+    ws::broadcast_participant_left(&state.connections, dialog_id, user_id).await;
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -609,6 +619,9 @@ async fn join_dialog(
     // Broadcast system message via WebSocket
     ws::broadcast_message(&state.connections, dialog_id, &system_msg).await;
 
+    // Broadcast participant joined event (for dialog list updates)
+    ws::broadcast_participant_joined(&state.connections, dialog_id, user_id).await;
+
     // Send webhook
     state.webhooks.send(WebhookEvent::participant_joined(&dialog, &participant)).await;
 
@@ -645,6 +658,9 @@ async fn leave_dialog(
 
     // Broadcast system message via WebSocket
     ws::broadcast_message(&state.connections, dialog_id, &system_msg).await;
+
+    // Broadcast participant left event (for dialog list updates)
+    ws::broadcast_participant_left(&state.connections, dialog_id, user_id).await;
 
     // Send webhook
     state.webhooks.send(WebhookEvent::participant_left(&dialog, user_id)).await;

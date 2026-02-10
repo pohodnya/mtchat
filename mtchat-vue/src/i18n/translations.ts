@@ -143,6 +143,11 @@ export interface TranslationStrings {
       file: string
     }
   }
+  readReceipts: {
+    read: string
+    andMore: string
+    readBy: string
+  }
 }
 
 export const translations: Record<Locale, TranslationStrings> = {
@@ -284,6 +289,11 @@ export const translations: Record<Locale, TranslationStrings> = {
         file: 'Файл',
       },
     },
+    readReceipts: {
+      read: 'Прочитано',
+      andMore: 'и ещё {count}',
+      readBy: 'Прочитали',
+    },
   },
 
   // English
@@ -424,6 +434,11 @@ export const translations: Record<Locale, TranslationStrings> = {
         file: 'File',
       },
     },
+    readReceipts: {
+      read: 'Read',
+      andMore: 'and {count} more',
+      readBy: 'Read by',
+    },
   },
 
   // Chinese (Simplified)
@@ -563,6 +578,11 @@ export const translations: Record<Locale, TranslationStrings> = {
         audio: '音频',
         file: '文件',
       },
+    },
+    readReceipts: {
+      read: '已读',
+      andMore: '还有 {count} 人',
+      readBy: '已读',
     },
   },
 }

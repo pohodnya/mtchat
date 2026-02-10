@@ -183,20 +183,25 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
       await client.api.joinDialog(id, profile)
 
-      // Move dialog from available to participating
+      // Move dialog from available to participating (immutable updates)
       const dialogIndex = availableDialogs.value.findIndex((d) => d.id === id)
       if (dialogIndex !== -1) {
-        const dialog = availableDialogs.value[dialogIndex]
-        availableDialogs.value.splice(dialogIndex, 1)
-        dialog.i_am_participant = true
-        dialog.can_join = false
-        participatingDialogs.value.push(dialog)
+        const dialog = { ...availableDialogs.value[dialogIndex], i_am_participant: true, can_join: false }
+        availableDialogs.value = availableDialogs.value.filter((d) => d.id !== id)
+        participatingDialogs.value = [...participatingDialogs.value, dialog]
+      } else {
+        // Dialog wasn't in available list - reload both lists
+        await loadParticipatingDialogs()
+        await loadAvailableDialogs()
       }
 
       // Update current dialog if it's the one we joined
       if (currentDialog.value?.id === id) {
-        currentDialog.value.i_am_participant = true
-        currentDialog.value.can_join = false
+        currentDialog.value = {
+          ...currentDialog.value,
+          i_am_participant: true,
+          can_join: false,
+        }
 
         // Now that we're a participant, load messages and participants
         await loadMessages()
@@ -216,11 +221,14 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
       await client.api.leaveDialog(id)
 
-      // Remove from participating
-      const dialogIndex = participatingDialogs.value.findIndex((d) => d.id === id)
-      if (dialogIndex !== -1) {
-        participatingDialogs.value.splice(dialogIndex, 1)
-      }
+      // Remove from participating (immutable update)
+      participatingDialogs.value = participatingDialogs.value.filter((d) => d.id !== id)
+
+      // Also remove from archived if present
+      archivedDialogs.value = archivedDialogs.value.filter((d) => d.id !== id)
+
+      // Reload available dialogs - the left dialog may now be available again
+      await loadAvailableDialogs()
 
       // If we left the current dialog, clear it
       if (currentDialog.value?.id === id) {
@@ -246,13 +254,12 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
       await client.api.archiveDialog(dialogId)
 
-      // Move from active to archived
+      // Move from active to archived (immutable updates)
       const idx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
       if (idx !== -1) {
-        const dialog = participatingDialogs.value[idx]
-        dialog.is_archived = true
-        participatingDialogs.value.splice(idx, 1)
-        archivedDialogs.value.push(dialog)
+        const dialog = { ...participatingDialogs.value[idx], is_archived: true }
+        participatingDialogs.value = participatingDialogs.value.filter((d) => d.id !== dialogId)
+        archivedDialogs.value = [...archivedDialogs.value, dialog]
       }
 
       // Clear current dialog if it was archived
@@ -274,18 +281,17 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
       await client.api.unarchiveDialog(dialogId)
 
-      // Move from archived to active
+      // Move from archived to active (immutable updates)
       const idx = archivedDialogs.value.findIndex((d) => d.id === dialogId)
       if (idx !== -1) {
-        const dialog = archivedDialogs.value[idx]
-        dialog.is_archived = false
-        archivedDialogs.value.splice(idx, 1)
-        participatingDialogs.value.push(dialog)
+        const dialog = { ...archivedDialogs.value[idx], is_archived: false }
+        archivedDialogs.value = archivedDialogs.value.filter((d) => d.id !== dialogId)
+        participatingDialogs.value = [...participatingDialogs.value, dialog]
       }
 
       // Update current dialog if it was unarchived
       if (currentDialog.value?.id === dialogId) {
-        currentDialog.value.is_archived = false
+        currentDialog.value = { ...currentDialog.value, is_archived: false }
       }
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
@@ -302,15 +308,19 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
       await client.api.pinDialog(dialogId)
 
-      // Update local state
-      const dialog = participatingDialogs.value.find((d) => d.id === dialogId)
-      if (dialog) {
-        dialog.is_pinned = true
+      // Update local state (immutable)
+      const idx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
+      if (idx !== -1) {
+        participatingDialogs.value = [
+          ...participatingDialogs.value.slice(0, idx),
+          { ...participatingDialogs.value[idx], is_pinned: true },
+          ...participatingDialogs.value.slice(idx + 1),
+        ]
       }
 
       // Update current dialog if it was pinned
       if (currentDialog.value?.id === dialogId) {
-        currentDialog.value.is_pinned = true
+        currentDialog.value = { ...currentDialog.value, is_pinned: true }
       }
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
@@ -323,15 +333,19 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
       await client.api.unpinDialog(dialogId)
 
-      // Update local state
-      const dialog = participatingDialogs.value.find((d) => d.id === dialogId)
-      if (dialog) {
-        dialog.is_pinned = false
+      // Update local state (immutable)
+      const idx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
+      if (idx !== -1) {
+        participatingDialogs.value = [
+          ...participatingDialogs.value.slice(0, idx),
+          { ...participatingDialogs.value[idx], is_pinned: false },
+          ...participatingDialogs.value.slice(idx + 1),
+        ]
       }
 
       // Update current dialog if it was unpinned
       if (currentDialog.value?.id === dialogId) {
-        currentDialog.value.is_pinned = false
+        currentDialog.value = { ...currentDialog.value, is_pinned: false }
       }
     } catch (e) {
       error.value = e instanceof Error ? e : new Error(String(e))
@@ -354,16 +368,24 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
       await client.api.setDialogNotifications(dialogId, newEnabled)
 
-      // Update local state in active dialogs
-      const activeDialog = participatingDialogs.value.find((d) => d.id === dialogId)
-      if (activeDialog) {
-        activeDialog.notifications_enabled = newEnabled
+      // Update local state in active dialogs (immutable)
+      const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
+      if (activeIdx !== -1) {
+        participatingDialogs.value = [
+          ...participatingDialogs.value.slice(0, activeIdx),
+          { ...participatingDialogs.value[activeIdx], notifications_enabled: newEnabled },
+          ...participatingDialogs.value.slice(activeIdx + 1),
+        ]
       }
 
-      // Update local state in archived dialogs
-      const archivedDialog = archivedDialogs.value.find((d) => d.id === dialogId)
-      if (archivedDialog) {
-        archivedDialog.notifications_enabled = newEnabled
+      // Update local state in archived dialogs (immutable)
+      const archivedIdx = archivedDialogs.value.findIndex((d) => d.id === dialogId)
+      if (archivedIdx !== -1) {
+        archivedDialogs.value = [
+          ...archivedDialogs.value.slice(0, archivedIdx),
+          { ...archivedDialogs.value[archivedIdx], notifications_enabled: newEnabled },
+          ...archivedDialogs.value.slice(archivedIdx + 1),
+        ]
       }
 
       // Update current dialog if it's the one we toggled
@@ -706,59 +728,111 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  function handleParticipantJoined(event: { payload?: { dialog_id?: string; user_id?: string } }): void {
-    const { dialog_id, user_id } = event.payload || {}
+  function handleParticipantJoined(event: { dialog_id?: string; user_id?: string; payload?: { dialog_id?: string; user_id?: string } }): void {
+    // Support both flat and payload formats
+    const dialog_id = event.dialog_id || event.payload?.dialog_id
+    const user_id = event.user_id || event.payload?.user_id
     if (!dialog_id || !user_id) return
 
-    // Update participant count in dialogs
-    const updateCount = (dialogs: DialogListItem[]) => {
-      const dialog = dialogs.find((d) => d.id === dialog_id)
-      if (dialog) {
-        dialog.participants_count = (dialog.participants_count || 0) + 1
-      }
+    // Check if current user joined a new dialog - reload dialog lists
+    if (user_id === config.userId) {
+      // Current user joined a dialog - reload participating dialogs to show it
+      loadParticipatingDialogs().catch(() => {})
+      // Also reload available dialogs as dialog may no longer be "available"
+      loadAvailableDialogs().catch(() => {})
+      return
     }
 
-    updateCount(participatingDialogs.value)
-    updateCount(availableDialogs.value)
+    // Update participant count in dialogs (immutable update for reactivity)
+    const updateCount = (dialogs: DialogListItem[]): DialogListItem[] => {
+      const idx = dialogs.findIndex((d) => d.id === dialog_id)
+      if (idx === -1) return dialogs
+      return [
+        ...dialogs.slice(0, idx),
+        { ...dialogs[idx], participants_count: (dialogs[idx].participants_count || 0) + 1 },
+        ...dialogs.slice(idx + 1),
+      ]
+    }
+
+    participatingDialogs.value = updateCount(participatingDialogs.value)
+    availableDialogs.value = updateCount(availableDialogs.value)
 
     if (currentDialog.value?.id === dialog_id) {
-      currentDialog.value.participants_count = (currentDialog.value.participants_count || 0) + 1
-      // Reload participants list
-      loadParticipants()
-    }
-  }
-
-  function handleParticipantLeft(event: { payload?: { dialog_id?: string; user_id?: string } }): void {
-    const { dialog_id, user_id } = event.payload || {}
-    if (!dialog_id || !user_id) return
-
-    // Update participant count in dialogs
-    const updateCount = (dialogs: DialogListItem[]) => {
-      const dialog = dialogs.find((d) => d.id === dialog_id)
-      if (dialog && dialog.participants_count > 0) {
-        dialog.participants_count--
-      }
-    }
-
-    updateCount(participatingDialogs.value)
-    updateCount(availableDialogs.value)
-
-    if (currentDialog.value?.id === dialog_id) {
-      if (currentDialog.value.participants_count > 0) {
-        currentDialog.value.participants_count--
+      currentDialog.value = {
+        ...currentDialog.value,
+        participants_count: (currentDialog.value.participants_count || 0) + 1,
       }
       // Reload participants list
       loadParticipants()
     }
   }
 
-  function handleMessageRead(event: { dialog_id?: string; user_id?: string; payload?: { dialog_id?: string; user_id?: string } }): void {
+  function handleParticipantLeft(event: { dialog_id?: string; user_id?: string; payload?: { dialog_id?: string; user_id?: string } }): void {
+    // Support both flat and payload formats
+    const dialog_id = event.dialog_id || event.payload?.dialog_id
+    const user_id = event.user_id || event.payload?.user_id
+    if (!dialog_id || !user_id) return
+
+    // Check if current user left a dialog - reload dialog lists
+    if (user_id === config.userId) {
+      // Current user left a dialog - reload to remove it from participating
+      loadParticipatingDialogs().catch(() => {})
+      // Also reload available dialogs as dialog may now be "available" again
+      loadAvailableDialogs().catch(() => {})
+      return
+    }
+
+    // Update participant count in dialogs (immutable update for reactivity)
+    const updateCount = (dialogs: DialogListItem[]): DialogListItem[] => {
+      const idx = dialogs.findIndex((d) => d.id === dialog_id)
+      if (idx === -1) return dialogs
+      const count = dialogs[idx].participants_count || 0
+      return [
+        ...dialogs.slice(0, idx),
+        { ...dialogs[idx], participants_count: Math.max(0, count - 1) },
+        ...dialogs.slice(idx + 1),
+      ]
+    }
+
+    participatingDialogs.value = updateCount(participatingDialogs.value)
+    availableDialogs.value = updateCount(availableDialogs.value)
+
+    if (currentDialog.value?.id === dialog_id) {
+      const count = currentDialog.value.participants_count || 0
+      currentDialog.value = {
+        ...currentDialog.value,
+        participants_count: Math.max(0, count - 1),
+      }
+      // Reload participants list
+      loadParticipants()
+    }
+  }
+
+  function handleMessageRead(event: { dialog_id?: string; user_id?: string; last_read_message_id?: string; payload?: { dialog_id?: string; user_id?: string; last_read_message_id?: string } }): void {
     // Support both flat and payload formats
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     const readByUserId = event.user_id || event.payload?.user_id
+    const lastReadMessageId = event.last_read_message_id || event.payload?.last_read_message_id
+
+    console.log('[MTChat] message.read event:', { dialog_id, readByUserId, lastReadMessageId, currentDialogId: currentDialog.value?.id })
+
     if (!dialog_id || !readByUserId) return
 
-    // Only handle if it's the current user's read receipt
+    // Update participant's last_read_message_id in local state (for read receipts)
+    if (currentDialog.value?.id === dialog_id && lastReadMessageId) {
+      const participantIdx = participants.value.findIndex((p) => p.user_id === readByUserId)
+      console.log('[MTChat] Found participant at index:', participantIdx, 'participants count:', participants.value.length)
+      if (participantIdx !== -1) {
+        participants.value = [
+          ...participants.value.slice(0, participantIdx),
+          { ...participants.value[participantIdx], last_read_message_id: lastReadMessageId },
+          ...participants.value.slice(participantIdx + 1),
+        ]
+        console.log('[MTChat] Updated participant last_read_message_id')
+      }
+    }
+
+    // Only handle unread count if it's the current user's read receipt
     if (readByUserId === config.userId) {
       // Update unread count in active dialogs
       const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialog_id)

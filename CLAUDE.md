@@ -372,8 +372,24 @@ docker-compose up -d
 | Chat pinning | ✅ |
 | Per-chat notification toggle | ✅ |
 | Multiple dialogs per object | ✅ |
+| Read receipts | ✅ |
 
 ## Changelog
+
+### 2026-02-10 (v3.17) - Read Receipts & Reactivity Fixes
+- Checkmark indicator on own messages when at least 1 participant has read
+- PrimeVue tooltip on hover showing who read (max 2 names + "and X more")
+- Click checkmark opens ReadersDialog modal with full list of readers
+- Reader detection based on participant's last_read_message_id vs message sent_at
+- Computed `messageReadersMap` for proper Vue reactivity tracking
+- WebSocket message.read event updates participant's last_read_message_id in real-time
+- ReadersDialog component with scrollable list (company — name format)
+- i18n translations for read receipts (ru/en/zh)
+- **WebSocket events for participant.joined/left** - enables real-time dialog list updates
+- Backend broadcasts participant events on join/leave (Chat API and Management API)
+- Frontend reloads dialog lists when current user joins/leaves a dialog
+- Immutable state updates throughout useChat.ts for proper Vue reactivity
+- Fixed: joinDialog, leaveDialog, archiveDialog, pinDialog, toggleNotifications
 
 ### 2026-02-10 (v3.16) - Multiple Dialogs Per Object
 - Removed uniqueness constraint on (object_id, object_type)

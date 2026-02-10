@@ -18,6 +18,7 @@ import FileViewer from './chat/FileViewer.vue'
 import ChatInfoPanel from './chat/ChatInfoPanel.vue'
 import JoinDialog from './chat/JoinDialog.vue'
 import MessageEditor from './chat/MessageEditor.vue'
+import ReadersDialog from './chat/ReadersDialog.vue'
 
 // Props
 const props = withDefaults(
@@ -116,6 +117,9 @@ const isJoining = ref(false)
 
 // Message menu state
 const openMenuId = ref<string | null>(null)
+
+// Read receipts state
+const readersDialogMessage = ref<Message | null>(null)
 
 // Archived accordion state
 const showArchivedAccordion = ref(false)
@@ -792,6 +796,109 @@ function getInitials(name: string): string {
     return (parts[0][0] + parts[1][0]).toUpperCase()
   }
   return name.slice(0, 2).toUpperCase()
+}
+
+// ============ Read Receipts ============
+
+/**
+ * Check if message is from the current user
+ */
+function isOwnMessage(message: Message): boolean {
+  return message.sender_id === props.config.userId
+}
+
+/**
+ * Computed map of message ID to readers for reactivity
+ * This ensures Vue properly tracks dependencies on participants changes
+ */
+const messageReadersMap = computed(() => {
+  const map = new Map<string, typeof chat.participants.value>()
+
+  // Create a lookup for message timestamps
+  const messageTimestamps = new Map<string, number>()
+  for (const m of chat.messages.value) {
+    messageTimestamps.set(m.id, new Date(m.sent_at).getTime())
+  }
+
+  // For each message, compute who has read it
+  for (const message of chat.messages.value) {
+    if (message.sender_id !== props.config.userId) continue // Only for own messages
+
+    const messageSentAt = new Date(message.sent_at).getTime()
+    const readers = chat.participants.value.filter(p => {
+      // Exclude message author
+      if (p.user_id === message.sender_id) return false
+
+      // If no last_read_message_id, they haven't read anything
+      if (!p.last_read_message_id) return false
+
+      // Get timestamp of the message they last read
+      const lastReadTimestamp = messageTimestamps.get(p.last_read_message_id)
+      if (!lastReadTimestamp) return false
+
+      // Check if that message was sent at or after the given message
+      return lastReadTimestamp >= messageSentAt
+    })
+
+    if (readers.length > 0) {
+      map.set(message.id, readers)
+    }
+  }
+
+  return map
+})
+
+/**
+ * Get list of participants who have read a message
+ */
+function getMessageReaders(message: Message): typeof chat.participants.value {
+  return messageReadersMap.value.get(message.id) || []
+}
+
+/**
+ * Format readers for tooltip display (max 2 names + "and X more")
+ */
+function formatReadersTooltip(message: Message): string {
+  const readers = getMessageReaders(message)
+  if (readers.length === 0) return ''
+
+  // Format: "Company — Name" or just "Name" if no company
+  const formatReader = (p: typeof readers[0]): string => {
+    if (p.company && p.display_name) {
+      return `${p.company} — ${p.display_name}`
+    }
+    return p.display_name || t.value.user.defaultName
+  }
+
+  if (readers.length <= 2) {
+    return readers.map(formatReader).join(', ')
+  }
+
+  const firstTwo = readers.slice(0, 2).map(formatReader).join(', ')
+  const remaining = readers.length - 2
+  return `${firstTwo} ${tt('readReceipts.andMore', { count: remaining })}`
+}
+
+/**
+ * Show readers dialog for a message
+ */
+function showReadersDialog(message: Message): void {
+  readersDialogMessage.value = message
+}
+
+/**
+ * Close readers dialog
+ */
+function closeReadersDialog(): void {
+  readersDialogMessage.value = null
+}
+
+/**
+ * Get readers for the currently open dialog
+ */
+function getCurrentMessageReaders(): typeof chat.participants.value {
+  if (!readersDialogMessage.value) return []
+  return getMessageReaders(readersDialogMessage.value)
 }
 
 function getMessageAuthor(messageId: string): string {
@@ -1579,7 +1686,7 @@ defineExpose({
                 </div>
               </div>
 
-              <!-- Header: company - sender name + time + edited badge -->
+              <!-- Header: company - sender name + time + edited badge + read receipt -->
               <div class="mtchat__message-header">
                 <span class="mtchat__message-sender">
                   {{ message.sender_id ? getSenderFullDisplay(message.sender_id) : '' }}
@@ -1587,6 +1694,17 @@ defineExpose({
                 <span class="mtchat__message-time">{{ formatTime(message.sent_at) }}</span>
                 <span v-if="message.last_edited_at" class="mtchat__edited-badge">
                   ({{ t.chat.edited }})
+                </span>
+                <!-- Read receipt indicator (only for own messages) -->
+                <span
+                  v-if="isOwnMessage(message) && getMessageReaders(message).length > 0"
+                  v-tooltip.top="{ value: formatReadersTooltip(message), pt: { text: { style: 'font-size: 12px' } } }"
+                  class="mtchat__read-receipt"
+                  @click.stop="showReadersDialog(message)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
                 </span>
               </div>
 
@@ -1601,7 +1719,7 @@ defineExpose({
               <AttachmentList
                 v-if="message.attachments && message.attachments.length > 0"
                 :attachments="message.attachments"
-                @open-gallery="(index) => openGalleryAtIndex(message, index)"
+                @open-gallery="(index: number) => openGalleryAtIndex(message, index)"
                 @open-file="openFileViewer"
               />
             </div>
@@ -1749,6 +1867,14 @@ defineExpose({
       @join="confirmJoinDialog"
     />
 
+    <!-- Readers Dialog Modal -->
+    <ReadersDialog
+      :show="readersDialogMessage !== null"
+      :readers="getCurrentMessageReaders()"
+      :theme="theme"
+      @close="closeReadersDialog"
+    />
+
   </div>
 </template>
 
@@ -1766,7 +1892,7 @@ defineExpose({
   --mtchat-main-min-percent: 50;
 
   --mtchat-header-height: 48px;
-  --mtchat-resizer-width: 4px;
+  --mtchat-resizer-width: 2px;
 
   /* === SPACING TOKENS === */
   --mtchat-spacing-xs: 4px;
@@ -2647,6 +2773,27 @@ button.mtchat__header-info:focus {
   font-size: 11px;
   color: var(--mtchat-text-secondary);
   font-style: italic;
+}
+
+/* Read receipt indicator */
+.mtchat__read-receipt {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  color: var(--mtchat-primary);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  transition: background-color 0.15s;
+}
+
+.mtchat__read-receipt:hover {
+  background-color: var(--mtchat-bg-hover);
+}
+
+.mtchat__read-receipt svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Edit preview (above input) */
