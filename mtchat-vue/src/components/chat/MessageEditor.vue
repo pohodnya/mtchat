@@ -814,7 +814,11 @@ defineExpose({
   margin: 4px 0;
 }
 
-/* Responsive toolbar */
+/* Responsive toolbar using container queries */
+.mtchat-editor {
+  container-type: inline-size;
+}
+
 .mtchat-editor__desktop-only {
   display: flex;
 }
@@ -823,13 +827,13 @@ defineExpose({
   display: none;
 }
 
-@media (max-width: 500px) {
+@container (max-width: 400px) {
   .mtchat-editor__desktop-only {
-    display: none;
+    display: none !important;
   }
 
   .mtchat-editor__mobile-only {
-    display: flex;
+    display: flex !important;
   }
 }
 
