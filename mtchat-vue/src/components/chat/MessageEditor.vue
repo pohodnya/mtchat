@@ -420,10 +420,105 @@ defineExpose({
         </svg>
       </button>
 
-      <div class="mtchat-editor__toolbar-separator"></div>
+      <!-- Desktop: show all buttons inline -->
+      <div class="mtchat-editor__toolbar-separator mtchat-editor__desktop-only"></div>
 
-      <!-- More menu -->
-      <div class="mtchat-editor__more-wrapper">
+      <div class="mtchat-editor__toolbar-group mtchat-editor__desktop-only">
+        <button
+          type="button"
+          class="mtchat-editor__btn"
+          :class="{ 'mtchat-editor__btn--active': isActive('bulletList') }"
+          :title="t.formatting.bulletList"
+          @click="toggleBulletList"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/>
+            <line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/>
+            <circle cx="4" cy="6" r="1" fill="currentColor"/>
+            <circle cx="4" cy="12" r="1" fill="currentColor"/>
+            <circle cx="4" cy="18" r="1" fill="currentColor"/>
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="mtchat-editor__btn"
+          :class="{ 'mtchat-editor__btn--active': isActive('orderedList') }"
+          :title="t.formatting.numberedList"
+          @click="toggleOrderedList"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="10" y1="6" x2="21" y2="6"/>
+            <line x1="10" y1="12" x2="21" y2="12"/>
+            <line x1="10" y1="18" x2="21" y2="18"/>
+            <text x="3" y="8" font-size="8" fill="currentColor">1</text>
+            <text x="3" y="14" font-size="8" fill="currentColor">2</text>
+            <text x="3" y="20" font-size="8" fill="currentColor">3</text>
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="mtchat-editor__btn"
+          :class="{ 'mtchat-editor__btn--active': isActive('blockquote') }"
+          :title="t.formatting.quote"
+          @click="toggleBlockquote"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="mtchat-editor__toolbar-separator mtchat-editor__desktop-only"></div>
+
+      <div class="mtchat-editor__toolbar-group mtchat-editor__desktop-only">
+        <button
+          type="button"
+          class="mtchat-editor__btn"
+          :class="{ 'mtchat-editor__btn--active': isActive('code') }"
+          :title="`${t.formatting.inlineCode} (⌘E)`"
+          @click="toggleCode"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16 18 22 12 16 6"/>
+            <polyline points="8 6 2 12 8 18"/>
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="mtchat-editor__btn"
+          :class="{ 'mtchat-editor__btn--active': isActive('codeBlock') }"
+          :title="`${t.formatting.codeBlock} (⌘⇧C)`"
+          @click="toggleCodeBlock"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <polyline points="9 9 6 12 9 15"/>
+            <polyline points="15 9 18 12 15 15"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="mtchat-editor__toolbar-separator mtchat-editor__desktop-only"></div>
+
+      <button
+        type="button"
+        class="mtchat-editor__btn mtchat-editor__desktop-only"
+        :title="`${t.formatting.clearFormatting} (⌘\\)`"
+        @click="clearFormatting"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 12H3"/>
+          <path d="M21 6H3"/>
+          <path d="M21 18H3"/>
+          <path d="M19 4L5 20" stroke-width="2.5"/>
+        </svg>
+      </button>
+
+      <!-- Mobile: show more menu -->
+      <div class="mtchat-editor__toolbar-separator mtchat-editor__mobile-only"></div>
+
+      <div class="mtchat-editor__more-wrapper mtchat-editor__mobile-only">
         <button
           type="button"
           class="mtchat-editor__btn"
@@ -673,13 +768,13 @@ defineExpose({
 
 .mtchat-editor__more-menu {
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 0;
-  margin-top: 4px;
+  margin-bottom: 4px;
   background: var(--mtchat-bg);
   border: 1px solid var(--mtchat-border);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
   min-width: 180px;
   padding: 4px;
   z-index: 100;
@@ -717,6 +812,25 @@ defineExpose({
   height: 1px;
   background: var(--mtchat-border);
   margin: 4px 0;
+}
+
+/* Responsive toolbar */
+.mtchat-editor__desktop-only {
+  display: flex;
+}
+
+.mtchat-editor__mobile-only {
+  display: none;
+}
+
+@media (max-width: 500px) {
+  .mtchat-editor__desktop-only {
+    display: none;
+  }
+
+  .mtchat-editor__mobile-only {
+    display: flex;
+  }
 }
 
 /* Editor wrapper */
