@@ -86,6 +86,7 @@ struct CreateDialogRequest {
     object_id: Uuid,
     object_type: String,
     title: Option<String>,
+    object_url: Option<String>,
     participants: Vec<ParticipantInput>,
     #[serde(default)]
     access_scopes: Vec<AccessScopeInput>,
@@ -294,6 +295,7 @@ async fn management_create_dialog(
         req.object_id,
         req.object_type,
         req.title,
+        req.object_url,
         created_by,
     );
     let dialog = state.dialogs.create(&dialog).await?;

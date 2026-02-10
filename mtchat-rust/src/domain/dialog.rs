@@ -18,6 +18,8 @@ pub struct Dialog {
     pub object_type: String,
     /// Optional human-readable title
     pub title: Option<String>,
+    /// URL to the object page in the host system
+    pub object_url: Option<String>,
     /// User ID who created this dialog (external identifier)
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
@@ -29,6 +31,7 @@ impl Dialog {
         object_id: Uuid,
         object_type: impl Into<String>,
         title: Option<String>,
+        object_url: Option<String>,
         created_by: Option<Uuid>,
     ) -> Self {
         Self {
@@ -36,6 +39,7 @@ impl Dialog {
             object_id,
             object_type: object_type.into(),
             title,
+            object_url,
             created_by,
             created_at: Utc::now(),
         }

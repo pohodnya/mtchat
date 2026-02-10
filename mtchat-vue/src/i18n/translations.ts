@@ -71,6 +71,7 @@ export interface TranslationStrings {
     close: string
     back: string
     muted: string
+    openObject: string
   }
   formatting: {
     bold: string
@@ -99,6 +100,7 @@ export interface TranslationStrings {
   infoPanel: {
     title: string
     participants: string
+    openObject: string
     objectTypes: {
       tender: string
       order: string
@@ -210,6 +212,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       close: 'Закрыть',
       back: 'Назад',
       muted: 'Уведомления отключены',
+      openObject: 'Открыть объект',
     },
     formatting: {
       bold: 'Жирный',
@@ -232,12 +235,13 @@ export const translations: Record<Locale, TranslationStrings> = {
       you: 'Вы',
       youBadge: '(Вы)',
       creator: 'Создатель',
-      anonymous: 'Сотрудник компании {company}',
+      anonymous: 'Сотрудник компании',
       defaultName: 'Пользователь',
     },
     infoPanel: {
       title: 'Информация о чате',
       participants: 'Участники',
+      openObject: 'Открыть объект',
       objectTypes: {
         tender: 'Тендер',
         order: 'Заказ',
@@ -348,6 +352,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       close: 'Close',
       back: 'Back',
       muted: 'Notifications muted',
+      openObject: 'Open object',
     },
     formatting: {
       bold: 'Bold',
@@ -370,12 +375,13 @@ export const translations: Record<Locale, TranslationStrings> = {
       you: 'You',
       youBadge: '(You)',
       creator: 'Creator',
-      anonymous: 'Employee of {company}',
+      anonymous: 'Company employee',
       defaultName: 'User',
     },
     infoPanel: {
       title: 'Chat Info',
       participants: 'Participants',
+      openObject: 'Open object',
       objectTypes: {
         tender: 'Tender',
         order: 'Order',
@@ -486,6 +492,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       close: '关闭',
       back: '返回',
       muted: '通知已关闭',
+      openObject: '打开对象',
     },
     formatting: {
       bold: '粗体',
@@ -508,12 +515,13 @@ export const translations: Record<Locale, TranslationStrings> = {
       you: '您',
       youBadge: '(您)',
       creator: '创建者',
-      anonymous: '{company}员工',
+      anonymous: '公司员工',
       defaultName: '用户',
     },
     infoPanel: {
       title: '聊天信息',
       participants: '参与者',
+      openObject: '打开对象',
       objectTypes: {
         tender: '招标',
         order: '订单',

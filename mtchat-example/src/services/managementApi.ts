@@ -15,6 +15,7 @@ export interface CreateDialogRequest {
   object_id: string
   object_type: string
   title?: string
+  object_url?: string
   participants?: ParticipantInput[]
   access_scopes?: {
     tenant_uid: string

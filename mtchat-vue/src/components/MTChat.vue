@@ -749,22 +749,38 @@ function getQuotedText(messageId: string): string {
 }
 
 /**
- * Get the display name for a user in the current dialog
+ * Get the display name for a user in the current dialog (short version for avatars)
  */
 function getSenderDisplayName(senderId: string): string {
-  // Check if it's the current user
-  const isCurrentUser = senderId === props.config.userId
-
   // Find participant by user_id
   const participant = chat.participants.value.find((p) => p.user_id === senderId)
 
   if (participant?.display_name) {
-    // Use display_name with "(You)" suffix for current user
-    return isCurrentUser ? `${participant.display_name} ${t.value.user.youBadge}` : participant.display_name
+    return participant.display_name
   }
 
   // Fallback if participant not found or no display_name
-  return isCurrentUser ? t.value.user.you : senderId.slice(0, 8)
+  return senderId === props.config.userId ? t.value.user.you : senderId.slice(0, 8)
+}
+
+/**
+ * Get full author display for message header: "Company - Name (You)"
+ */
+function getSenderFullDisplay(senderId: string): string {
+  const isCurrentUser = senderId === props.config.userId
+  const participant = chat.participants.value.find((p) => p.user_id === senderId)
+
+  let name = participant?.display_name || (isCurrentUser ? t.value.user.you : senderId.slice(0, 8))
+  if (isCurrentUser) {
+    name = `${name} ${t.value.user.youBadge}`
+  }
+
+  const company = participant?.company
+  if (company) {
+    return `${company} — ${name}`
+  }
+
+  return name
 }
 
 /**
@@ -1297,6 +1313,21 @@ defineExpose({
         >
           <div class="mtchat__header-title-row">
             <h2 class="mtchat__header-title">{{ dialogTitle }}</h2>
+            <a
+              v-if="!isInlineMode && chat.currentDialog.value?.object_url"
+              :href="chat.currentDialog.value.object_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="mtchat__header-link"
+              :title="t.tooltips.openObject"
+              @click.stop
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </a>
             <span v-if="chat.currentDialog.value?.is_archived" class="mtchat__archived-badge">
               {{ t.chat.archived }}
             </span>
@@ -1548,10 +1579,10 @@ defineExpose({
                 </div>
               </div>
 
-              <!-- Header: sender name + time + edited badge -->
+              <!-- Header: company - sender name + time + edited badge -->
               <div class="mtchat__message-header">
                 <span class="mtchat__message-sender">
-                  {{ message.sender_id ? getSenderDisplayName(message.sender_id) : '' }}
+                  {{ message.sender_id ? getSenderFullDisplay(message.sender_id) : '' }}
                 </span>
                 <span class="mtchat__message-time">{{ formatTime(message.sent_at) }}</span>
                 <span v-if="message.last_edited_at" class="mtchat__edited-badge">
@@ -1689,6 +1720,7 @@ defineExpose({
           :dialog-title="dialogTitle"
           :object-type="chat.currentDialog.value?.object_type"
           :object-id="chat.currentDialog.value?.object_id"
+          :object-url="isInlineMode ? undefined : chat.currentDialog.value?.object_url"
           :participants="chat.participants.value"
           :current-user-id="config.userId"
           @close="showInfoPanel = false"
@@ -2116,6 +2148,22 @@ defineExpose({
   font-size: 16px;
   font-weight: 600;
   color: var(--mtchat-text);
+}
+
+.mtchat__header-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--mtchat-text-secondary);
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.mtchat__header-link:hover {
+  color: var(--mtchat-primary);
+  background: var(--mtchat-bg-hover);
 }
 
 .mtchat__archived-badge {

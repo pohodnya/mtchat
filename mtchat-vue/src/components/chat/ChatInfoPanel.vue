@@ -22,6 +22,20 @@
         <span class="chat-info-panel__object-type">{{ objectTypeLabel }}</span>
         <span v-if="objectId" class="chat-info-panel__object-id">#{{ objectId.slice(0, 8) }}</span>
       </div>
+      <a
+        v-if="objectUrl"
+        :href="objectUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="chat-info-panel__object-link"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        {{ t.infoPanel.openObject }}
+      </a>
     </div>
 
     <!-- Participants -->
@@ -99,6 +113,7 @@ const props = defineProps<{
   dialogTitle: string
   objectType?: string
   objectId?: string
+  objectUrl?: string
   participants: DialogParticipant[]
   currentUserId: string
 }>()
@@ -221,6 +236,20 @@ function getInitials(name: string): string {
   gap: 8px;
   font-size: 13px;
   color: var(--mtchat-text-secondary, #666);
+}
+
+.chat-info-panel__object-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--mtchat-primary, #007AFF);
+  text-decoration: none;
+}
+
+.chat-info-panel__object-link:hover {
+  text-decoration: underline;
 }
 
 .chat-info-panel__participants {

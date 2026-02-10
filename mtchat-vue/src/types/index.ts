@@ -17,6 +17,8 @@ export interface Dialog {
   object_type: string
   /** Optional dialog title */
   title?: string
+  /** URL to the object page in the host system */
+  object_url?: string
   /** User who created the dialog */
   created_by?: string
   created_at: string

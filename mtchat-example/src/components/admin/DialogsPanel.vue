@@ -32,6 +32,16 @@
           />
         </div>
 
+        <!-- Object URL -->
+        <div class="form-field">
+          <label>Object URL (optional)</label>
+          <InputText
+            v-model="form.objectUrl"
+            placeholder="https://example.com/orders/123"
+            class="w-full"
+          />
+        </div>
+
         <!-- Participants -->
         <div class="form-field full-width">
           <label>Direct Participants</label>
@@ -197,6 +207,7 @@ interface ScopeForm {
 const form = reactive({
   objectId: '',
   title: '',
+  objectUrl: '',
   participantIds: [] as string[],
   accessScopes: [] as ScopeForm[],
 })
@@ -283,6 +294,7 @@ async function handleCreate() {
       object_id: selectedObject.id,
       object_type: selectedObject.type,
       title: form.title || undefined,
+      object_url: form.objectUrl || undefined,
       participants: participants.length > 0 ? participants : undefined,
       access_scopes: form.accessScopes
         .filter((s) => s.tenantId)
@@ -314,6 +326,7 @@ async function handleCreate() {
     // Reset form
     form.objectId = ''
     form.title = ''
+    form.objectUrl = ''
     form.participantIds = []
     form.accessScopes = []
 
