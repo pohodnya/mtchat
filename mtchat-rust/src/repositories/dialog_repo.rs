@@ -17,14 +17,15 @@ impl DialogRepository {
     /// Create a new dialog
     pub async fn create(&self, dialog: &Dialog) -> Result<Dialog, sqlx::Error> {
         sqlx::query_as::<_, Dialog>(
-            r#"INSERT INTO dialogs (id, object_id, object_type, title, created_by, created_at)
-               VALUES ($1, $2, $3, $4, $5, $6)
+            r#"INSERT INTO dialogs (id, object_id, object_type, title, object_url, created_by, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
                RETURNING *"#,
         )
         .bind(dialog.id)
         .bind(dialog.object_id)
         .bind(&dialog.object_type)
         .bind(&dialog.title)
+        .bind(&dialog.object_url)
         .bind(dialog.created_by)
         .bind(dialog.created_at)
         .fetch_one(&self.pool)
@@ -57,6 +58,7 @@ impl DialogRepository {
     /// Find dialogs where user is a direct participant
     ///
     /// - archived: None = all, Some(true) = only archived, Some(false) = only active
+    /// - search: searches in dialog title AND participant company names
     pub async fn find_participating(
         &self,
         user_id: Uuid,
@@ -67,7 +69,14 @@ impl DialogRepository {
             r#"SELECT d.* FROM dialogs d
                INNER JOIN dialog_participants dp ON dp.dialog_id = d.id
                WHERE dp.user_id = $1
-                 AND ($2::text IS NULL OR d.title ILIKE '%' || $2 || '%')
+                 AND ($2::text IS NULL OR (
+                   d.title ILIKE '%' || $2 || '%'
+                   OR EXISTS (
+                     SELECT 1 FROM dialog_participants p
+                     WHERE p.dialog_id = d.id
+                       AND p.company ILIKE '%' || $2 || '%'
+                   )
+                 ))
                  AND ($3::boolean IS NULL OR dp.is_archived = $3)
                ORDER BY d.created_at DESC"#,
         )
@@ -84,6 +93,7 @@ impl DialogRepository {
     /// - tenant_uid must match exactly
     /// - scope_level1: empty array in DB = wildcard (match all), otherwise requires overlap
     /// - scope_level2: empty array in DB = wildcard (match all), otherwise requires overlap
+    /// - search: searches in dialog title AND participant company names
     pub async fn find_available(
         &self,
         user_id: Uuid,
@@ -102,7 +112,14 @@ impl DialogRepository {
                    SELECT 1 FROM dialog_participants dp
                    WHERE dp.dialog_id = d.id AND dp.user_id = $4
                  )
-                 AND ($5::text IS NULL OR d.title ILIKE '%' || $5 || '%')
+                 AND ($5::text IS NULL OR (
+                   d.title ILIKE '%' || $5 || '%'
+                   OR EXISTS (
+                     SELECT 1 FROM dialog_participants p
+                     WHERE p.dialog_id = d.id
+                       AND p.company ILIKE '%' || $5 || '%'
+                   )
+                 ))
                ORDER BY d.created_at DESC"#,
         )
         .bind(tenant_uid)
