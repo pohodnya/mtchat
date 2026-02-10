@@ -17,6 +17,7 @@ import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Mention from '@tiptap/extension-mention'
 import { Extension } from '@tiptap/core'
+import { chainCommands, newlineInCode, createParagraphNear, liftEmptyBlock, splitBlock } from '@tiptap/pm/commands'
 import { useI18n } from '../../i18n'
 import type { DialogParticipant } from '../../types'
 import MentionList from './MentionList.vue'
@@ -86,9 +87,47 @@ const CustomKeyboardShortcuts = Extension.create({
       'Mod-Shift-c': () => this.editor.chain().focus().toggleCodeBlock().run(),
       // Clear formatting - Mod+\
       'Mod-\\': () => this.editor.chain().focus().clearNodes().unsetAllMarks().run(),
-      // Submit on Cmd+Enter (Ctrl+Enter on Windows)
-      'Mod-Enter': () => {
-        // Don't handle if mention list is showing
+      // Shift+Enter: same behavior as default Enter
+      'Shift-Enter': () => {
+        // First try Tiptap's splitListItem (for lists)
+        if (this.editor.can().splitListItem('listItem')) {
+          return this.editor.commands.splitListItem('listItem')
+        }
+        // Check for code block exit (empty line at the end)
+        if (this.editor.isActive('codeBlock')) {
+          const { $from } = this.editor.state.selection
+          const text = $from.parent.textContent
+          const pos = $from.parentOffset
+          // Check if at the end and last line is empty (ends with \n or cursor at start of empty line)
+          const textBeforeCursor = text.slice(0, pos)
+          if (textBeforeCursor.endsWith('\n\n') || (textBeforeCursor.endsWith('\n') && pos === text.length)) {
+            // Delete the trailing empty line, then exit code block
+            const deleteFrom = $from.pos - (textBeforeCursor.endsWith('\n\n') ? 2 : 1)
+            return this.editor.chain()
+              .deleteRange({ from: deleteFrom, to: $from.pos })
+              .exitCode()
+              .run()
+          }
+        }
+        // Check for ``` code block markdown shortcut (only if current paragraph is just ```)
+        const { $from } = this.editor.state.selection
+        const textBefore = $from.parent.textContent
+        if (/^```(\w*)$/.test(textBefore.trim())) {
+          const match = textBefore.trim().match(/^```(\w*)$/)
+          const language = match?.[1] || undefined
+          // Select current paragraph and replace with code block
+          return this.editor.chain()
+            .selectParentNode()
+            .deleteSelection()
+            .setCodeBlock(language ? { language } : undefined)
+            .run()
+        }
+        // Fall back to ProseMirror's base Enter behavior
+        const { state, dispatch } = this.editor.view
+        return chainCommands(newlineInCode, createParagraphNear, liftEmptyBlock, splitBlock)(state, dispatch)
+      },
+      // Enter: send message
+      'Enter': () => {
         if (showMentionList.value) return false
         handleSubmitRef.value()
         return true
@@ -113,6 +152,7 @@ const editor = useEditor({
       // Configure starter kit extensions
       heading: false, // No headings in chat
       horizontalRule: false,
+      hardBreak: false, // Disable default Shift-Enter -> <br> behavior
       // Enable markdown shortcuts
       bold: { HTMLAttributes: { class: 'mtchat-bold' } },
       italic: { HTMLAttributes: { class: 'mtchat-italic' } },

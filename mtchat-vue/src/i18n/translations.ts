@@ -197,7 +197,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       participantLeft: '{name} покинул чат',
     },
     input: {
-      placeholder: 'Введите сообщение... (⌘Enter для отправки)',
+      placeholder: 'Введите сообщение... (Enter для отправки)',
       attachFiles: 'Прикрепить файлы',
     },
     search: {
@@ -337,7 +337,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       participantLeft: '{name} left the chat',
     },
     input: {
-      placeholder: 'Type a message... (⌘Enter to send)',
+      placeholder: 'Type a message... (Enter to send)',
       attachFiles: 'Attach files',
     },
     search: {
@@ -477,7 +477,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       participantLeft: '{name} 离开了聊天',
     },
     input: {
-      placeholder: '输入消息... (⌘Enter 发送)',
+      placeholder: '输入消息... (Enter 发送)',
       attachFiles: '添加附件',
     },
     search: {
