@@ -9,7 +9,7 @@
  * - Markdown shortcuts
  */
 
-import { ref, watch, onBeforeUnmount, computed } from 'vue'
+import { ref, watch, onBeforeUnmount, computed, nextTick } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -315,11 +315,15 @@ const clearFormatting = () => editor.value?.chain().focus().clearNodes().unsetAl
 // Link handling
 const linkUrl = ref('')
 const showLinkDialog = ref(false)
+const linkInputRef = ref<HTMLInputElement | null>(null)
 
 const openLinkDialog = () => {
   const previousUrl = editor.value?.getAttributes('link').href || ''
   linkUrl.value = previousUrl
   showLinkDialog.value = true
+  nextTick(() => {
+    linkInputRef.value?.focus()
+  })
 }
 
 const setLink = () => {
@@ -706,13 +710,13 @@ defineExpose({
       <div class="mtchat-editor__link-dialog-backdrop" @click="cancelLink"></div>
       <div class="mtchat-editor__link-dialog-content">
         <input
+          ref="linkInputRef"
           v-model="linkUrl"
           type="url"
           placeholder="https://example.com"
           class="mtchat-editor__link-input"
           @keydown.enter="setLink"
           @keydown.esc="cancelLink"
-          autofocus
         />
         <div class="mtchat-editor__link-actions">
           <button type="button" class="mtchat-editor__link-btn" @click="cancelLink">
