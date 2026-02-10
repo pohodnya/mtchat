@@ -69,11 +69,7 @@
 
           <!-- PDF -->
           <template v-else-if="currentFileType === 'pdf'">
-            <div v-if="pdfLoading" class="viewer-loading">
-              <div class="loading-spinner" />
-              <span>{{ t.fileViewer.loadingPdf }}</span>
-            </div>
-            <div v-else-if="pdfError" class="viewer-file-preview">
+            <div v-if="pdfError" class="viewer-file-preview">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <circle cx="12" cy="12" r="10" />
                 <path d="M12 8v4M12 16h.01" />
@@ -298,6 +294,16 @@ function resetZoom() {
   panY.value = 0
 }
 
+function scrollToTop() {
+  const { height: contentHeight } = cachedContentSize.value
+  const { height: containerHeight } = cachedContainerSize.value
+
+  if (contentHeight > containerHeight) {
+    // Pan to show top of content (positive panY moves content down, showing more top)
+    panY.value = (contentHeight - containerHeight) / 2 / zoom.value
+  }
+}
+
 // Cancel all active PDF render tasks
 function cancelAllRenderTasks() {
   for (const task of pdfRenderTasks.value.values()) {
@@ -357,6 +363,7 @@ async function loadPdf() {
     pdfDoc.value = await loadingTask.promise
     pdfTotalPages.value = pdfDoc.value.numPages
 
+    // Hide wrapper content (opacity 0) while rendering
     pdfLoading.value = false
 
     await nextTick()
@@ -377,9 +384,16 @@ async function renderAllPdfPages() {
     await renderPdfPage(pageNum)
   }
 
-  // Cache sizes and fade in after all pages rendered
+  // Cache sizes after all pages rendered
   await nextTick()
   updateCachedSizes()
+
+  // Position PDF at the top of first page
+  scrollToTop()
+
+  // Delay to ensure rendering is fully complete
+  // await new Promise(resolve => setTimeout(resolve, 1000))
+
   contentReady.value = true
 }
 
@@ -849,6 +863,7 @@ onUnmounted(() => {
 
 /* Content area */
 .viewer-content {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
@@ -880,6 +895,12 @@ onUnmounted(() => {
   transform-origin: center center;
   max-width: 60vw;
   max-height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+}
+
+.viewer-content--ready .viewer-image-wrapper {
+  opacity: 1;
 }
 
 .viewer-image {
@@ -895,6 +916,12 @@ onUnmounted(() => {
   justify-content: center;
   transform-origin: center center;
   max-width: 60vw;
+  opacity: 0;
+  transition: opacity 0.8s ease-out;
+}
+
+.viewer-content--ready .viewer-pdf-wrapper {
+  opacity: 1;
 }
 
 .pdf-pages {
@@ -947,17 +974,6 @@ onUnmounted(() => {
 .viewer-file-type {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.5);
-}
-
-/* Loading */
-.viewer-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  color: rgba(255, 255, 255, 0.6);
-  height: 100%;
 }
 
 .loading-spinner {
