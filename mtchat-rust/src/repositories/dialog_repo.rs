@@ -40,14 +40,17 @@ impl DialogRepository {
             .await
     }
 
-    /// Find dialog by object (type + id)
+    /// Find the most recent dialog by object (type + id)
+    ///
+    /// Returns the most recently created dialog for the given object.
+    /// Multiple dialogs can exist per object; this returns the latest one.
     pub async fn find_by_object(
         &self,
         object_type: &str,
         object_id: Uuid,
     ) -> Result<Option<Dialog>, sqlx::Error> {
         sqlx::query_as::<_, Dialog>(
-            "SELECT * FROM dialogs WHERE object_type = $1 AND object_id = $2",
+            "SELECT * FROM dialogs WHERE object_type = $1 AND object_id = $2 ORDER BY created_at DESC LIMIT 1",
         )
         .bind(object_type)
         .bind(object_id)

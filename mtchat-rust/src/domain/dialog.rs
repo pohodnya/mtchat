@@ -7,8 +7,8 @@ use uuid::Uuid;
 
 /// A dialog (chat room) bound to a specific business object.
 ///
-/// Each dialog is uniquely identified by (object_id, object_type) pair.
-/// For example: tender/123, order/456, route/789
+/// Multiple dialogs can be created for the same object.
+/// For example: tender/123 can have multiple chats
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Dialog {
     pub id: Uuid,

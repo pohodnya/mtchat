@@ -8,7 +8,8 @@
 
 ### Ключевая концепция
 
-- Чат **обязательно привязан к объекту** (тендер, заказ, рейс и т.д.)
+- Чат **привязан к объекту** (тендер, заказ, рейс и т.д.)
+- **Несколько чатов на один объект** — можно создать сколько угодно чатов для одного объекта
 - **Прямые участники** — получают уведомления, видят чат в "Участвую"
 - **Потенциальные участники** — могут присоединиться, видят в "Доступные"
 - Бизнес-логика формирования чатов остаётся в вашем приложении
@@ -370,8 +371,15 @@ docker-compose up -d
 | Message editing & deletion | ✅ |
 | Chat pinning | ✅ |
 | Per-chat notification toggle | ✅ |
+| Multiple dialogs per object | ✅ |
 
 ## Changelog
+
+### 2026-02-10 (v3.16) - Multiple Dialogs Per Object
+- Removed uniqueness constraint on (object_id, object_type)
+- Multiple chats can now be created for the same business object
+- API `by-object/{type}/{id}` returns the most recent dialog (backward compatible)
+- Database migration: drops unique index, creates regular index for query performance
 
 ### 2026-02-07 (v3.15) - Per-Chat Notification Toggle
 - Mute/unmute notifications for individual chats

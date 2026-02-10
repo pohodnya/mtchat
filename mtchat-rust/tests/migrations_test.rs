@@ -69,7 +69,7 @@ async fn test_dialogs_table_has_new_columns() {
 }
 
 #[tokio::test]
-async fn test_dialogs_object_unique_constraint() {
+async fn test_dialogs_multiple_per_object() {
     let pool = setup_test_db().await;
 
     let object_id = Uuid::new_v4();
@@ -90,7 +90,7 @@ async fn test_dialogs_object_unique_constraint() {
     assert!(result1.is_ok(), "First insert should succeed");
     tx1.commit().await.unwrap();
 
-    // Second insert with same object_id + object_type should fail
+    // Second insert with same object_id + object_type should also succeed (multiple dialogs per object allowed)
     let mut tx2 = pool.begin().await.unwrap();
     let result2 = sqlx::query(
         "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
@@ -100,10 +100,10 @@ async fn test_dialogs_object_unique_constraint() {
     .bind("tender")
     .execute(&mut *tx2)
     .await;
-    assert!(result2.is_err(), "Duplicate object_id + object_type should fail");
-    tx2.rollback().await.unwrap();
+    assert!(result2.is_ok(), "Multiple dialogs per object should be allowed");
+    tx2.commit().await.unwrap();
 
-    // Same object_id but different object_type should succeed
+    // Same object_id but different object_type should also succeed
     let mut tx3 = pool.begin().await.unwrap();
     let result3 = sqlx::query(
         "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
@@ -118,7 +118,7 @@ async fn test_dialogs_object_unique_constraint() {
 
     // Cleanup
     sqlx::query("DELETE FROM dialogs WHERE id = ANY($1)")
-        .bind(&vec![dialog1_id, dialog3_id])
+        .bind(&vec![dialog1_id, dialog2_id, dialog3_id])
         .execute(&pool)
         .await
         .unwrap();
@@ -640,14 +640,14 @@ async fn test_gin_indexes_exist() {
 }
 
 #[tokio::test]
-async fn test_unique_index_on_object() {
+async fn test_index_on_object() {
     let pool = setup_test_db().await;
 
+    // Index should exist
     let result = sqlx::query(
-        r#"SELECT indexname FROM pg_indexes
+        r#"SELECT indexname, indexdef FROM pg_indexes
            WHERE tablename = 'dialogs'
-           AND indexdef LIKE '%UNIQUE%'
-           AND indexdef LIKE '%object%'"#
+           AND indexname = 'idx_dialogs_object'"#
     )
     .fetch_all(&pool)
     .await
@@ -655,7 +655,14 @@ async fn test_unique_index_on_object() {
 
     assert!(
         !result.is_empty(),
-        "Unique index on (object_id, object_type) should exist"
+        "Index on (object_id, object_type) should exist"
+    );
+
+    // Index should NOT be unique (multiple dialogs per object allowed)
+    let indexdef: String = result[0].get("indexdef");
+    assert!(
+        !indexdef.to_uppercase().contains("UNIQUE"),
+        "Index should NOT be unique (multiple dialogs per object allowed)"
     );
 }
 
