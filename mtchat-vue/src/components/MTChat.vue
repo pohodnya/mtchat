@@ -114,9 +114,6 @@ const showHeaderMenu = ref(false)
 const showJoinDialog = ref(false)
 const isJoining = ref(false)
 
-// Create chat dialog state
-const showCreateDialog = ref(false)
-
 // Message menu state
 const openMenuId = ref<string | null>(null)
 
@@ -1060,7 +1057,7 @@ defineExpose({
       class="mtchat__sidebar"
       :style="isDesktop ? { width: `${sidebarWidth}px` } : undefined"
     >
-      <!-- Search + Create -->
+      <!-- Search + Actions slot -->
       <div class="mtchat__search">
         <div class="mtchat__search-wrapper">
           <input
@@ -1082,16 +1079,8 @@ defineExpose({
             </svg>
           </button>
         </div>
-        <button
-          class="mtchat__create-btn"
-          type="button"
-          title="Create chat"
-          @click="showCreateDialog = true"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 5v14M5 12h14"/>
-          </svg>
-        </button>
+        <!-- Slot for custom actions (e.g., create chat button) -->
+        <slot name="sidebar-action"></slot>
       </div>
 
       <!-- Tabs -->
@@ -1728,24 +1717,6 @@ defineExpose({
       @join="confirmJoinDialog"
     />
 
-    <!-- Create Chat Dialog -->
-    <div v-if="showCreateDialog" class="mtchat__dialog-overlay" @click.self="showCreateDialog = false">
-      <div class="mtchat__dialog">
-        <div class="mtchat__dialog-header">
-          <h3>Create Chat</h3>
-          <button class="mtchat__dialog-close" @click="showCreateDialog = false">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div class="mtchat__dialog-body">
-          <p style="color: var(--mtchat-text-secondary); text-align: center; padding: 24px;">
-            Chat creation form will be here
-          </p>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -3098,66 +3069,6 @@ button.mtchat__header-info:focus {
 
 .mtchat__dialog-item--archived:hover {
   opacity: 1;
-}
-
-/* Create Chat Dialog */
-.mtchat__dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.mtchat__dialog {
-  background: var(--mtchat-bg);
-  border-radius: var(--mtchat-border-radius-lg);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  min-width: 320px;
-  max-width: 480px;
-  width: 90%;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.mtchat__dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--mtchat-spacing-md) var(--mtchat-spacing-lg);
-  border-bottom: 1px solid var(--mtchat-border);
-}
-
-.mtchat__dialog-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--mtchat-text);
-}
-
-.mtchat__dialog-close {
-  background: none;
-  border: none;
-  color: var(--mtchat-text-secondary);
-  cursor: pointer;
-  padding: var(--mtchat-spacing-xs);
-  border-radius: var(--mtchat-border-radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mtchat__dialog-close:hover {
-  background: var(--mtchat-bg-hover);
-  color: var(--mtchat-text);
-}
-
-.mtchat__dialog-body {
-  padding: var(--mtchat-spacing-lg);
-  overflow-y: auto;
 }
 
 /* =====================================================

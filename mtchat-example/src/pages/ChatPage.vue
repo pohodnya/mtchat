@@ -26,16 +26,43 @@
         @disconnected="onDisconnected"
         @error="onError"
         @message-sent="onMessageSent"
-      />
+      >
+        <!-- Custom action button in sidebar -->
+        <template #sidebar-action>
+          <button
+            class="create-chat-btn"
+            type="button"
+            title="Create chat"
+            @click="showCreateDialog = true"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </button>
+        </template>
+      </MTChat>
     </div>
+
+    <!-- Create Chat Dialog -->
+    <Dialog
+      v-model:visible="showCreateDialog"
+      header="Create Chat"
+      :modal="true"
+      :style="{ width: '400px' }"
+    >
+      <p class="create-dialog-placeholder">
+        Chat creation form will be here
+      </p>
+    </Dialog>
   </TMSLayout>
   <Toast />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
+import Dialog from 'primevue/dialog'
 import { MTChat, type MTChatConfig, type Message } from '@mtchat/vue'
 import TMSLayout from '../components/TMSLayout.vue'
 import { useUsers, useSettings, useTenants } from '../composables'
@@ -44,6 +71,9 @@ const toast = useToast()
 const { users, currentUser } = useUsers()
 const { settings } = useSettings()
 const { getTenant } = useTenants()
+
+// Create chat dialog
+const showCreateDialog = ref(false)
 
 // Build chat config from current user
 const chatConfig = computed<MTChatConfig>(() => {
@@ -174,5 +204,34 @@ function onMessageSent(message: Message) {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Create chat button (in sidebar slot) */
+.create-chat-btn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--p-surface-border, #3f3f46);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--p-text-muted-color, #a1a1aa);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.create-chat-btn:hover {
+  border-color: var(--p-primary-color, #3b82f6);
+  color: var(--p-primary-color, #3b82f6);
+  background: var(--p-surface-hover, rgba(255, 255, 255, 0.05));
+}
+
+.create-dialog-placeholder {
+  color: var(--p-text-muted-color, #a1a1aa);
+  text-align: center;
+  padding: 24px;
+  margin: 0;
 }
 </style>
