@@ -17,7 +17,7 @@ import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Mention from '@tiptap/extension-mention'
 import { Extension } from '@tiptap/core'
-import { chainCommands, newlineInCode, createParagraphNear, liftEmptyBlock, splitBlock } from '@tiptap/pm/commands'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { useI18n } from '../../i18n'
 import type { DialogParticipant } from '../../types'
 import MentionList from './MentionList.vue'
@@ -87,51 +87,6 @@ const CustomKeyboardShortcuts = Extension.create({
       'Mod-Shift-c': () => this.editor.chain().focus().toggleCodeBlock().run(),
       // Clear formatting - Mod+\
       'Mod-\\': () => this.editor.chain().focus().clearNodes().unsetAllMarks().run(),
-      // Shift+Enter: same behavior as default Enter
-      'Shift-Enter': () => {
-        // First try Tiptap's splitListItem (for lists)
-        if (this.editor.can().splitListItem('listItem')) {
-          return this.editor.commands.splitListItem('listItem')
-        }
-        // Check for code block exit (empty line at the end)
-        if (this.editor.isActive('codeBlock')) {
-          const { $from } = this.editor.state.selection
-          const text = $from.parent.textContent
-          const pos = $from.parentOffset
-          // Check if at the end and last line is empty (ends with \n or cursor at start of empty line)
-          const textBeforeCursor = text.slice(0, pos)
-          if (textBeforeCursor.endsWith('\n\n') || (textBeforeCursor.endsWith('\n') && pos === text.length)) {
-            // Delete the trailing empty line, then exit code block
-            const deleteFrom = $from.pos - (textBeforeCursor.endsWith('\n\n') ? 2 : 1)
-            return this.editor.chain()
-              .deleteRange({ from: deleteFrom, to: $from.pos })
-              .exitCode()
-              .run()
-          }
-        }
-        // Check for ``` code block markdown shortcut (only if current paragraph is just ```)
-        const { $from } = this.editor.state.selection
-        const textBefore = $from.parent.textContent
-        if (/^```(\w*)$/.test(textBefore.trim())) {
-          const match = textBefore.trim().match(/^```(\w*)$/)
-          const language = match?.[1] || undefined
-          // Select current paragraph and replace with code block
-          return this.editor.chain()
-            .selectParentNode()
-            .deleteSelection()
-            .setCodeBlock(language ? { language } : undefined)
-            .run()
-        }
-        // Fall back to ProseMirror's base Enter behavior
-        const { state, dispatch } = this.editor.view
-        return chainCommands(newlineInCode, createParagraphNear, liftEmptyBlock, splitBlock)(state, dispatch)
-      },
-      // Enter: send message
-      'Enter': () => {
-        if (showMentionList.value) return false
-        handleSubmitRef.value()
-        return true
-      },
       // Arrow Up when empty - edit last message
       'ArrowUp': () => {
         // Only trigger when editor is empty and cursor is at the start
@@ -145,6 +100,57 @@ const CustomKeyboardShortcuts = Extension.create({
   },
 })
 
+// Extension to swap Enter/Shift+Enter behavior
+// Enter sends message, Shift+Enter acts as normal Enter
+const SwapEnterKeys = Extension.create({
+  name: 'swapEnterKeys',
+  priority: 1000, // High priority to intercept before other handlers
+
+  addProseMirrorPlugins() {
+    // Flag to prevent recursion when dispatching synthetic Enter
+    let isDispatchingEnter = false
+
+    return [
+      new Plugin({
+        key: new PluginKey('swapEnterKeys'),
+        props: {
+          handleKeyDown: (view, event) => {
+            if (event.key !== 'Enter') return false
+
+            // Prevent recursion
+            if (isDispatchingEnter) return false
+
+            if (event.shiftKey) {
+              // Shift+Enter → dispatch Enter without Shift
+              event.preventDefault()
+              event.stopPropagation()
+
+              isDispatchingEnter = true
+              const enterEvent = new KeyboardEvent('keydown', {
+                key: 'Enter',
+                code: 'Enter',
+                keyCode: 13,
+                which: 13,
+                bubbles: true,
+                cancelable: true,
+              })
+              view.dom.dispatchEvent(enterEvent)
+              isDispatchingEnter = false
+              return true
+            } else {
+              // Enter → send message (unless mention list is showing)
+              if (showMentionList.value) return false
+              event.preventDefault()
+              handleSubmitRef.value()
+              return true
+            }
+          },
+        },
+      }),
+    ]
+  },
+})
+
 // Create Tiptap editor
 const editor = useEditor({
   extensions: [
@@ -152,7 +158,7 @@ const editor = useEditor({
       // Configure starter kit extensions
       heading: false, // No headings in chat
       horizontalRule: false,
-      hardBreak: false, // Disable default Shift-Enter -> <br> behavior
+      // hardBreak: default behavior (SwapEnterKeys handles the key swap)
       // Enable markdown shortcuts
       bold: { HTMLAttributes: { class: 'mtchat-bold' } },
       italic: { HTMLAttributes: { class: 'mtchat-italic' } },
@@ -262,6 +268,7 @@ const editor = useEditor({
       },
     }),
     CustomKeyboardShortcuts,
+    SwapEnterKeys,
   ],
   editorProps: {
     attributes: {
