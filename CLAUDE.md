@@ -391,6 +391,13 @@ docker-compose up -d
 - Immutable state updates throughout useChat.ts for proper Vue reactivity
 - Fixed: joinDialog, leaveDialog, archiveDialog, pinDialog, toggleNotifications
 
+### 2026-02-10 - Header Menu Customization
+- Custom action slot in header dropdown menu (before "Leave chat")
+- `headerMenuAction` prop for action label
+- `header-menu-action-icon` slot for custom icon
+- `header-menu-action` emit event on click
+- Removed delete message action from context menu (edit only)
+
 ### 2026-02-10 - PDF Viewer UX Improvements
 - Fixed zoom/pan issues for multi-page PDFs
 - Improved scroll and navigation behavior
