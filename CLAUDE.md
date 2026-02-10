@@ -391,6 +391,21 @@ docker-compose up -d
 - Immutable state updates throughout useChat.ts for proper Vue reactivity
 - Fixed: joinDialog, leaveDialog, archiveDialog, pinDialog, toggleNotifications
 
+### 2026-02-10 - PDF Viewer UX Improvements
+- Fixed zoom/pan issues for multi-page PDFs
+- Improved scroll and navigation behavior
+
+### 2026-02-10 - Editor UX Improvements
+- Swap Enter/Shift+Enter behavior: Enter sends, Shift+Enter adds newline
+- Auto-focus link input when link dialog opens
+- Responsive formatting toolbar with overflow dropdown
+- Container queries for proper toolbar layout
+
+### 2026-02-10 - Dialog Features
+- Search dialogs by participant company names
+- Add `object_url` field for dialog links to host system
+- Create chat button with placeholder dialog slot
+
 ### 2026-02-10 (v3.16) - Multiple Dialogs Per Object
 - Removed uniqueness constraint on (object_id, object_type)
 - Multiple chats can now be created for the same business object
