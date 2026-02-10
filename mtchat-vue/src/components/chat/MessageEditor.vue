@@ -701,7 +701,6 @@ defineExpose({
   border: 1px solid var(--mtchat-border);
   border-radius: var(--mtchat-border-radius-md, 8px);
   background: var(--mtchat-bg);
-  overflow: hidden;
 }
 
 .mtchat-editor--disabled {
@@ -716,6 +715,9 @@ defineExpose({
   gap: 2px;
   padding: 4px 8px;
   border-bottom: 1px solid var(--mtchat-border);
+  overflow: visible;
+  position: relative;
+  z-index: 10;
 }
 
 .mtchat-editor__toolbar-group {
@@ -769,7 +771,7 @@ defineExpose({
 .mtchat-editor__more-menu {
   position: absolute;
   bottom: 100%;
-  left: 0;
+  right: 0;
   margin-bottom: 4px;
   background: var(--mtchat-bg);
   border: 1px solid var(--mtchat-border);
@@ -813,6 +815,7 @@ defineExpose({
   background: var(--mtchat-border);
   margin: 4px 0;
 }
+
 
 /* Responsive toolbar using container queries */
 .mtchat-editor {
