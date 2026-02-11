@@ -21,8 +21,8 @@ pub struct JobContext {
     pub participants: Arc<ParticipantRepository>,
     pub messages: Arc<MessageRepository>,
     pub webhooks: WebhookSender,
-    /// Days of inactivity before auto-archive
-    pub archive_after_days: i64,
+    /// Seconds of inactivity before auto-archive (default: 259200 = 3 days)
+    pub archive_after_secs: i64,
 }
 
 /// Handle notification job.
@@ -130,11 +130,11 @@ pub async fn handle_notification(job: NotificationJob, ctx: Data<JobContext>) ->
 
 /// Handle auto-archive job.
 ///
-/// Finds dialogs with no activity for N days and archives them.
+/// Finds dialogs with no activity for N seconds and archives them.
 pub async fn handle_auto_archive(job: AutoArchiveJob, ctx: Data<JobContext>) -> Result<(), Error> {
     tracing::info!(run_id = %job.run_id, "Starting auto-archive job");
 
-    let cutoff = Utc::now() - Duration::days(ctx.archive_after_days);
+    let cutoff = Utc::now() - Duration::seconds(ctx.archive_after_secs);
 
     // Find inactive dialogs
     let inactive_dialogs = match ctx.dialogs.find_inactive_since(cutoff).await {

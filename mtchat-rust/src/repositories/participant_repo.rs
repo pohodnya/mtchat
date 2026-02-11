@@ -331,4 +331,19 @@ impl ParticipantRepository {
         .await?;
         Ok(result.rows_affected())
     }
+
+    /// Unarchive dialog for all participants.
+    ///
+    /// Used for auto-unarchive on new message. Returns number of participants affected.
+    pub async fn unarchive_all_for_dialog(&self, dialog_id: Uuid) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            r#"UPDATE dialog_participants
+               SET is_archived = false
+               WHERE dialog_id = $1 AND is_archived = true"#,
+        )
+        .bind(dialog_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
 }

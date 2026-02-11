@@ -981,6 +981,12 @@ async fn send_message(
     // Increment unread count for all participants except the sender
     state.participants.increment_unread(dialog_id, sender_id).await?;
 
+    // Auto-unarchive: when a new message is sent, unarchive dialog for all participants
+    let unarchived = state.participants.unarchive_all_for_dialog(dialog_id).await?;
+    if unarchived > 0 {
+        tracing::debug!(dialog_id = %dialog_id, count = unarchived, "Auto-unarchived dialog for participants");
+    }
+
     // Mark sender's own message as read (so divider doesn't appear before own messages)
     state.participants.mark_as_read(dialog_id, sender_id, message.id).await?;
 
@@ -1421,7 +1427,7 @@ async fn main() {
             participants: state.participants.clone(),
             messages: state.messages.clone(),
             webhooks: webhooks.clone(),
-            archive_after_days: worker_config.archive_after_days,
+            archive_after_secs: worker_config.archive_after_secs,
         };
 
         let monitor = start_workers(notification_storage, redis_pool, job_ctx, worker_config)

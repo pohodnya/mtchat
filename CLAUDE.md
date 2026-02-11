@@ -383,20 +383,21 @@ docker-compose up -d
 
 ## Changelog
 
-### 2026-02-11 (v3.18) - Background Job Queue
+### 2026-02-11 (v3.18) - Background Job Queue & Auto-Archive
 - **apalis 0.6** integration for background task processing with Redis backend
 - **Smart notifications** with 30s delay and debounce (configurable via env vars)
 - Debounce logic: multiple messages to same recipient trigger only one notification
 - Notification skipped if message already read before delay expires
 - Notification skipped if user has notifications disabled for the chat
 - **Auto-archive job** runs on cron schedule (default: every 5 mins)
-- Archives all participants of dialogs inactive for N days (default: 7)
+- Archives all participants of dialogs inactive for N seconds (default: 259200 = 3 days)
+- **Auto-unarchive** when new message is sent to archived dialog
 - `notification.pending` webhook event for unread message notifications
 - New `jobs/` module: types, handlers, producer, worker, middleware
 - `JobProducer` integrated into AppState for enqueueing from handlers
 - `find_inactive_since()` in DialogRepository for auto-archive queries
-- `archive_all_for_dialog()` in ParticipantRepository for batch archiving
-- Environment variables: `NOTIFICATION_DELAY_SECS`, `ARCHIVE_CRON`, `ARCHIVE_AFTER_DAYS`, `NOTIFICATION_CONCURRENCY`
+- `archive_all_for_dialog()` and `unarchive_all_for_dialog()` in ParticipantRepository
+- Environment variables: `NOTIFICATION_DELAY_SECS`, `ARCHIVE_CRON`, `ARCHIVE_AFTER_SECS`, `NOTIFICATION_CONCURRENCY`
 - Graceful degradation: job queue disabled if Redis not configured
 - Unit tests for job types, handlers, worker config, debounce logic
 

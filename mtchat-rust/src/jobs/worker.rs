@@ -18,8 +18,8 @@ pub struct WorkerConfig {
     pub notification_delay_secs: u64,
     /// Cron schedule for auto-archive job.
     pub archive_cron: String,
-    /// Days of inactivity before auto-archive.
-    pub archive_after_days: i64,
+    /// Seconds of inactivity before auto-archive (default: 259200 = 3 days).
+    pub archive_after_secs: i64,
     /// Number of concurrent notification workers.
     pub notification_concurrency: usize,
 }
@@ -29,7 +29,7 @@ impl Default for WorkerConfig {
         Self {
             notification_delay_secs: 30,
             archive_cron: "0 */5 * * * *".to_string(), // every 5 minutes
-            archive_after_days: 7,
+            archive_after_secs: 259200, // 3 days
             notification_concurrency: 4,
         }
     }
@@ -45,10 +45,10 @@ impl WorkerConfig {
                 .unwrap_or(30),
             archive_cron: std::env::var("ARCHIVE_CRON")
                 .unwrap_or_else(|_| "0 */5 * * * *".to_string()),
-            archive_after_days: std::env::var("ARCHIVE_AFTER_DAYS")
+            archive_after_secs: std::env::var("ARCHIVE_AFTER_SECS")
                 .ok()
                 .and_then(|s| s.parse().ok())
-                .unwrap_or(7),
+                .unwrap_or(259200), // 3 days
             notification_concurrency: std::env::var("NOTIFICATION_CONCURRENCY")
                 .ok()
                 .and_then(|s| s.parse().ok())
@@ -114,7 +114,7 @@ mod tests {
     fn test_default_config() {
         let config = WorkerConfig::default();
         assert_eq!(config.notification_delay_secs, 30);
-        assert_eq!(config.archive_after_days, 7);
+        assert_eq!(config.archive_after_secs, 259200); // 3 days
         assert_eq!(config.notification_concurrency, 4);
     }
 
