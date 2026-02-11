@@ -1,15 +1,76 @@
 <template>
   <div id="app" :class="`theme-${theme}`">
     <router-view />
+    <Toast position="top-right" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useSettings } from './composables'
+import { computed, watch } from 'vue'
+import { useToast } from 'primevue/usetoast'
+import Toast from 'primevue/toast'
+import { useSettings, useWebhookNotifications } from './composables'
 
 const { settings } = useSettings()
 const theme = computed(() => settings.value.theme)
+
+// Webhook notifications
+const toast = useToast()
+const { lastEvent, isConnected } = useWebhookNotifications()
+
+// Show toast when notification.pending webhook arrives
+watch(lastEvent, (event) => {
+  if (!event) return
+
+  if (event.type === 'notification.pending') {
+    const dialog = event.payload?.dialog
+    const sender = event.payload?.sender
+    const message = event.payload?.message
+
+    // Extract text content from HTML
+    const content = message?.content?.replace(/<[^>]*>/g, '') || ''
+    const truncated = content.length > 100 ? content.slice(0, 100) + '...' : content
+
+    toast.add({
+      severity: 'info',
+      summary: `${sender?.display_name || 'Unknown'} (${dialog?.title || 'Chat'})`,
+      detail: truncated,
+      life: 10000,
+    })
+  } else if (event.type === 'message.new') {
+    // Instant message webhook (if NOTIFICATION_DELAY_SECS=0)
+    const dialog = event.payload?.dialog
+    const sender = event.payload?.sender
+    const message = event.payload?.message
+
+    const content = message?.content?.replace(/<[^>]*>/g, '') || ''
+    const truncated = content.length > 100 ? content.slice(0, 100) + '...' : content
+
+    toast.add({
+      severity: 'secondary',
+      summary: `New message in ${dialog?.title || 'Chat'}`,
+      detail: `${sender?.display_name || 'Unknown'}: ${truncated}`,
+      life: 5000,
+    })
+  } else if (event.type === 'participant.joined' || event.type === 'participant.left') {
+    const dialog = event.payload?.dialog
+    const action = event.type === 'participant.joined' ? 'joined' : 'left'
+
+    toast.add({
+      severity: 'secondary',
+      summary: `Participant ${action}`,
+      detail: dialog?.title || 'Chat',
+      life: 3000,
+    })
+  }
+})
+
+// Log connection status
+watch(isConnected, (connected) => {
+  if (connected) {
+    console.log('[App] Webhook SSE connected')
+  }
+})
 </script>
 
 <style>

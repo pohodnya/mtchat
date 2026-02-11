@@ -406,6 +406,11 @@ docker-compose up -d
 - Icon component dynamically loads icons via Vite `?raw` import
 - Icons use `currentColor` for easy theming, viewBox 24x24
 - **Send files without text** - attachments can now be sent with empty message content
+- **Webhook visualization in demo app** - mtchat-example now includes webhook receiver server
+  - Express server on port 3001 receives webhooks from mtchat-rust
+  - SSE endpoint broadcasts events to browsers in real-time
+  - Toast notifications for `notification.pending`, `message.new`, `participant.joined/left`
+  - Run with `npm run dev:all` to start both Vite and webhook server
 
 ### 2026-02-10 (v3.17) - Read Receipts & Reactivity Fixes
 - Checkmark indicator on own messages when at least 1 participant has read
