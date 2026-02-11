@@ -402,6 +402,9 @@ docker-compose up -d
 - Environment variables: `NOTIFICATION_DELAY_SECS`, `ARCHIVE_CRON`, `ARCHIVE_AFTER_SECS`, `NOTIFICATION_CONCURRENCY`
 - Graceful degradation: job queue disabled if Redis not configured
 - Unit tests for job types, handlers, worker config, debounce logic
+- **SVG icons extracted** to separate files in `mtchat-vue/src/icons/` (33 icons)
+- Icon component dynamically loads icons via Vite `?raw` import
+- Icons use `currentColor` for easy theming, viewBox 24x24
 
 ### 2026-02-10 (v3.17) - Read Receipts & Reactivity Fixes
 - Checkmark indicator on own messages when at least 1 participant has read

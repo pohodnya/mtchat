@@ -812,10 +812,17 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     if (!dialog_id) return
 
-    console.log('[MTChat] dialog.archived event:', { dialog_id })
+    console.log('[MTChat] dialog.archived event:', {
+      dialog_id,
+      participatingCount: participatingDialogs.value.length,
+      archivedCount: archivedDialogs.value.length,
+      participatingIds: participatingDialogs.value.map(d => d.id),
+    })
 
     // Move dialog from active to archived list
     const dialogIndex = participatingDialogs.value.findIndex((d) => d.id === dialog_id)
+    console.log('[MTChat] dialog.archived - found at index:', dialogIndex)
+
     if (dialogIndex !== -1) {
       const dialog = participatingDialogs.value[dialogIndex]
       // Remove from active list
@@ -825,6 +832,12 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       ]
       // Add to archived list with is_archived flag
       archivedDialogs.value = [{ ...dialog, is_archived: true }, ...archivedDialogs.value]
+      console.log('[MTChat] dialog.archived - moved dialog to archived list')
+    } else {
+      // Dialog not in participating list - reload to sync state
+      console.log('[MTChat] dialog.archived - dialog not in participating list, reloading...')
+      loadParticipatingDialogs().catch(() => {})
+      loadArchivedDialogs().catch(() => {})
     }
 
     // Update current dialog if it's the one being archived
@@ -837,10 +850,17 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     if (!dialog_id) return
 
-    console.log('[MTChat] dialog.unarchived event:', { dialog_id })
+    console.log('[MTChat] dialog.unarchived event:', {
+      dialog_id,
+      archivedCount: archivedDialogs.value.length,
+      participatingCount: participatingDialogs.value.length,
+      archivedIds: archivedDialogs.value.map(d => d.id),
+    })
 
     // Move dialog from archived to active list
     const dialogIndex = archivedDialogs.value.findIndex((d) => d.id === dialog_id)
+    console.log('[MTChat] dialog.unarchived - found at index:', dialogIndex)
+
     if (dialogIndex !== -1) {
       const dialog = archivedDialogs.value[dialogIndex]
       // Remove from archived list
@@ -850,6 +870,12 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       ]
       // Add to active list with is_archived flag removed
       participatingDialogs.value = [{ ...dialog, is_archived: false }, ...participatingDialogs.value]
+      console.log('[MTChat] dialog.unarchived - moved dialog to active list')
+    } else {
+      // Dialog not found in archived list - might need to reload
+      console.log('[MTChat] dialog.unarchived - dialog not in archived list, reloading...')
+      loadParticipatingDialogs().catch(() => {})
+      loadArchivedDialogs().catch(() => {})
     }
 
     // Update current dialog if it's the one being unarchived

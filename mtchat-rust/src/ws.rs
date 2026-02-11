@@ -386,10 +386,26 @@ pub async fn broadcast_dialog_unarchived(
         Err(_) => return,
     };
 
+    tracing::debug!(
+        dialog_id = %dialog_id,
+        user_ids = ?user_ids,
+        event_json = %json,
+        "Broadcasting dialog.unarchived event"
+    );
+
     let conns = connections.read().await;
+    let mut sent_count = 0;
     for user_id in user_ids {
         if let Some(tx) = conns.get(user_id) {
-            let _ = tx.send(json.clone()).await;
+            if tx.send(json.clone()).await.is_ok() {
+                sent_count += 1;
+            }
         }
     }
+    tracing::debug!(
+        dialog_id = %dialog_id,
+        sent_count = sent_count,
+        total_recipients = user_ids.len(),
+        "Sent dialog.unarchived event"
+    );
 }

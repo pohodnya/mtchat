@@ -356,6 +356,8 @@ export type WsEventType =
   | 'message.deleted'
   | 'participant.joined'
   | 'participant.left'
+  | 'dialog.archived'
+  | 'dialog.unarchived'
   | 'presence.update'
   | 'typing'
   | 'pong'

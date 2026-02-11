@@ -134,9 +134,14 @@ pub async fn handle_notification(job: NotificationJob, ctx: Data<JobContext>) ->
 ///
 /// Finds dialogs with no activity for N seconds and archives them.
 pub async fn handle_auto_archive(job: AutoArchiveJob, ctx: Data<JobContext>) -> Result<(), Error> {
-    tracing::info!(run_id = %job.run_id, "Starting auto-archive job");
-
     let cutoff = Utc::now() - Duration::seconds(ctx.archive_after_secs);
+
+    tracing::info!(
+        run_id = %job.run_id,
+        archive_after_secs = ctx.archive_after_secs,
+        cutoff = %cutoff,
+        "Starting auto-archive job"
+    );
 
     // Find inactive dialogs
     let inactive_dialogs = match ctx.dialogs.find_inactive_since(cutoff).await {
