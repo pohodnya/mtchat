@@ -24,14 +24,17 @@ mod repositories;
 mod middleware;
 mod webhooks;
 mod services;
+mod jobs;
 
 use domain::{Dialog, DialogParticipant, DialogAccessScope, Message, JoinedAs, ParticipantProfile, system_messages};
 use repositories::{DialogRepository, ParticipantRepository, AccessScopeRepository, MessageRepository, AttachmentRepository};
 use middleware::{ScopeConfig, OptionalScopeConfig, UserId};
 use webhooks::{WebhookSender, WebhookConfig, WebhookEvent};
 use services::{S3Service, S3Config, PresenceService};
+use jobs::{JobProducer, JobContext, WorkerConfig, start_workers, NotificationJob};
 use fred::prelude::*;
 use fred::types::Builder;
+use apalis_redis::RedisStorage;
 
 // ============ App State ============
 
@@ -50,10 +53,12 @@ struct AppState {
     presence: Arc<PresenceService>,
     // Webhooks
     webhooks: WebhookSender,
+    // Jobs
+    jobs: JobProducer,
 }
 
 impl AppState {
-    fn new(db: PgPool, webhooks: WebhookSender, s3: S3Service, presence: PresenceService) -> Self {
+    fn new(db: PgPool, webhooks: WebhookSender, s3: S3Service, presence: PresenceService, jobs: JobProducer) -> Self {
         Self {
             dialogs: Arc::new(DialogRepository::new(db.clone())),
             participants: Arc::new(ParticipantRepository::new(db.clone())),
@@ -65,6 +70,7 @@ impl AppState {
             s3: Arc::new(s3),
             presence: Arc::new(presence),
             webhooks,
+            jobs,
         }
     }
 }
@@ -981,8 +987,32 @@ async fn send_message(
     // Broadcast to WebSocket connections
     ws::broadcast_message(&state.connections, dialog_id, &message).await;
 
-    // Send webhook
+    // Send webhook (instant)
     state.webhooks.send(WebhookEvent::message_new(&dialog, &message)).await;
+
+    // Schedule smart notifications for all participants except sender
+    // Notifications will be sent only if message is not read after delay
+    if state.jobs.is_enabled() {
+        let participants = state.participants.list_by_dialog(dialog_id).await?;
+        for participant in participants {
+            if participant.user_id != sender_id {
+                let job = NotificationJob::new(
+                    dialog_id,
+                    participant.user_id,
+                    message.id,
+                    sender_id,
+                );
+                if let Err(e) = state.jobs.enqueue_notification(job).await {
+                    tracing::warn!(
+                        recipient_id = %participant.user_id,
+                        error = %e,
+                        "Failed to enqueue notification job"
+                    );
+                    // Don't fail the request - notifications are non-critical
+                }
+            }
+        }
+    }
 
     Ok(Json(ApiResponse {
         data: MessageWithAttachments {
@@ -1285,8 +1315,8 @@ async fn main() {
         }
     };
 
-    // Initialize Redis and presence service
-    let presence = match env::var("REDIS_URL") {
+    // Initialize Redis, presence service, and job queue
+    let (presence, jobs, redis_pool) = match env::var("REDIS_URL") {
         Ok(url) => {
             tracing::info!("Connecting to Redis...");
             let config = Config::from_url(&url)
@@ -1296,15 +1326,41 @@ async fn main() {
                 .expect("Failed to create Redis pool");
             pool.init().await.expect("Failed to connect to Redis");
             tracing::info!("Redis connected, presence tracking enabled");
-            PresenceService::new(Arc::new(pool))
+
+            let redis_pool = Arc::new(pool);
+
+            // Initialize job producer
+            let worker_config = WorkerConfig::from_env();
+            let apalis_conn = apalis_redis::connect(url.clone())
+                .await
+                .expect("Failed to connect to Redis for job queue");
+            let notification_storage: RedisStorage<NotificationJob> =
+                RedisStorage::new(apalis_conn);
+
+            let jobs = JobProducer::new(
+                notification_storage.clone(),
+                redis_pool.clone(),
+                worker_config.notification_delay_secs,
+            );
+
+            tracing::info!(
+                delay_secs = worker_config.notification_delay_secs,
+                "Job queue enabled"
+            );
+
+            (
+                PresenceService::new(redis_pool.clone()),
+                jobs,
+                Some((redis_pool, notification_storage, worker_config)),
+            )
         }
         Err(_) => {
-            tracing::info!("Redis disabled (REDIS_URL not set), presence tracking disabled");
-            PresenceService::noop()
+            tracing::info!("Redis disabled (REDIS_URL not set), presence tracking and job queue disabled");
+            (PresenceService::noop(), JobProducer::noop(), None)
         }
     };
 
-    let state = AppState::new(db, webhooks, s3, presence);
+    let state = AppState::new(db.clone(), webhooks.clone(), s3, presence, jobs);
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -1354,7 +1410,31 @@ async fn main() {
         .route("/api/v1/ws", get(ws_handler))
 
         .layer(cors)
-        .with_state(state);
+        .with_state(state.clone());
+
+    // Start job workers if Redis is configured
+    if let Some((redis_pool, notification_storage, worker_config)) = redis_pool {
+        let job_ctx = JobContext {
+            db: db.clone(),
+            redis: redis_pool.clone(),
+            dialogs: state.dialogs.clone(),
+            participants: state.participants.clone(),
+            messages: state.messages.clone(),
+            webhooks: webhooks.clone(),
+            archive_after_days: worker_config.archive_after_days,
+        };
+
+        let monitor = start_workers(notification_storage, redis_pool, job_ctx, worker_config)
+            .await
+            .expect("Failed to start job workers");
+
+        tokio::spawn(async move {
+            tracing::info!("Job workers started");
+            if let Err(e) = monitor.run().await {
+                tracing::error!("Job workers error: {}", e);
+            }
+        });
+    }
 
     let port: u16 = env::var("PORT").unwrap_or_else(|_| "8080".into()).parse().unwrap();
     let addr = SocketAddr::from(([0, 0, 0, 0], port));

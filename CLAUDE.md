@@ -107,6 +107,7 @@ Result: User is POTENTIAL participant (can join)
 | Database | PostgreSQL 17 |
 | Cache/PubSub | Redis 7 |
 | Storage | MinIO (S3) |
+| Job Queue | apalis 0.6 (Redis backend) |
 
 ## Project Structure
 
@@ -122,7 +123,8 @@ mtchat/
 │   │   ├── main.rs
 │   │   ├── api/           # REST handlers
 │   │   ├── ws/            # WebSocket
-│   │   └── webhooks/      # Outgoing webhooks
+│   │   ├── webhooks/      # Outgoing webhooks
+│   │   └── jobs/          # Background job queue (apalis)
 │   └── migrations/
 │
 ├── mtchat-vue/            # SDK Library
@@ -192,8 +194,10 @@ GET  /api/v1/attachments/{id}/url   # Get presigned download URL
 
 ```
 POST {configured_url}
-Events: message.new, participant.joined, participant.left
+Events: message.new, participant.joined, participant.left, notification.pending
 ```
+
+**notification.pending** - Sent after delay (default 30s) if message was not read by recipient. Supports debouncing: multiple messages to same recipient trigger only one notification.
 
 ## Vue Component
 
@@ -373,8 +377,28 @@ docker-compose up -d
 | Per-chat notification toggle | ✅ |
 | Multiple dialogs per object | ✅ |
 | Read receipts | ✅ |
+| Background job queue (apalis) | ✅ |
+| Smart notifications (debounce) | ✅ |
+| Auto-archive inactive chats | ✅ |
 
 ## Changelog
+
+### 2026-02-11 (v3.18) - Background Job Queue
+- **apalis 0.6** integration for background task processing with Redis backend
+- **Smart notifications** with 30s delay and debounce (configurable via env vars)
+- Debounce logic: multiple messages to same recipient trigger only one notification
+- Notification skipped if message already read before delay expires
+- Notification skipped if user has notifications disabled for the chat
+- **Auto-archive job** runs on cron schedule (default: every 5 mins)
+- Archives all participants of dialogs inactive for N days (default: 7)
+- `notification.pending` webhook event for unread message notifications
+- New `jobs/` module: types, handlers, producer, worker, middleware
+- `JobProducer` integrated into AppState for enqueueing from handlers
+- `find_inactive_since()` in DialogRepository for auto-archive queries
+- `archive_all_for_dialog()` in ParticipantRepository for batch archiving
+- Environment variables: `NOTIFICATION_DELAY_SECS`, `ARCHIVE_CRON`, `ARCHIVE_AFTER_DAYS`, `NOTIFICATION_CONCURRENCY`
+- Graceful degradation: job queue disabled if Redis not configured
+- Unit tests for job types, handlers, worker config, debounce logic
 
 ### 2026-02-10 (v3.17) - Read Receipts & Reactivity Fixes
 - Checkmark indicator on own messages when at least 1 participant has read

@@ -316,4 +316,19 @@ impl ParticipantRepository {
         .await?;
         Ok(result.rows_affected() > 0)
     }
+
+    /// Archive dialog for all participants.
+    ///
+    /// Used by auto-archive job. Returns number of participants affected.
+    pub async fn archive_all_for_dialog(&self, dialog_id: Uuid) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            r#"UPDATE dialog_participants
+               SET is_archived = true
+               WHERE dialog_id = $1 AND is_archived = false"#,
+        )
+        .bind(dialog_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
 }

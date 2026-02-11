@@ -16,6 +16,8 @@ pub enum WebhookEventType {
     ParticipantJoined,
     /// User left a dialog
     ParticipantLeft,
+    /// Notification pending - message not read after delay
+    NotificationPending,
 }
 
 impl WebhookEventType {
@@ -24,6 +26,7 @@ impl WebhookEventType {
             Self::MessageNew => "message.new",
             Self::ParticipantJoined => "participant.joined",
             Self::ParticipantLeft => "participant.left",
+            Self::NotificationPending => "notification.pending",
         }
     }
 }
@@ -107,6 +110,30 @@ impl WebhookEvent {
             }),
         )
     }
+
+    /// Create a notification.pending event (smart notifications)
+    ///
+    /// Sent when a message was not read after delay period.
+    /// The receiving system should send a push notification to the user.
+    pub fn notification_pending(dialog: &Dialog, message: &Message, recipient_id: Uuid) -> Self {
+        Self::new(
+            WebhookEventType::NotificationPending,
+            WebhookPayload::NotificationPending(NotificationPendingPayload {
+                dialog_id: dialog.id,
+                object_id: dialog.object_id,
+                object_type: dialog.object_type.clone(),
+                recipient_id,
+                message: MessageData {
+                    id: message.id,
+                    sender_id: message.sender_id,
+                    content: message.content.clone(),
+                    reply_to: message.reply_to_id,
+                    created_at: message.sent_at,
+                    message_type: message.message_type.as_str().to_string(),
+                },
+            }),
+        )
+    }
 }
 
 /// Event payload variants
@@ -116,6 +143,7 @@ pub enum WebhookPayload {
     MessageNew(MessageNewPayload),
     ParticipantJoined(ParticipantPayload),
     ParticipantLeft(ParticipantLeftPayload),
+    NotificationPending(NotificationPendingPayload),
 }
 
 /// Payload for message.new events
@@ -165,6 +193,18 @@ pub struct ParticipantLeftPayload {
     pub object_type: String,
     pub user_id: Uuid,
     pub left_at: DateTime<Utc>,
+}
+
+/// Payload for notification.pending events (smart notifications)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationPendingPayload {
+    pub dialog_id: Uuid,
+    pub object_id: Uuid,
+    pub object_type: String,
+    /// User who should receive the notification
+    pub recipient_id: Uuid,
+    /// Message that triggered the notification
+    pub message: MessageData,
 }
 
 #[cfg(test)]

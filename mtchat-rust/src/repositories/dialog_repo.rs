@@ -189,4 +189,32 @@ impl DialogRepository {
 
         Ok(rows.into_iter().collect())
     }
+
+    /// Find dialogs with no messages since the cutoff date.
+    ///
+    /// Used by auto-archive job to find inactive dialogs.
+    pub async fn find_inactive_since(
+        &self,
+        cutoff: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<Uuid>, sqlx::Error> {
+        // Find dialogs where:
+        // - No messages exist OR latest message is older than cutoff
+        // - At least one participant is not archived (to avoid re-processing)
+        sqlx::query_scalar(
+            r#"SELECT d.id FROM dialogs d
+               WHERE (
+                   NOT EXISTS (SELECT 1 FROM messages m WHERE m.dialog_id = d.id)
+                   OR (
+                       SELECT MAX(m.sent_at) FROM messages m WHERE m.dialog_id = d.id
+                   ) < $1
+               )
+               AND EXISTS (
+                   SELECT 1 FROM dialog_participants dp
+                   WHERE dp.dialog_id = d.id AND dp.is_archived = false
+               )"#,
+        )
+        .bind(cutoff)
+        .fetch_all(&self.pool)
+        .await
+    }
 }
