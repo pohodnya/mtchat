@@ -27,6 +27,8 @@
 // Vue Components
 export { default as MTChat } from './components/MTChat.vue'
 export { default as FileViewer } from './components/chat/FileViewer.vue'
+export { default as Icon } from './components/Icon.vue'
+export type { IconName } from './components/Icon.vue'
 
 // SDK Classes
 export { MTChatClient, MTChatApi, MTChatWebSocket } from './sdk'
