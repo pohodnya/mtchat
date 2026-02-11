@@ -56,6 +56,14 @@ pub enum WsEvent {
         dialog_id: Uuid,
         user_id: Uuid,
     },
+    #[serde(rename = "dialog.archived")]
+    DialogArchived {
+        dialog_id: Uuid,
+    },
+    #[serde(rename = "dialog.unarchived")]
+    DialogUnarchived {
+        dialog_id: Uuid,
+    },
     #[serde(rename = "presence.update")]
     PresenceUpdate {
         user_id: Uuid,
@@ -341,5 +349,47 @@ pub async fn broadcast_participant_left(
     let conns = connections.read().await;
     for (_, tx) in conns.iter() {
         let _ = tx.send(json.clone()).await;
+    }
+}
+
+/// Broadcast dialog archived event to specific users.
+pub async fn broadcast_dialog_archived(
+    connections: &Connections,
+    dialog_id: Uuid,
+    user_ids: &[Uuid],
+) {
+    let event = WsEvent::DialogArchived { dialog_id };
+
+    let json = match serde_json::to_string(&event) {
+        Ok(j) => j,
+        Err(_) => return,
+    };
+
+    let conns = connections.read().await;
+    for user_id in user_ids {
+        if let Some(tx) = conns.get(user_id) {
+            let _ = tx.send(json.clone()).await;
+        }
+    }
+}
+
+/// Broadcast dialog unarchived event to specific users.
+pub async fn broadcast_dialog_unarchived(
+    connections: &Connections,
+    dialog_id: Uuid,
+    user_ids: &[Uuid],
+) {
+    let event = WsEvent::DialogUnarchived { dialog_id };
+
+    let json = match serde_json::to_string(&event) {
+        Ok(j) => j,
+        Err(_) => return,
+    };
+
+    let conns = connections.read().await;
+    for user_id in user_ids {
+        if let Some(tx) = conns.get(user_id) {
+            let _ = tx.send(json.clone()).await;
+        }
     }
 }

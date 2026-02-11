@@ -985,6 +985,12 @@ async fn send_message(
     let unarchived = state.participants.unarchive_all_for_dialog(dialog_id).await?;
     if unarchived > 0 {
         tracing::debug!(dialog_id = %dialog_id, count = unarchived, "Auto-unarchived dialog for participants");
+        // Broadcast unarchive event to all participants
+        let participant_ids: Vec<Uuid> = state.participants.list_by_dialog(dialog_id).await?
+            .iter()
+            .map(|p| p.user_id)
+            .collect();
+        ws::broadcast_dialog_unarchived(&state.connections, dialog_id, &participant_ids).await;
     }
 
     // Mark sender's own message as read (so divider doesn't appear before own messages)
@@ -1427,6 +1433,7 @@ async fn main() {
             participants: state.participants.clone(),
             messages: state.messages.clone(),
             webhooks: webhooks.clone(),
+            connections: state.connections.clone(),
             archive_after_secs: worker_config.archive_after_secs,
         };
 

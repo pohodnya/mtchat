@@ -808,6 +808,56 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  function handleDialogArchived(event: { dialog_id?: string; payload?: { dialog_id?: string } }): void {
+    const dialog_id = event.dialog_id || event.payload?.dialog_id
+    if (!dialog_id) return
+
+    console.log('[MTChat] dialog.archived event:', { dialog_id })
+
+    // Move dialog from active to archived list
+    const dialogIndex = participatingDialogs.value.findIndex((d) => d.id === dialog_id)
+    if (dialogIndex !== -1) {
+      const dialog = participatingDialogs.value[dialogIndex]
+      // Remove from active list
+      participatingDialogs.value = [
+        ...participatingDialogs.value.slice(0, dialogIndex),
+        ...participatingDialogs.value.slice(dialogIndex + 1),
+      ]
+      // Add to archived list with is_archived flag
+      archivedDialogs.value = [{ ...dialog, is_archived: true }, ...archivedDialogs.value]
+    }
+
+    // Update current dialog if it's the one being archived
+    if (currentDialog.value?.id === dialog_id) {
+      currentDialog.value = { ...currentDialog.value, is_archived: true }
+    }
+  }
+
+  function handleDialogUnarchived(event: { dialog_id?: string; payload?: { dialog_id?: string } }): void {
+    const dialog_id = event.dialog_id || event.payload?.dialog_id
+    if (!dialog_id) return
+
+    console.log('[MTChat] dialog.unarchived event:', { dialog_id })
+
+    // Move dialog from archived to active list
+    const dialogIndex = archivedDialogs.value.findIndex((d) => d.id === dialog_id)
+    if (dialogIndex !== -1) {
+      const dialog = archivedDialogs.value[dialogIndex]
+      // Remove from archived list
+      archivedDialogs.value = [
+        ...archivedDialogs.value.slice(0, dialogIndex),
+        ...archivedDialogs.value.slice(dialogIndex + 1),
+      ]
+      // Add to active list with is_archived flag removed
+      participatingDialogs.value = [{ ...dialog, is_archived: false }, ...participatingDialogs.value]
+    }
+
+    // Update current dialog if it's the one being unarchived
+    if (currentDialog.value?.id === dialog_id) {
+      currentDialog.value = { ...currentDialog.value, is_archived: false }
+    }
+  }
+
   function handleMessageRead(event: { dialog_id?: string; user_id?: string; last_read_message_id?: string; payload?: { dialog_id?: string; user_id?: string; last_read_message_id?: string } }): void {
     // Support both flat and payload formats
     const dialog_id = event.dialog_id || event.payload?.dialog_id
@@ -966,6 +1016,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     client.on('message.deleted', handleMessageDeleted as any)
     client.on('participant.joined', handleParticipantJoined as any)
     client.on('participant.left', handleParticipantLeft as any)
+    client.on('dialog.archived', handleDialogArchived as any)
+    client.on('dialog.unarchived', handleDialogUnarchived as any)
 
     // Auto-connect
     if (autoConnect) {

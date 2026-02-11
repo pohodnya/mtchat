@@ -392,6 +392,8 @@ docker-compose up -d
 - **Auto-archive job** runs on cron schedule (default: every 5 mins)
 - Archives all participants of dialogs inactive for N seconds (default: 259200 = 3 days)
 - **Auto-unarchive** when new message is sent to archived dialog
+- **Real-time archive/unarchive** via WebSocket events (`dialog.archived`, `dialog.unarchived`)
+- Frontend reactively moves dialogs between active and archived lists
 - `notification.pending` webhook event for unread message notifications
 - New `jobs/` module: types, handlers, producer, worker, middleware
 - `JobProducer` integrated into AppState for enqueueing from handlers

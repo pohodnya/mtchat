@@ -11,6 +11,7 @@ use super::middleware::{cleanup_debounce_key, is_job_current, NOTIFICATION_DEBOU
 use super::types::{AutoArchiveJob, NotificationJob};
 use crate::repositories::{DialogRepository, MessageRepository, ParticipantRepository};
 use crate::webhooks::{WebhookEvent, WebhookSender};
+use crate::ws::{self, Connections};
 
 /// Shared context for job handlers.
 #[derive(Clone)]
@@ -21,6 +22,7 @@ pub struct JobContext {
     pub participants: Arc<ParticipantRepository>,
     pub messages: Arc<MessageRepository>,
     pub webhooks: WebhookSender,
+    pub connections: Connections,
     /// Seconds of inactivity before auto-archive (default: 259200 = 3 days)
     pub archive_after_secs: i64,
 }
@@ -158,10 +160,29 @@ pub async fn handle_auto_archive(job: AutoArchiveJob, ctx: Data<JobContext>) -> 
 
     let mut archived_count = 0;
     for dialog_id in inactive_dialogs {
+        // Get participant user_ids before archiving (for WebSocket notification)
+        let user_ids: Vec<uuid::Uuid> = match ctx.participants.list_by_dialog(dialog_id).await {
+            Ok(participants) => participants
+                .iter()
+                .filter(|p| !p.is_archived) // Only notify non-archived participants
+                .map(|p| p.user_id)
+                .collect(),
+            Err(e) => {
+                tracing::warn!(dialog_id = %dialog_id, error = %e, "Failed to get participants");
+                continue;
+            }
+        };
+
         match ctx.participants.archive_all_for_dialog(dialog_id).await {
-            Ok(count) => {
+            Ok(count) if count > 0 => {
                 archived_count += count;
                 tracing::debug!(dialog_id = %dialog_id, participants = count, "Archived dialog");
+
+                // Broadcast to affected users
+                ws::broadcast_dialog_archived(&ctx.connections, dialog_id, &user_ids).await;
+            }
+            Ok(_) => {
+                // No participants were archived (all already archived)
             }
             Err(e) => {
                 tracing::warn!(dialog_id = %dialog_id, error = %e, "Failed to archive dialog");
