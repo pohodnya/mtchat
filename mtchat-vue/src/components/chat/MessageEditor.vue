@@ -27,6 +27,7 @@ const props = defineProps<{
   disabled?: boolean
   participants?: DialogParticipant[]
   currentUserId?: string
+  hasAttachments?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -300,6 +301,9 @@ const isActive = (name: string, attrs?: Record<string, unknown>) => {
 // Check if editor has content
 const isEmpty = computed(() => editor.value?.isEmpty ?? true)
 
+// Can send when there's text OR attachments
+const canSend = computed(() => !isEmpty.value || props.hasAttachments)
+
 // Format commands
 const toggleBold = () => editor.value?.chain().focus().toggleBold().run()
 const toggleItalic = () => editor.value?.chain().focus().toggleItalic().run()
@@ -349,7 +353,7 @@ const cancelLink = () => {
 
 // Submit handler
 const handleSubmit = () => {
-  if (!editor.value || editor.value.isEmpty) return
+  if (!editor.value || !canSend.value) return
 
   const html = editor.value.getHTML()
   emit('submit', html)
@@ -693,9 +697,9 @@ defineExpose({
       <button
         type="button"
         class="mtchat-editor__send-btn"
-        :class="{ 'mtchat-editor__send-btn--disabled': isEmpty }"
+        :class="{ 'mtchat-editor__send-btn--disabled': !canSend }"
         :title="t.buttons.send"
-        :disabled="isEmpty"
+        :disabled="!canSend"
         @click="handleSubmit"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

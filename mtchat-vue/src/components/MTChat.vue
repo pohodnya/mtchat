@@ -1807,6 +1807,7 @@ defineExpose({
             :disabled="chat.isLoading.value"
             :participants="chat.participants.value"
             :current-user-id="config.userId"
+            :has-attachments="fileUpload.pendingAttachments.value.length > 0"
             @submit="handleEditorSubmit"
             @update:is-empty="editorIsEmpty = $event"
             @attach="handleFileSelect"
