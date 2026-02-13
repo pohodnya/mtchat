@@ -42,6 +42,16 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const searchQuery: Ref<string> = ref('')
   const onlineUsers: Ref<Set<string>> = ref(new Set())
 
+  // Reply message cache (for messages not in current page due to pagination)
+  // Map<messageId, Message | null> - null means message was deleted/not found
+  const replyMessagesCache: Ref<Map<string, Message | null>> = ref(new Map())
+  const pendingReplyFetches = new Set<string>()
+
+  // Pagination state for infinite scroll
+  const hasMoreMessages: Ref<boolean> = ref(true)
+  const isLoadingOlder: Ref<boolean> = ref(false)
+  const oldestMessageId: Ref<string | null> = ref(null)
+
   // Track subscribed dialog
   let subscribedDialogId: string | null = null
 
@@ -138,9 +148,14 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       client.unsubscribe(subscribedDialogId)
     }
 
-    // Clear messages from previous dialog so the watch can detect initial load
+    // Clear messages and cache from previous dialog
     messages.value = []
     firstUnreadMessageId.value = null
+    replyMessagesCache.value = new Map()
+    pendingReplyFetches.clear()
+    hasMoreMessages.value = true
+    isLoadingOlder.value = false
+    oldestMessageId.value = null
 
     // Find dialog in our lists (active, archived, or available)
     let dialog = participatingDialogs.value.find((d) => d.id === id)
@@ -416,7 +431,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     try {
       isLoading.value = true
       error.value = null
-      const response = await client.api.getMessages(currentDialog.value.id, opts)
+
+      // Default limit for pagination
+      const limit = opts?.limit ?? 50
+      const response = await client.api.getMessages(currentDialog.value.id, { ...opts, limit })
 
       if (opts?.before) {
         // Prepend older messages
@@ -425,6 +443,17 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         // Set first unread message ID BEFORE messages so the watcher sees it
         firstUnreadMessageId.value = response.first_unread_message_id || null
         messages.value = response.messages
+      }
+
+      // Track pagination state
+      hasMoreMessages.value = response.messages.length >= limit
+
+      // Update oldest message ID for cursor-based pagination
+      if (response.messages.length > 0) {
+        const oldestInResponse = response.messages[0]
+        if (!oldestMessageId.value || new Date(oldestInResponse.sent_at) < new Date(oldestMessageId.value)) {
+          oldestMessageId.value = oldestInResponse.id
+        }
       }
     } catch (e) {
       // 403 = not a participant, expected for potential participants
@@ -438,6 +467,110 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       throw e
     } finally {
       isLoading.value = false
+    }
+  }
+
+  /**
+   * Load older messages (for infinite scroll)
+   */
+  async function loadOlderMessages(): Promise<void> {
+    if (!currentDialog.value || !hasMoreMessages.value || isLoadingOlder.value) return
+
+    // Don't load if not a participant
+    if (!currentDialog.value.i_am_participant) return
+
+    // Need oldest message ID for cursor
+    if (!oldestMessageId.value) return
+
+    try {
+      isLoadingOlder.value = true
+      error.value = null
+
+      const limit = 50
+      const response = await client.api.getMessages(currentDialog.value.id, {
+        before: oldestMessageId.value,
+        limit,
+      })
+
+      // Prepend older messages
+      if (response.messages.length > 0) {
+        messages.value = [...response.messages, ...messages.value]
+
+        // Update oldest message ID
+        oldestMessageId.value = response.messages[0].id
+      }
+
+      // Check if there are more messages
+      hasMoreMessages.value = response.messages.length >= limit
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e))
+      // Don't set error for pagination failures - just stop loading more
+      console.warn('Failed to load older messages:', err)
+      hasMoreMessages.value = false
+    } finally {
+      isLoadingOlder.value = false
+    }
+  }
+
+  /**
+   * Get a reply-to message from loaded messages or cache
+   * Returns: Message if found, null if deleted/not found, undefined if loading
+   */
+  function getReplyMessage(messageId: string): Message | null | undefined {
+    // First check loaded messages
+    const loaded = messages.value.find((m) => m.id === messageId)
+    if (loaded) return loaded
+
+    // Check cache
+    if (replyMessagesCache.value.has(messageId)) {
+      return replyMessagesCache.value.get(messageId)
+    }
+
+    // Not found and not in cache - return undefined (loading state)
+    return undefined
+  }
+
+  /**
+   * Fetch a single message for reply display
+   * Returns the message or null if not found
+   */
+  async function fetchReplyMessage(messageId: string): Promise<Message | null> {
+    // Already in cache
+    if (replyMessagesCache.value.has(messageId)) {
+      return replyMessagesCache.value.get(messageId) ?? null
+    }
+
+    // Already being fetched
+    if (pendingReplyFetches.has(messageId)) {
+      return null
+    }
+
+    // Check loaded messages first
+    const loaded = messages.value.find((m) => m.id === messageId)
+    if (loaded) {
+      return loaded
+    }
+
+    if (!currentDialog.value) return null
+
+    try {
+      pendingReplyFetches.add(messageId)
+      const message = await client.api.getMessage(currentDialog.value.id, messageId)
+
+      // Update cache (create new Map for reactivity)
+      const newCache = new Map(replyMessagesCache.value)
+      newCache.set(messageId, message)
+      replyMessagesCache.value = newCache
+
+      return message
+    } catch (e) {
+      // Message not found (deleted or doesn't exist)
+      const newCache = new Map(replyMessagesCache.value)
+      newCache.set(messageId, null)
+      replyMessagesCache.value = newCache
+      return null
+    } finally {
+      pendingReplyFetches.delete(messageId)
     }
   }
 
@@ -1097,6 +1230,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     searchQuery,
     onlineUsers,
 
+    // Reply cache and pagination state
+    replyMessagesCache,
+    hasMoreMessages,
+    isLoadingOlder,
+
     // API access for file uploads
     api: client.api,
 
@@ -1107,6 +1245,9 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     editMessage,
     deleteMessage,
     loadMessages,
+    loadOlderMessages,
+    getReplyMessage,
+    fetchReplyMessage,
     setSearchQuery,
     loadParticipatingDialogs,
     loadArchivedDialogs,

@@ -574,6 +574,13 @@ export interface UseChatReturn {
   /** Set of online user IDs */
   onlineUsers: import('vue').Ref<Set<string>>
 
+  /** Cache for reply-to messages not in current page (null = deleted) */
+  replyMessagesCache: import('vue').Ref<Map<string, Message | null>>
+  /** Whether there are more messages to load (pagination) */
+  hasMoreMessages: import('vue').Ref<boolean>
+  /** Whether older messages are currently being loaded */
+  isLoadingOlder: import('vue').Ref<boolean>
+
   // API access for file uploads
   api: import('../sdk/api').MTChatApi
 
@@ -588,6 +595,12 @@ export interface UseChatReturn {
   /** Delete a message */
   deleteMessage: (messageId: string) => Promise<void>
   loadMessages: (options?: PaginationOptions) => Promise<void>
+  /** Load older messages for infinite scroll */
+  loadOlderMessages: () => Promise<void>
+  /** Get a reply-to message (from loaded or cache). Returns undefined if loading. */
+  getReplyMessage: (messageId: string) => Message | null | undefined
+  /** Fetch a single message for reply display */
+  fetchReplyMessage: (messageId: string) => Promise<Message | null>
   loadParticipatingDialogs: () => Promise<void>
   /** Load archived dialogs (lazy) */
   loadArchivedDialogs: () => Promise<void>

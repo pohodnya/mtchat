@@ -383,6 +383,21 @@ docker-compose up -d
 
 ## Changelog
 
+### 2026-02-13 (v3.19) - Component Refactoring & Infinite Scroll
+- **MTChat.vue refactored** from 3359 lines to ~780 lines
+- New sub-components extracted:
+  - `ChatMessages.vue` - message list with infinite scroll and scroll position preservation
+  - `ChatSidebar.vue` - dialog list with search, tabs, archived accordion
+  - `ChatHeader.vue` - header with title, status, dropdown menu
+  - `ChatInput.vue` - message input with reply/edit preview, attachments
+- **Infinite scroll** for loading older messages when scrolling up
+- **Reply message cache** - fetches reply-to messages not in current page via API
+- Reply display states: loading ("..."), deleted, or actual content
+- Scroll position preserved when prepending older messages
+- New composable methods: `loadOlderMessages()`, `getReplyMessage()`, `fetchReplyMessage()`
+- New state: `hasMoreMessages`, `isLoadingOlder`, `replyMessagesCache`
+- i18n: added `chat.messageLoading` and `chat.loadingOlder` translations
+
 ### 2026-02-11 (v3.18) - Background Job Queue & Auto-Archive
 - **apalis 0.6** integration for background task processing with Redis backend
 - **Smart notifications** with 30s delay and debounce (configurable via env vars)

@@ -43,12 +43,14 @@ export interface TranslationStrings {
     noChatForObject: string
     newMessages: string
     messageDeleted: string
+    messageLoading: string
     joinToSend: string
     joinRequired: string
     archived: string
     edited: string
     editing: string
     deleteConfirm: string
+    loadingOlder: string
   }
   system: {
     chatCreated: string
@@ -189,12 +191,14 @@ export const translations: Record<Locale, TranslationStrings> = {
       noChatForObject: 'Нет чата для этого объекта',
       newMessages: 'Новые сообщения',
       messageDeleted: 'Сообщение удалено',
+      messageLoading: '...',
       joinToSend: 'Присоединитесь к чату, чтобы отправлять сообщения',
       joinRequired: 'Присоединитесь к чату, чтобы просматривать сообщения',
       archived: 'Архивные',
       edited: 'ред.',
       editing: 'Редактирование',
       deleteConfirm: 'Удалить сообщение?',
+      loadingOlder: 'Загрузка...',
     },
     system: {
       chatCreated: 'Чат создан с участниками: {participants}',
@@ -334,12 +338,14 @@ export const translations: Record<Locale, TranslationStrings> = {
       noChatForObject: 'No chat available for this object',
       newMessages: 'New messages',
       messageDeleted: 'Message deleted',
+      messageLoading: '...',
       joinToSend: 'Join this chat to send messages',
       joinRequired: 'Join this chat to view messages',
       archived: 'Archived',
       edited: 'edited',
       editing: 'Editing',
       deleteConfirm: 'Delete message?',
+      loadingOlder: 'Loading...',
     },
     system: {
       chatCreated: 'Chat created with participants: {participants}',
@@ -479,12 +485,14 @@ export const translations: Record<Locale, TranslationStrings> = {
       noChatForObject: '此对象没有可用的聊天',
       newMessages: '新消息',
       messageDeleted: '消息已删除',
+      messageLoading: '...',
       joinToSend: '加入此聊天以发送消息',
       joinRequired: '加入此聊天以查看消息',
       archived: '已归档',
       edited: '已编辑',
       editing: '编辑中',
       deleteConfirm: '删除消息？',
+      loadingOlder: '加载中...',
     },
     system: {
       chatCreated: '聊天已创建，参与者：{participants}',
