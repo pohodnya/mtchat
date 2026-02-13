@@ -42,18 +42,27 @@ const props = defineProps<{
   currentUserId: string
   firstUnreadMessageId: string | null
   isLoadingOlder: boolean
+  isLoadingNewer: boolean
   hasMoreMessages: boolean
+  hasMoreAfter: boolean
+  isJumpingToMessage: boolean
+  /** Cooldown after jump to prevent scroll cascade */
+  jumpCooldown: boolean
   /** Cache for reply messages not in current list */
   replyMessagesCache: Map<string, Message | null>
 }>()
 
 const emit = defineEmits<{
   loadOlder: []
+  loadNewer: []
+  scrollToBottom: []
+  resetToLatest: []
   reply: [message: Message]
   edit: [message: Message]
   openGallery: [attachment: Attachment]
   openFile: [attachment: Attachment]
   markAsRead: []
+  jumpToMessage: [messageId: string]
 }>()
 
 // i18n
@@ -140,9 +149,17 @@ function handleScroll() {
   // Show/hide scroll to bottom button
   showScrollButton.value = distanceFromBottom > 200
 
-  // Infinite scroll: load older messages when near top
-  if (distanceFromTop < 200 && props.hasMoreMessages && !props.isLoadingOlder) {
-    emit('loadOlder')
+  // Skip scroll-based loading during jump cooldown (prevents cascade)
+  if (!props.jumpCooldown) {
+    // Infinite scroll: load older messages when near top
+    if (distanceFromTop < 200 && props.hasMoreMessages && !props.isLoadingOlder) {
+      emit('loadOlder')
+    }
+
+    // Infinite scroll: load newer messages when near bottom (after jumping to a message)
+    if (distanceFromBottom < 200 && props.hasMoreAfter && !props.isLoadingNewer) {
+      emit('loadNewer')
+    }
   }
 
   // Update sticky date
@@ -233,13 +250,28 @@ function scrollToBottom(smooth = false) {
   }
 }
 
+/**
+ * Handle scroll-to-bottom button click
+ * If there are more messages after current set, reload latest messages
+ * Otherwise just scroll to bottom
+ */
+function handleScrollToBottom() {
+  if (props.hasMoreAfter) {
+    // We're not at the latest - need to load them
+    emit('resetToLatest')
+  } else {
+    // Already at latest - just scroll
+    emit('scrollToBottom')
+    scrollToBottom(true)
+  }
+}
+
 function scrollToMessage(messageId: string) {
   if (useVirtualScroll.value && scrollerRef.value) {
     // Find index of message in virtualItems
     const index = virtualItems.value.findIndex(item => item.id === messageId)
     if (index >= 0) {
       scrollerRef.value.scrollToItem(index)
-      // Highlight after scroll completes
       nextTick(() => {
         highlightMessage(messageId)
       })
@@ -273,6 +305,7 @@ function highlightMessage(messageId: string) {
 let scrollHeightBefore = 0
 let scrollTopBefore = 0
 let isLoadingOlderLocal = false
+let isLoadingNewerLocal = false
 
 watch(() => props.isLoadingOlder, (loading) => {
   if (loading) {
@@ -286,6 +319,12 @@ watch(() => props.isLoadingOlder, (loading) => {
   }
 })
 
+watch(() => props.isLoadingNewer, (loading) => {
+  if (loading) {
+    isLoadingNewerLocal = true
+  }
+})
+
 watch(() => props.messages.length, async () => {
   if (isLoadingOlderLocal) {
     // Finished loading older messages - restore position
@@ -296,10 +335,21 @@ watch(() => props.messages.length, async () => {
       container.scrollTop = scrollTopBefore + (scrollHeightAfter - scrollHeightBefore)
     }
     isLoadingOlderLocal = false
-  } else if (!isLoadingOlderLocal) {
-    // New message added at end - scroll to bottom
-    await nextTick()
-    scrollToBottom()
+  } else if (isLoadingNewerLocal) {
+    // Finished loading newer messages - don't scroll, just reset flag
+    isLoadingNewerLocal = false
+  } else if (!props.jumpCooldown) {
+    // New real-time message added - scroll to bottom if we're near bottom
+    // Skip if jumpCooldown is active (resetToLatest or jumpToMessage in progress)
+    const container = useVirtualScroll.value ? scrollerRef.value?.$el : containerRef.value
+    if (container) {
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+      // Only auto-scroll if user is already near bottom (< 100px away)
+      if (distanceFromBottom < 100) {
+        await nextTick()
+        scrollToBottom()
+      }
+    }
   }
 })
 
@@ -405,6 +455,28 @@ function getMessageAuthor(messageId: string): string {
   if (msg === null) return ''
   if (!msg.sender_id) return ''
   return getSenderDisplayName(msg.sender_id)
+}
+
+/**
+ * Handle click on quoted message
+ * If message is loaded, scroll to it. Otherwise, emit jumpToMessage event.
+ */
+function handleQuotedClick(replyToId: string) {
+  // Check if message is deleted
+  const replyMsg = getReplyMessage(replyToId)
+  if (replyMsg === null) {
+    // Message was deleted, don't do anything
+    return
+  }
+
+  // Check if message is in current list
+  const loaded = props.messages.some(m => m.id === replyToId)
+  if (loaded) {
+    scrollToMessage(replyToId)
+  } else {
+    // Message not loaded, emit event to load it
+    emit('jumpToMessage', replyToId)
+  }
 }
 
 // ============ System Messages ============
@@ -617,7 +689,7 @@ defineExpose({
               <div
                 v-if="item.message.reply_to_id"
                 class="chat-messages__quoted"
-                @click.stop="scrollToMessage(item.message.reply_to_id)"
+                @click.stop="handleQuotedClick(item.message.reply_to_id)"
               >
                 <div class="chat-messages__quoted-indicator"></div>
                 <div class="chat-messages__quoted-content">
@@ -739,7 +811,7 @@ defineExpose({
             <div
               v-if="message.reply_to_id"
               class="chat-messages__quoted"
-              @click.stop="scrollToMessage(message.reply_to_id)"
+              @click.stop="handleQuotedClick(message.reply_to_id)"
             >
               <div class="chat-messages__quoted-indicator"></div>
               <div class="chat-messages__quoted-content">
@@ -781,9 +853,19 @@ defineExpose({
         </div>
       </template>
 
+      <!-- Loading newer messages indicator -->
+      <div v-if="isLoadingNewer" class="chat-messages__loading-newer">
+        <span>{{ t.chat.loadingNewer }}</span>
+      </div>
+
       <div v-if="messages.length === 0" class="chat-messages__empty">
         {{ t.chat.noMessages }}
       </div>
+    </div>
+
+    <!-- Loading overlay for jumping to message -->
+    <div v-if="isJumpingToMessage" class="chat-messages__loading-overlay">
+      <span>{{ t.chat.loadingOlder }}</span>
     </div>
 
     <!-- Loading older indicator (virtual scroll mode) -->
@@ -796,7 +878,7 @@ defineExpose({
       v-if="showScrollButton"
       class="chat-messages__scroll-btn"
       :title="t.tooltips.scrollDown"
-      @click="scrollToBottom(true)"
+      @click="handleScrollToBottom"
     >
       <Icon name="chevron-down" :size="18" />
     </button>
@@ -853,6 +935,21 @@ defineExpose({
 }
 
 .chat-messages__loading-older span {
+  padding: 6px 16px;
+  background: var(--mtchat-bg-secondary);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--mtchat-text-secondary);
+}
+
+/* Loading newer */
+.chat-messages__loading-newer {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.chat-messages__loading-newer span {
   padding: 6px 16px;
   background: var(--mtchat-bg-secondary);
   border-radius: 12px;

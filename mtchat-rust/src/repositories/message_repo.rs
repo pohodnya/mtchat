@@ -91,6 +91,29 @@ impl MessageRepository {
         Ok(messages.into_iter().rev().collect())
     }
 
+    /// List messages in a dialog after a specific message (for loading newer messages)
+    pub async fn list_after(
+        &self,
+        dialog_id: Uuid,
+        after_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<Message>, sqlx::Error> {
+        let messages = sqlx::query_as::<_, Message>(
+            r#"SELECT * FROM messages
+               WHERE dialog_id = $1 AND id > $2
+               ORDER BY id ASC
+               LIMIT $3"#,
+        )
+        .bind(dialog_id)
+        .bind(after_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        // Already in chronological order (ASC)
+        Ok(messages)
+    }
+
     /// Save old content to edit history before updating
     pub async fn save_edit_history(
         &self,
@@ -167,5 +190,82 @@ impl MessageRepository {
                 .await?
         };
         Ok(count)
+    }
+
+    /// List messages around a specific message (for jumping to reply)
+    /// Returns messages centered around the target, plus flags for more messages
+    pub async fn list_around(
+        &self,
+        dialog_id: Uuid,
+        around_id: Uuid,
+        limit: i64,
+    ) -> Result<(Vec<Message>, bool, bool), sqlx::Error> {
+        let half_limit = limit / 2;
+
+        tracing::debug!(
+            dialog_id = %dialog_id,
+            around_id = %around_id,
+            limit = limit,
+            half_limit = half_limit,
+            "list_around called"
+        );
+
+        // Get messages BEFORE the target (not including target)
+        let before_messages: Vec<Message> = sqlx::query_as::<_, Message>(
+            r#"SELECT * FROM messages
+               WHERE dialog_id = $1 AND id < $2
+               ORDER BY id DESC
+               LIMIT $3"#,
+        )
+        .bind(dialog_id)
+        .bind(around_id)
+        .bind(half_limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        tracing::debug!(
+            before_count = before_messages.len(),
+            before_ids = ?before_messages.iter().map(|m| m.id.to_string()).collect::<Vec<_>>(),
+            "before_messages fetched"
+        );
+
+        // Get messages FROM the target onwards (including target)
+        let after_messages: Vec<Message> = sqlx::query_as::<_, Message>(
+            r#"SELECT * FROM messages
+               WHERE dialog_id = $1 AND id >= $2
+               ORDER BY id ASC
+               LIMIT $3"#,
+        )
+        .bind(dialog_id)
+        .bind(around_id)
+        .bind(half_limit + 1) // +1 to include the target message
+        .fetch_all(&self.pool)
+        .await?;
+
+        tracing::debug!(
+            after_count = after_messages.len(),
+            after_ids = ?after_messages.iter().map(|m| m.id.to_string()).collect::<Vec<_>>(),
+            target_found = after_messages.iter().any(|m| m.id == around_id),
+            "after_messages fetched"
+        );
+
+        // Check if there are more messages before
+        let has_more_before = before_messages.len() as i64 >= half_limit;
+
+        // Check if there are more messages after
+        let has_more_after = after_messages.len() as i64 > half_limit;
+
+        // Combine: reverse before_messages (to get chronological order) + after_messages
+        let mut messages: Vec<Message> = before_messages.into_iter().rev().collect();
+        messages.extend(after_messages);
+
+        tracing::debug!(
+            total_count = messages.len(),
+            has_more_before = has_more_before,
+            has_more_after = has_more_after,
+            "list_around result"
+        );
+
+        Ok((messages, has_more_before, has_more_after))
     }
 }

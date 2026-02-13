@@ -225,6 +225,20 @@ function handleLoadOlder() {
   chat.loadOlderMessages()
 }
 
+function handleLoadNewer() {
+  chat.loadNewerMessages()
+}
+
+function handleScrollToBottom() {
+  chat.enableScrollCooldown()
+}
+
+async function handleResetToLatest() {
+  await chat.resetToLatest()
+  await nextTick()
+  messagesRef.value?.scrollToBottom(true)
+}
+
 function handleReply(message: Message) {
   chat.setReplyTo(message)
 }
@@ -239,6 +253,16 @@ function handleEdit(message: Message) {
 
 function handleMarkAsRead() {
   chat.markAsRead()
+}
+
+async function handleJumpToMessage(messageId: string) {
+  const found = await chat.jumpToMessage(messageId)
+  console.log('[MTChat] jumpToMessage result:', { found, messageId })
+  if (found) {
+    await nextTick()
+    console.log('[MTChat] calling scrollToMessage, ref exists:', !!messagesRef.value)
+    messagesRef.value?.scrollToMessage(messageId)
+  }
 }
 
 // Input handlers
@@ -509,14 +533,22 @@ defineExpose({
         :current-user-id="config.userId"
         :first-unread-message-id="chat.firstUnreadMessageId.value"
         :is-loading-older="chat.isLoadingOlder.value"
+        :is-loading-newer="chat.isLoadingNewer.value"
         :has-more-messages="chat.hasMoreMessages.value"
+        :has-more-after="chat.hasMoreAfter.value"
+        :is-jumping-to-message="chat.isJumpingToMessage.value"
+        :jump-cooldown="chat.jumpCooldown.value"
         :reply-messages-cache="chat.replyMessagesCache.value"
         @load-older="handleLoadOlder"
+        @load-newer="handleLoadNewer"
+        @scroll-to-bottom="handleScrollToBottom"
+        @reset-to-latest="handleResetToLatest"
         @reply="handleReply"
         @edit="handleEdit"
         @open-gallery="handleOpenGallery"
         @open-file="handleOpenFile"
         @mark-as-read="handleMarkAsRead"
+        @jump-to-message="handleJumpToMessage"
       />
 
       <!-- Input -->

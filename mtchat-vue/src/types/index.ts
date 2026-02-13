@@ -385,6 +385,10 @@ export interface ApiResponse<T> {
 export interface PaginationOptions {
   limit?: number
   before?: string
+  /** Load messages after this message ID (for loading newer messages) */
+  after?: string
+  /** Load messages centered around this message ID (for jumping to replies) */
+  around?: string
 }
 
 /**
@@ -394,6 +398,10 @@ export interface MessagesResponse {
   messages: Message[]
   /** ID of the first unread message (for divider positioning) */
   first_unread_message_id?: string
+  /** Whether there are more messages before the loaded set */
+  has_more_before?: boolean
+  /** Whether there are more messages after the loaded set */
+  has_more_after?: boolean
 }
 
 /**
@@ -602,10 +610,18 @@ export interface UseChatReturn {
 
   /** Cache for reply-to messages not in current page (null = deleted) */
   replyMessagesCache: import('vue').Ref<Map<string, Message | null>>
-  /** Whether there are more messages to load (pagination) */
+  /** Whether there are more older messages to load (scroll up) */
   hasMoreMessages: import('vue').Ref<boolean>
+  /** Whether there are more newer messages to load (scroll down after jump) */
+  hasMoreAfter: import('vue').Ref<boolean>
   /** Whether older messages are currently being loaded */
   isLoadingOlder: import('vue').Ref<boolean>
+  /** Whether newer messages are currently being loaded */
+  isLoadingNewer: import('vue').Ref<boolean>
+  /** Whether we're jumping to a specific message */
+  isJumpingToMessage: import('vue').Ref<boolean>
+  /** Cooldown after jump to prevent scroll cascade */
+  jumpCooldown: import('vue').Ref<boolean>
 
   // API access for file uploads
   api: import('../sdk/api').MTChatApi
@@ -621,8 +637,16 @@ export interface UseChatReturn {
   /** Delete a message */
   deleteMessage: (messageId: string) => Promise<void>
   loadMessages: (options?: PaginationOptions) => Promise<void>
-  /** Load older messages for infinite scroll */
+  /** Load older messages for infinite scroll (up) */
   loadOlderMessages: () => Promise<void>
+  /** Load newer messages for infinite scroll (down after jump) */
+  loadNewerMessages: () => Promise<void>
+  /** Reset to latest messages (scroll-to-bottom after jump) */
+  resetToLatest: () => Promise<void>
+  /** Jump to a specific message (loads messages around it). Returns true if found, false if deleted. */
+  jumpToMessage: (messageId: string) => Promise<boolean>
+  /** Enable scroll cooldown to prevent scroll-triggered loading */
+  enableScrollCooldown: () => void
   /** Get a reply-to message (from loaded or cache). Returns undefined if loading. */
   getReplyMessage: (messageId: string) => Message | null | undefined
   /** Fetch a single message for reply display */

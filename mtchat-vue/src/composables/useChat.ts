@@ -47,10 +47,18 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const replyMessagesCache: Ref<Map<string, Message | null>> = ref(new Map())
   const pendingReplyFetches = new Set<string>()
 
-  // Pagination state for infinite scroll
-  const hasMoreMessages: Ref<boolean> = ref(true)
+  // Pagination state for infinite scroll (bidirectional)
+  const hasMoreMessages: Ref<boolean> = ref(true)  // more messages before (older)
+  const hasMoreAfter: Ref<boolean> = ref(false)    // more messages after (newer)
   const isLoadingOlder: Ref<boolean> = ref(false)
+  const isLoadingNewer: Ref<boolean> = ref(false)
   const oldestMessageId: Ref<string | null> = ref(null)
+  const newestMessageId: Ref<string | null> = ref(null)
+
+  // Jump to message state
+  const isJumpingToMessage: Ref<boolean> = ref(false)
+  // Cooldown after jump to prevent scroll cascade
+  const jumpCooldown: Ref<boolean> = ref(false)
 
   // Track subscribed dialog
   let subscribedDialogId: string | null = null
@@ -446,14 +454,18 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       }
 
       // Track pagination state
-      hasMoreMessages.value = response.messages.length >= limit
+      hasMoreMessages.value = response.has_more_before ?? (response.messages.length >= limit)
+      hasMoreAfter.value = false // Loading latest means no newer messages
 
-      // Update oldest message ID for cursor-based pagination
+      // Update oldest and newest message IDs for cursor-based pagination
       if (response.messages.length > 0) {
         const oldestInResponse = response.messages[0]
+        const newestInResponse = response.messages[response.messages.length - 1]
+
         if (!oldestMessageId.value || new Date(oldestInResponse.sent_at) < new Date(oldestMessageId.value)) {
           oldestMessageId.value = oldestInResponse.id
         }
+        newestMessageId.value = newestInResponse.id
       }
     } catch (e) {
       // 403 = not a participant, expected for potential participants
@@ -509,6 +521,88 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       hasMoreMessages.value = false
     } finally {
       isLoadingOlder.value = false
+      enableScrollCooldown()
+    }
+  }
+
+  /**
+   * Load newer messages (infinite scroll down after jumping to a message)
+   */
+  async function loadNewerMessages(): Promise<void> {
+    if (!currentDialog.value || !hasMoreAfter.value || isLoadingNewer.value) return
+
+    // Don't load if not a participant
+    if (!currentDialog.value.i_am_participant) return
+
+    // Need newest message ID for cursor
+    if (!newestMessageId.value) return
+
+    try {
+      isLoadingNewer.value = true
+      error.value = null
+
+      const limit = 50
+      const response = await client.api.getMessages(currentDialog.value.id, {
+        after: newestMessageId.value,
+        limit,
+      })
+
+      // Append newer messages
+      if (response.messages.length > 0) {
+        messages.value = [...messages.value, ...response.messages]
+
+        // Update newest message ID
+        newestMessageId.value = response.messages[response.messages.length - 1].id
+      }
+
+      // Check if there are more messages after
+      hasMoreAfter.value = response.has_more_after ?? false
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e))
+      console.warn('Failed to load newer messages:', err)
+      hasMoreAfter.value = false
+    } finally {
+      isLoadingNewer.value = false
+      enableScrollCooldown()
+    }
+  }
+
+  /**
+   * Reset to latest messages (used by scroll-to-bottom button after jumping)
+   * This reloads the latest messages and clears the "after" pagination state
+   */
+  async function resetToLatest(): Promise<void> {
+    if (!currentDialog.value) return
+
+    // Don't reset if not a participant
+    if (!currentDialog.value.i_am_participant) return
+
+    try {
+      isLoading.value = true
+      jumpCooldown.value = true
+      error.value = null
+
+      const limit = 50
+      const response = await client.api.getMessages(currentDialog.value.id, { limit })
+
+      // Replace messages with latest
+      messages.value = response.messages
+      firstUnreadMessageId.value = response.first_unread_message_id ?? null
+
+      // Reset pagination state
+      hasMoreMessages.value = response.has_more_before ?? true
+      hasMoreAfter.value = false // We're at the latest - no more after
+
+      if (response.messages.length > 0) {
+        oldestMessageId.value = response.messages[0].id
+        newestMessageId.value = response.messages[response.messages.length - 1].id
+      }
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    } finally {
+      isLoading.value = false
+      enableScrollCooldown()
     }
   }
 
@@ -572,6 +666,70 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     } finally {
       pendingReplyFetches.delete(messageId)
     }
+  }
+
+  /**
+   * Jump to a specific message by loading messages around it
+   * Used when clicking on a quoted message that's not in the current loaded set
+   * Returns true if the message was found and loaded, false if message is deleted
+   */
+  async function jumpToMessage(messageId: string): Promise<boolean> {
+    // 1. Check if already loaded
+    const exists = messages.value.some((m) => m.id === messageId)
+    if (exists) {
+      return true
+    }
+
+    // 2. Check if deleted (from cache)
+    if (replyMessagesCache.value.get(messageId) === null) {
+      return false
+    }
+
+    if (!currentDialog.value) {
+      return false
+    }
+
+    // 3. Load messages around target
+    isJumpingToMessage.value = true
+    jumpCooldown.value = true
+    try {
+      const response = await client.api.getMessages(currentDialog.value.id, {
+        around: messageId,
+        limit: 50,
+      })
+
+      // 4. Replace messages with the new set
+      messages.value = response.messages
+
+      // 5. Update pagination state for bidirectional scroll
+      hasMoreMessages.value = response.has_more_before ?? true
+      hasMoreAfter.value = response.has_more_after ?? false
+
+      if (response.messages.length > 0) {
+        oldestMessageId.value = response.messages[0].id
+        newestMessageId.value = response.messages[response.messages.length - 1].id
+      }
+
+      // Check if the target message was found
+      return response.messages.some((m) => m.id === messageId)
+    } catch (e) {
+      console.warn('[useChat] Failed to jump to message:', e)
+      return false
+    } finally {
+      isJumpingToMessage.value = false
+      enableScrollCooldown()
+    }
+  }
+
+  /**
+   * Enable scroll cooldown (prevents scroll-triggered loading)
+   * Used when programmatically scrolling (jump to message, scroll-to-bottom button)
+   */
+  function enableScrollCooldown(): void {
+    jumpCooldown.value = true
+    setTimeout(() => {
+      jumpCooldown.value = false
+    }, 300)
   }
 
   async function markAsRead(messageId?: string): Promise<void> {
@@ -1233,7 +1391,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     // Reply cache and pagination state
     replyMessagesCache,
     hasMoreMessages,
+    hasMoreAfter,
     isLoadingOlder,
+    isLoadingNewer,
+    isJumpingToMessage,
+    jumpCooldown,
 
     // API access for file uploads
     api: client.api,
@@ -1246,6 +1408,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     deleteMessage,
     loadMessages,
     loadOlderMessages,
+    loadNewerMessages,
+    resetToLatest,
+    jumpToMessage,
+    enableScrollCooldown,
     getReplyMessage,
     fetchReplyMessage,
     setSearchQuery,

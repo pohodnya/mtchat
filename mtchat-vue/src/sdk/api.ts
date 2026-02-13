@@ -248,11 +248,18 @@ export class MTChatApi {
   /**
    * Get messages in a dialog
    * Returns messages and first_unread_message_id for divider positioning
+   *
+   * Pagination modes:
+   * - No options: Load latest messages
+   * - before: Load messages before the specified ID (infinite scroll up)
+   * - around: Load messages centered around the specified ID (jump to message)
    */
   async getMessages(dialogId: string, options?: PaginationOptions): Promise<MessagesResponse> {
     const params: Record<string, string> = {}
     if (options?.limit) params.limit = String(options.limit)
     if (options?.before) params.before = options.before
+    if (options?.after) params.after = options.after
+    if (options?.around) params.around = options.around
 
     const response = await this.request<ApiResponse<MessagesResponse>>(
       'GET',

@@ -189,6 +189,8 @@ struct PaginationQuery {
     #[serde(default = "default_limit")]
     limit: i64,
     before: Option<Uuid>,
+    after: Option<Uuid>,
+    around: Option<Uuid>,
 }
 
 fn default_limit() -> i64 { 50 }
@@ -198,6 +200,10 @@ struct MessagesResponse {
     messages: Vec<MessageWithAttachments>,
     #[serde(skip_serializing_if = "Option::is_none")]
     first_unread_message_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    has_more_before: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    has_more_after: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -792,34 +798,55 @@ async fn list_messages(
         return Err(ApiError::Forbidden("Not a participant. Join the dialog first.".into()));
     }
 
-    let messages = state.messages.list_by_dialog(dialog_id, pagination.limit, pagination.before).await?;
+    // Determine pagination mode: around, after, before, or latest
+    let (messages, has_more_before, has_more_after) = if let Some(around_id) = pagination.around {
+        // Load messages centered around a specific message (jump to message)
+        state.messages.list_around(dialog_id, around_id, pagination.limit).await?
+    } else if let Some(after_id) = pagination.after {
+        // Load messages AFTER a specific message (scroll down to load newer)
+        let msgs = state.messages.list_after(dialog_id, after_id, pagination.limit).await?;
+        let has_more = msgs.len() as i64 >= pagination.limit;
+        // has_more_before is always true when using "after" (we came from scrolling up)
+        // has_more_after is true if we got a full page
+        (msgs, true, has_more)
+    } else {
+        // Regular pagination (before or latest)
+        let msgs = state.messages.list_by_dialog(dialog_id, pagination.limit, pagination.before).await?;
+        // For regular pagination, has_more_before is true if we got a full page
+        let has_more = msgs.len() as i64 >= pagination.limit;
+        (msgs, has_more, false)
+    };
 
-    // Get participant to find first unread message
-    let participant = state.participants.find(dialog_id, user_id).await?;
-    let first_unread_message_id = if let Some(ref p) = participant {
-        if let Some(last_read_id) = p.last_read_message_id {
-            // Find the last read message to get its sent_at
-            let last_read_msg = messages.iter().find(|m| m.id == last_read_id);
-            let last_read_sent_at = if let Some(msg) = last_read_msg {
-                Some(msg.sent_at)
-            } else {
-                // Last read message not in current page - fetch from DB
-                state.messages.find_by_id(last_read_id).await?
-                    .map(|m| m.sent_at)
-            };
+    // Get participant to find first unread message (only for regular pagination, not "around")
+    let first_unread_message_id = if pagination.around.is_none() {
+        let participant = state.participants.find(dialog_id, user_id).await?;
+        if let Some(ref p) = participant {
+            if let Some(last_read_id) = p.last_read_message_id {
+                // Find the last read message to get its sent_at
+                let last_read_msg = messages.iter().find(|m| m.id == last_read_id);
+                let last_read_sent_at = if let Some(msg) = last_read_msg {
+                    Some(msg.sent_at)
+                } else {
+                    // Last read message not in current page - fetch from DB
+                    state.messages.find_by_id(last_read_id).await?
+                        .map(|m| m.sent_at)
+                };
 
-            if let Some(sent_at) = last_read_sent_at {
-                // Find first message sent AFTER the last read message
-                messages.iter()
-                    .find(|m| m.sent_at > sent_at)
-                    .map(|m| m.id)
+                if let Some(sent_at) = last_read_sent_at {
+                    // Find first message sent AFTER the last read message
+                    messages.iter()
+                        .find(|m| m.sent_at > sent_at)
+                        .map(|m| m.id)
+                } else {
+                    // Last read message doesn't exist - treat as never read
+                    messages.first().map(|m| m.id)
+                }
+            } else if !messages.is_empty() {
+                // Never read - first message is unread
+                Some(messages[0].id)
             } else {
-                // Last read message doesn't exist - treat as never read
-                messages.first().map(|m| m.id)
+                None
             }
-        } else if !messages.is_empty() {
-            // Never read - first message is unread
-            Some(messages[0].id)
         } else {
             None
         }
@@ -874,6 +901,8 @@ async fn list_messages(
         data: MessagesResponse {
             messages: messages_with_attachments,
             first_unread_message_id,
+            has_more_before: Some(has_more_before),
+            has_more_after: Some(has_more_after),
         }
     }))
 }

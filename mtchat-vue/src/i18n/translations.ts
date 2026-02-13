@@ -51,6 +51,7 @@ export interface TranslationStrings {
     editing: string
     deleteConfirm: string
     loadingOlder: string
+    loadingNewer: string
   }
   system: {
     chatCreated: string
@@ -199,6 +200,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       editing: 'Редактирование',
       deleteConfirm: 'Удалить сообщение?',
       loadingOlder: 'Загрузка...',
+      loadingNewer: 'Загрузка...',
     },
     system: {
       chatCreated: 'Чат создан с участниками: {participants}',
@@ -346,6 +348,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       editing: 'Editing',
       deleteConfirm: 'Delete message?',
       loadingOlder: 'Loading...',
+      loadingNewer: 'Loading...',
     },
     system: {
       chatCreated: 'Chat created with participants: {participants}',
@@ -493,6 +496,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       editing: '编辑中',
       deleteConfirm: '删除消息？',
       loadingOlder: '加载中...',
+      loadingNewer: '加载中...',
     },
     system: {
       chatCreated: '聊天已创建，参与者：{participants}',
