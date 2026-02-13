@@ -380,8 +380,23 @@ docker-compose up -d
 | Background job queue (apalis) | ✅ |
 | Smart notifications (debounce) | ✅ |
 | Auto-archive inactive chats | ✅ |
+| Jump to unloaded reply | ✅ |
 
 ## Changelog
+
+### 2026-02-13 (v3.20) - Jump to Message & Bidirectional Scroll
+- **Jump to message** - clicking quoted message loads it even if not in current page
+- **Bidirectional infinite scroll** - after jumping, scroll up/down to load more messages
+- Backend: added `around` and `after` parameters to messages API
+- New repository methods: `list_around()` for centered pagination, `list_after()` for newer messages
+- API response includes `has_more_before` and `has_more_after` flags
+- New composable methods: `jumpToMessage()`, `loadNewerMessages()`, `resetToLatest()`
+- New state: `isJumpingToMessage`, `hasMoreAfter`, `isLoadingNewer`, `jumpCooldown`
+- **Scroll cooldown** prevents cascade loading after jump/scroll operations
+- **Scroll-to-bottom button** resets to latest messages when not at end
+- Smart auto-scroll: only scrolls on new real-time messages if user is near bottom
+- Handles deleted messages gracefully (no action on click)
+- i18n: added `chat.loadingNewer` translation
 
 ### 2026-02-13 (v3.19) - Component Refactoring & Infinite Scroll
 - **MTChat.vue refactored** from 3359 lines to ~780 lines
