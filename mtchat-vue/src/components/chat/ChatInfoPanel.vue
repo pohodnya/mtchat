@@ -8,10 +8,7 @@
         @click="$emit('close')"
         :title="t.tooltips.close"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
+        <Icon name="close" :size="20" />
       </button>
     </div>
 
@@ -29,11 +26,7 @@
         rel="noopener noreferrer"
         class="chat-info-panel__object-link"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/>
-          <line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
+        <Icon name="external-link" :size="14" />
         {{ t.infoPanel.openObject }}
       </a>
     </div>
@@ -78,10 +71,7 @@
                 :href="`mailto:${participant.email}`"
                 class="chat-info-panel__contact"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                  <polyline points="22,6 12,13 2,6"/>
-                </svg>
+                <Icon name="email" :size="14" />
                 {{ participant.email }}
               </a>
               <a
@@ -89,9 +79,7 @@
                 :href="`tel:${participant.phone}`"
                 class="chat-info-panel__contact"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
-                </svg>
+                <Icon name="phone" :size="14" />
                 {{ participant.phone }}
               </a>
             </div>
@@ -106,6 +94,7 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import type { DialogParticipant } from '../../types'
 import { useI18n } from '../../i18n'
+import Icon from '../Icon.vue'
 
 const { t } = useI18n()
 

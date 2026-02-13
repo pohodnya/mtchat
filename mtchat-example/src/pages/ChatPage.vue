@@ -22,20 +22,33 @@
         :show-header="true"
         :show-sidebar="true"
         :theme="settings.theme"
-        header-menu-action="Действие-заглушка"
         @connected="onConnected"
         @disconnected="onDisconnected"
         @error="onError"
         @message-sent="onMessageSent"
-        @header-menu-action="onHeaderMenuAction"
       >
-        <!-- Custom icon for header menu action -->
-        <template #header-menu-action-icon>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-            <line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
+        <!-- Custom actions in header menu (before "Leave chat") -->
+        <template #header-menu-actions="{ dialog, closeMenu, menuItemClass }">
+          <button
+            :class="menuItemClass"
+            @click="onHeaderMenuAction(dialog); closeMenu()"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Действие 1
+          </button>
+          <button
+            :class="menuItemClass"
+            @click="console.log('Action 2', dialog.id); closeMenu()"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+            Действие 2
+          </button>
         </template>
 
         <!-- Custom action button in sidebar -->
@@ -172,7 +185,8 @@ function onMessageSent(message: Message) {
   console.log('Message sent:', message)
 }
 
-function onHeaderMenuAction() {
+function onHeaderMenuAction(dialog: any) {
+  console.log('Header menu action for dialog:', dialog.id)
   showStubDialog.value = true
 }
 </script>

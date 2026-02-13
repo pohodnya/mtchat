@@ -1,3 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <polyline points="6 9 12 15 18 9"/>
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M2.23123 4.23964C2.53954 3.92012 3.03941 3.92012 3.34772 4.23964L7 8.02473L10.6523 4.23964C10.9606 3.92012 11.4605 3.92012 11.7688 4.23964C12.0771 4.55916 12.0771 5.0772 11.7688 5.39672L7.55824 9.76036C7.24993 10.0799 6.75007 10.0799 6.44176 9.76036L2.23123 5.39672C1.92292 5.0772 1.92292 4.55916 2.23123 4.23964Z" fill="currentColor"/>
 </svg>

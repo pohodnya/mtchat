@@ -4,8 +4,12 @@ import { computed } from 'vue'
 // Import all SVG icons
 import closeIcon from '../icons/close.svg?raw'
 import pinIcon from '../icons/pin.svg?raw'
+import unpinIcon from '../icons/unpin.svg?raw'
 import bellIcon from '../icons/bell.svg?raw'
 import bellOffIcon from '../icons/bell-off.svg?raw'
+import boldIcon from '../icons/bold.svg?raw'
+import italicIcon from '../icons/italic.svg?raw'
+import underlineIcon from '../icons/underline.svg?raw'
 import chevronRightIcon from '../icons/chevron-right.svg?raw'
 import chevronLeftIcon from '../icons/chevron-left.svg?raw'
 import chevronDownIcon from '../icons/chevron-down.svg?raw'
@@ -35,11 +39,26 @@ import strikethroughIcon from '../icons/strikethrough.svg?raw'
 import attachIcon from '../icons/attach.svg?raw'
 import sendIcon from '../icons/send.svg?raw'
 import errorIcon from '../icons/error.svg?raw'
+import clearFormattingIcon from '../icons/clear-formatting.svg?raw'
+import fileIcon from '../icons/file.svg?raw'
+import fileDocumentIcon from '../icons/file-document.svg?raw'
+import fileSpreadsheetIcon from '../icons/file-spreadsheet.svg?raw'
+import fileArchiveIcon from '../icons/file-archive.svg?raw'
+import fileVideoIcon from '../icons/file-video.svg?raw'
+import fileAudioIcon from '../icons/file-audio.svg?raw'
+import filePdfIcon from '../icons/file-pdf.svg?raw'
+import imageIcon from '../icons/image.svg?raw'
+import tableIcon from '../icons/table.svg?raw'
+import printIcon from '../icons/print.svg?raw'
 
 const icons: Record<string, string> = {
   close: closeIcon,
   pin: pinIcon,
+  unpin: unpinIcon,
   bell: bellIcon,
+  bold: boldIcon,
+  italic: italicIcon,
+  underline: underlineIcon,
   'bell-off': bellOffIcon,
   'chevron-right': chevronRightIcon,
   'chevron-left': chevronLeftIcon,
@@ -70,6 +89,17 @@ const icons: Record<string, string> = {
   attach: attachIcon,
   send: sendIcon,
   error: errorIcon,
+  'clear-formatting': clearFormattingIcon,
+  file: fileIcon,
+  'file-document': fileDocumentIcon,
+  'file-spreadsheet': fileSpreadsheetIcon,
+  'file-archive': fileArchiveIcon,
+  'file-video': fileVideoIcon,
+  'file-audio': fileAudioIcon,
+  'file-pdf': filePdfIcon,
+  image: imageIcon,
+  table: tableIcon,
+  print: printIcon,
 }
 
 export type IconName = keyof typeof icons
@@ -89,8 +119,8 @@ const svgContent = computed(() => {
   }
   // Replace width/height in SVG with props.size
   return raw
-    .replace(/width="24"/, `width="${props.size}"`)
-    .replace(/height="24"/, `height="${props.size}"`)
+    .replace(/width="\d+"/, `width="${props.size}"`)
+    .replace(/height="\d+"/, `height="${props.size}"`)
 })
 </script>
 

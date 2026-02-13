@@ -1,14 +1,14 @@
 <template>
   <div class="attachment-file" @click="$emit('click')">
     <div class="file-icon" :class="iconClass">
-      <i :class="icon" />
+      <Icon :name="icon" :size="20" />
     </div>
     <div class="file-info">
       <span class="file-name" :title="attachment.filename">{{ attachment.filename }}</span>
       <span class="file-size">{{ formatFileSize(attachment.size) }}</span>
     </div>
     <button class="download-btn" title="Download" @click.stop="download">
-      <i class="pi pi-download" />
+      <Icon name="download" :size="16" />
     </button>
   </div>
 </template>
@@ -16,7 +16,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Attachment } from '../../types'
-import { formatFileSize } from '../../types'
+import { formatFileSize, getFileIconName } from '../../types'
+import Icon from '../Icon.vue'
 
 const props = defineProps<{
   attachment: Attachment
@@ -26,12 +27,7 @@ defineEmits<{
   (e: 'click'): void
 }>()
 
-const icon = computed(() => {
-  if (props.attachment.content_type === 'application/pdf') {
-    return 'pi pi-file-pdf'
-  }
-  return 'pi pi-file'
-})
+const icon = computed(() => getFileIconName(props.attachment.content_type))
 
 const iconClass = computed(() => {
   if (props.attachment.content_type === 'application/pdf') {
@@ -51,8 +47,8 @@ function download() {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--mtchat-bg-secondary);
+  border: 1px solid var(--mtchat-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -60,7 +56,7 @@ function download() {
 }
 
 .attachment-file:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--mtchat-bg-hover);
 }
 
 .file-icon {
@@ -74,17 +70,13 @@ function download() {
 }
 
 .file-icon.pdf {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: color-mix(in srgb, var(--mtchat-danger) 15%, transparent);
+  color: var(--mtchat-danger);
 }
 
 .file-icon.generic {
-  background: rgba(79, 195, 247, 0.2);
-  color: #4fc3f7;
-}
-
-.file-icon i {
-  font-size: 20px;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--mtchat-primary);
 }
 
 .file-info {
@@ -98,7 +90,7 @@ function download() {
 .file-name {
   font-size: 14px;
   font-weight: 500;
-  color: #e0e0e0;
+  color: var(--mtchat-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -106,7 +98,7 @@ function download() {
 
 .file-size {
   font-size: 12px;
-  color: #888;
+  color: var(--mtchat-text-secondary);
 }
 
 .download-btn {
@@ -115,7 +107,7 @@ function download() {
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: #888;
+  color: var(--mtchat-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -125,7 +117,7 @@ function download() {
 }
 
 .download-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--mtchat-bg-hover);
+  color: var(--mtchat-primary);
 }
 </style>

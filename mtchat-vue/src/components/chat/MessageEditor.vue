@@ -21,6 +21,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { useI18n } from '../../i18n'
 import type { DialogParticipant } from '../../types'
 import MentionList from './MentionList.vue'
+import Icon from "../Icon.vue";
 
 const props = defineProps<{
   placeholder?: string
@@ -428,7 +429,7 @@ defineExpose({
           :title="`${t.formatting.bold} (⌘B)`"
           @click="toggleBold"
         >
-          <strong>B</strong>
+          <Icon name="bold" :size="16" />
         </button>
         <button
           type="button"
@@ -437,7 +438,7 @@ defineExpose({
           :title="`${t.formatting.italic} (⌘I)`"
           @click="toggleItalic"
         >
-          <em>I</em>
+          <Icon name="italic" :size="16" />
         </button>
         <button
           type="button"
@@ -446,7 +447,7 @@ defineExpose({
           :title="`${t.formatting.underline} (⌘U)`"
           @click="toggleUnderline"
         >
-          <u>U</u>
+          <Icon name="underline" :size="16" />
         </button>
         <button
           type="button"
@@ -469,10 +470,7 @@ defineExpose({
         :title="`${t.formatting.link} (⇧⌘L)`"
         @click="openLinkDialog"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-        </svg>
+        <Icon name="link" :size="16" />
       </button>
 
       <!-- Desktop: show all buttons inline -->
@@ -486,14 +484,7 @@ defineExpose({
           :title="t.formatting.bulletList"
           @click="toggleBulletList"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="8" y1="6" x2="21" y2="6"/>
-            <line x1="8" y1="12" x2="21" y2="12"/>
-            <line x1="8" y1="18" x2="21" y2="18"/>
-            <circle cx="4" cy="6" r="1" fill="currentColor"/>
-            <circle cx="4" cy="12" r="1" fill="currentColor"/>
-            <circle cx="4" cy="18" r="1" fill="currentColor"/>
-          </svg>
+          <Icon name="list-bullet" :size="16" />
         </button>
         <button
           type="button"
@@ -502,14 +493,7 @@ defineExpose({
           :title="t.formatting.numberedList"
           @click="toggleOrderedList"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="10" y1="6" x2="21" y2="6"/>
-            <line x1="10" y1="12" x2="21" y2="12"/>
-            <line x1="10" y1="18" x2="21" y2="18"/>
-            <text x="3" y="8" font-size="8" fill="currentColor">1</text>
-            <text x="3" y="14" font-size="8" fill="currentColor">2</text>
-            <text x="3" y="20" font-size="8" fill="currentColor">3</text>
-          </svg>
+          <Icon name="list-numbered" :size="16" />
         </button>
         <button
           type="button"
@@ -518,9 +502,7 @@ defineExpose({
           :title="t.formatting.quote"
           @click="toggleBlockquote"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
-          </svg>
+          <Icon name="quote" :size="16" />
         </button>
       </div>
 
@@ -534,10 +516,7 @@ defineExpose({
           :title="`${t.formatting.inlineCode} (⌘E)`"
           @click="toggleCode"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="16 18 22 12 16 6"/>
-            <polyline points="8 6 2 12 8 18"/>
-          </svg>
+          <Icon name="code" :size="16" />
         </button>
         <button
           type="button"
@@ -546,11 +525,7 @@ defineExpose({
           :title="`${t.formatting.codeBlock} (⌘⇧C)`"
           @click="toggleCodeBlock"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <polyline points="9 9 6 12 9 15"/>
-            <polyline points="15 9 18 12 15 15"/>
-          </svg>
+          <Icon name="code-block" :size="16" />
         </button>
       </div>
 
@@ -562,12 +537,7 @@ defineExpose({
         :title="`${t.formatting.clearFormatting} (⌘\\)`"
         @click="clearFormatting"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17 12H3"/>
-          <path d="M21 6H3"/>
-          <path d="M21 18H3"/>
-          <path d="M19 4L5 20" stroke-width="2.5"/>
-        </svg>
+        <Icon name="clear-formatting" :size="16" />
       </button>
 
       <!-- Mobile: show more menu -->
@@ -581,11 +551,7 @@ defineExpose({
           title="More formatting"
           @click="toggleMoreMenu"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="5" cy="12" r="2"/>
-            <circle cx="12" cy="12" r="2"/>
-            <circle cx="19" cy="12" r="2"/>
-          </svg>
+          <Icon name="more-horizontal" :size="16" />
         </button>
 
         <!-- Dropdown menu -->
@@ -595,14 +561,7 @@ defineExpose({
             :class="{ 'mtchat-editor__more-item--active': isActive('bulletList') }"
             @click="toggleBulletList(); closeMoreMenu()"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="8" y1="6" x2="21" y2="6"/>
-              <line x1="8" y1="12" x2="21" y2="12"/>
-              <line x1="8" y1="18" x2="21" y2="18"/>
-              <circle cx="4" cy="6" r="1" fill="currentColor"/>
-              <circle cx="4" cy="12" r="1" fill="currentColor"/>
-              <circle cx="4" cy="18" r="1" fill="currentColor"/>
-            </svg>
+            <Icon name="list-bullet" :size="16" />
             {{ t.formatting.bulletList }}
           </button>
           <button
@@ -610,14 +569,7 @@ defineExpose({
             :class="{ 'mtchat-editor__more-item--active': isActive('orderedList') }"
             @click="toggleOrderedList(); closeMoreMenu()"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="10" y1="6" x2="21" y2="6"/>
-              <line x1="10" y1="12" x2="21" y2="12"/>
-              <line x1="10" y1="18" x2="21" y2="18"/>
-              <text x="3" y="8" font-size="8" fill="currentColor">1</text>
-              <text x="3" y="14" font-size="8" fill="currentColor">2</text>
-              <text x="3" y="20" font-size="8" fill="currentColor">3</text>
-            </svg>
+            <Icon name="list-numbered" :size="16" />
             {{ t.formatting.numberedList }}
           </button>
           <button
@@ -625,9 +577,7 @@ defineExpose({
             :class="{ 'mtchat-editor__more-item--active': isActive('blockquote') }"
             @click="toggleBlockquote(); closeMoreMenu()"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/>
-            </svg>
+            <Icon name="quote" :size="16" />
             {{ t.formatting.quote }}
           </button>
           <div class="mtchat-editor__more-separator"></div>
@@ -636,10 +586,7 @@ defineExpose({
             :class="{ 'mtchat-editor__more-item--active': isActive('code') }"
             @click="toggleCode(); closeMoreMenu()"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="16 18 22 12 16 6"/>
-              <polyline points="8 6 2 12 8 18"/>
-            </svg>
+            <Icon name="code" :size="16" />
             {{ t.formatting.inlineCode }}
           </button>
           <button
@@ -647,11 +594,7 @@ defineExpose({
             :class="{ 'mtchat-editor__more-item--active': isActive('codeBlock') }"
             @click="toggleCodeBlock(); closeMoreMenu()"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <polyline points="9 9 6 12 9 15"/>
-              <polyline points="15 9 18 12 15 15"/>
-            </svg>
+            <Icon name="code-block" :size="16" />
             {{ t.formatting.codeBlock }}
           </button>
           <div class="mtchat-editor__more-separator"></div>
@@ -659,12 +602,7 @@ defineExpose({
             type="button"
             @click="clearFormatting(); closeMoreMenu()"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 12H3"/>
-              <path d="M21 6H3"/>
-              <path d="M21 18H3"/>
-              <path d="M19 4L5 20" stroke-width="2.5"/>
-            </svg>
+            <Icon name="clear-formatting" :size="16" />
             {{ t.formatting.clearFormatting }}
           </button>
         </div>
@@ -687,9 +625,7 @@ defineExpose({
         :title="t.input.attachFiles"
         @click="handleAttach"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-        </svg>
+        <Icon name="attach" :size="18" />
       </button>
 
       <div class="mtchat-editor__bottom-spacer"></div>
@@ -702,10 +638,7 @@ defineExpose({
         :disabled="!canSend"
         @click="handleSubmit"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"/>
-          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
+        <Icon name="send" :size="16" />
       </button>
     </div>
 

@@ -19,6 +19,7 @@ import ChatInfoPanel from './chat/ChatInfoPanel.vue'
 import JoinDialog from './chat/JoinDialog.vue'
 import MessageEditor from './chat/MessageEditor.vue'
 import ReadersDialog from './chat/ReadersDialog.vue'
+import Icon from './Icon.vue'
 
 // Props
 const props = withDefaults(
@@ -31,8 +32,6 @@ const props = withDefaults(
     showHeader?: boolean
     showSidebar?: boolean
     theme?: 'light' | 'dark'
-    /** Custom action label in header menu (before "Leave chat") */
-    headerMenuAction?: string
   }>(),
   {
     mode: 'full',
@@ -51,7 +50,6 @@ const emit = defineEmits<{
   'dialog-selected': [dialog: DialogListItem]
   'dialog-joined': [dialogId: string]
   'dialog-left': [dialogId: string]
-  'header-menu-action': [dialog: DialogListItem]
 }>()
 
 // i18n setup - provide locale to child components and get i18n for this component
@@ -1184,9 +1182,7 @@ defineExpose({
             type="button"
             @click="clearSearch"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
+            <Icon name="close" :size="14" />
           </button>
         </div>
         <!-- Slot for custom actions (e.g., create chat button) -->
@@ -1227,34 +1223,9 @@ defineExpose({
             @contextmenu="handleDialogContextMenu($event, dialog)"
           >
             <!-- Pin icon for pinned dialogs -->
-            <svg
-              v-if="dialog.is_pinned"
-              class="mtchat__pin-icon"
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/>
-            </svg>
+            <Icon v-if="dialog.is_pinned" name="pin" :size="12" class="mtchat__pin-icon" />
             <!-- Muted icon for dialogs with notifications disabled -->
-            <svg
-              v-if="dialog.notifications_enabled === false"
-              class="mtchat__muted-icon"
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              :title="t.tooltips.muted"
-            >
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
-              <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
-              <path d="M18 8a6 6 0 0 0-9.33-5"/>
-              <line x1="1" y1="1" x2="23" y2="23"/>
-            </svg>
+            <Icon v-if="dialog.notifications_enabled === false" name="bell-off" :size="12" class="mtchat__muted-icon" :title="t.tooltips.muted" />
             <div class="mtchat__dialog-content">
               <div class="mtchat__dialog-title">
                 {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
@@ -1287,18 +1258,7 @@ defineExpose({
             class="mtchat__archived-toggle"
             @click="toggleArchivedAccordion"
           >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
+            <Icon name="chevron-right" :size="12" />
             {{ t.chat.archived }}
           </button>
 
@@ -1343,33 +1303,19 @@ defineExpose({
         >
           <!-- Pin/Unpin (only for participating non-archived dialogs) -->
           <button v-if="contextMenu.dialog.i_am_participant && !contextMenu.dialog.is_archived" @click="handleContextPin">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/>
-            </svg>
+            <Icon v-if="contextMenu.dialog.is_pinned" name="unpin" :size="16" />
+            <Icon v-else name="pin" :size="16" />
             {{ contextMenu.dialog.is_pinned ? t.buttons.unpin : t.buttons.pin }}
           </button>
           <!-- Notifications toggle (only for participating dialogs) -->
           <button v-if="contextMenu.dialog.i_am_participant" @click="handleContextNotifications">
-            <svg v-if="contextMenu.dialog.notifications_enabled !== false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            </svg>
-            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
-              <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
-              <path d="M18 8a6 6 0 0 0-9.33-5"/>
-              <line x1="1" y1="1" x2="23" y2="23"/>
-            </svg>
+            <Icon v-if="contextMenu.dialog.notifications_enabled !== false" name="bell" :size="16" />
+            <Icon v-else name="bell-off" :size="16" />
             {{ contextMenu.dialog.notifications_enabled !== false ? t.buttons.muteNotifications : t.buttons.unmuteNotifications }}
           </button>
           <!-- Archive/Unarchive (only for participating dialogs) -->
           <button v-if="contextMenu.dialog.i_am_participant" @click="handleContextArchive">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="21 8 21 21 3 21 3 8"/>
-              <rect x="1" y="3" width="22" height="5"/>
-              <line x1="10" y1="12" x2="14" y2="12"/>
-            </svg>
+            <Icon name="archive" :size="16" />
             {{ contextMenu.dialog.is_archived ? t.buttons.unarchive : t.buttons.archive }}
           </button>
         </div>
@@ -1395,9 +1341,7 @@ defineExpose({
           :title="t.tooltips.back"
           @click="goBack"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
+          <Icon name="chevron-left" :size="20" />
         </button>
 
         <button
@@ -1416,11 +1360,7 @@ defineExpose({
               :title="t.tooltips.openObject"
               @click.stop
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                <polyline points="15 3 21 3 21 9"/>
-                <line x1="10" y1="14" x2="21" y2="3"/>
-              </svg>
+              <Icon name="external-link" :size="14" />
             </a>
             <span v-if="chat.currentDialog.value?.is_archived" class="mtchat__archived-badge">
               {{ t.chat.archived }}
@@ -1452,11 +1392,7 @@ defineExpose({
               @click="showHeaderMenu = !showHeaderMenu"
               :title="t.tooltips.menu"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="5" r="2"/>
-                <circle cx="12" cy="12" r="2"/>
-                <circle cx="12" cy="19" r="2"/>
-              </svg>
+              <Icon name="more-vertical" :size="20" />
             </button>
             <!-- Dropdown menu -->
             <div v-if="showHeaderMenu" class="mtchat__menu-dropdown" @click.stop>
@@ -1464,11 +1400,7 @@ defineExpose({
                 class="mtchat__menu-item"
                 @click="showInfoPanel = true; showHeaderMenu = false"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M12 16v-4"/>
-                  <path d="M12 8h.01"/>
-                </svg>
+                <Icon name="info" :size="16" />
                 {{ t.buttons.info }}
               </button>
               <!-- Notifications toggle -->
@@ -1477,17 +1409,8 @@ defineExpose({
                 @click="handleToggleNotifications(); showHeaderMenu = false"
                 :disabled="chat.isLoading.value"
               >
-                <svg v-if="chat.currentDialog.value?.notifications_enabled !== false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                </svg>
-                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                  <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
-                  <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
-                  <path d="M18 8a6 6 0 0 0-9.33-5"/>
-                  <line x1="1" y1="1" x2="23" y2="23"/>
-                </svg>
+                <Icon v-if="chat.currentDialog.value?.notifications_enabled !== false" name="bell" :size="16" />
+                <Icon v-else name="bell-off" :size="16" />
                 {{ chat.currentDialog.value?.notifications_enabled !== false ? t.buttons.muteNotifications : t.buttons.unmuteNotifications }}
               </button>
               <button
@@ -1496,9 +1419,8 @@ defineExpose({
                 @click="handleTogglePin(); showHeaderMenu = false"
                 :disabled="chat.isLoading.value"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5v6l1 1 1-1v-6h5v-2l-2-2z"/>
-                </svg>
+                <Icon v-if="chat.currentDialog.value?.is_pinned" name="unpin" :size="16" />
+                <Icon v-else name="pin" :size="16" />
                 {{ chat.currentDialog.value?.is_pinned ? t.buttons.unpin : t.buttons.pin }}
               </button>
               <button
@@ -1506,40 +1428,23 @@ defineExpose({
                 @click="handleToggleArchive(); showHeaderMenu = false"
                 :disabled="chat.isLoading.value"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="21 8 21 21 3 21 3 8"/>
-                  <rect x="1" y="3" width="22" height="5"/>
-                  <line x1="10" y1="12" x2="14" y2="12"/>
-                </svg>
+                <Icon name="archive" :size="16" />
                 {{ chat.currentDialog.value?.is_archived ? t.buttons.unarchive : t.buttons.archive }}
               </button>
-              <!-- Custom action before Leave (if prop provided) -->
-              <button
-                v-if="props.headerMenuAction"
-                class="mtchat__menu-item"
-                @click="emit('header-menu-action', chat.currentDialog.value!); showHeaderMenu = false"
-              >
-                <slot name="header-menu-action-icon">
-                  <!-- Default icon if no slot provided -->
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="1"/>
-                    <circle cx="12" cy="5" r="1"/>
-                    <circle cx="12" cy="19" r="1"/>
-                  </svg>
-                </slot>
-                {{ props.headerMenuAction }}
-              </button>
+              <!-- Custom actions slot (before "Leave chat") -->
+              <slot
+                name="header-menu-actions"
+                :dialog="chat.currentDialog.value!"
+                :close-menu="() => showHeaderMenu = false"
+                :menu-item-class="'mtchat__menu-item'"
+              />
 
               <button
                 class="mtchat__menu-item mtchat__menu-item--danger"
                 @click="handleLeaveDialog(); showHeaderMenu = false"
                 :disabled="chat.isLoading.value"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-                  <polyline points="16 17 21 12 16 7"/>
-                  <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
+                <Icon name="logout" :size="16" />
                 {{ t.buttons.leaveChat }}
               </button>
             </div>
@@ -1562,10 +1467,7 @@ defineExpose({
       <!-- Join Required (not a participant yet) -->
       <div v-else-if="!chat.currentDialog.value?.i_am_participant" class="mtchat__join-required">
         <div class="mtchat__join-required-content">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0110 0v4"/>
-          </svg>
+          <Icon name="lock" :size="48" />
           <p>{{ t.chat.joinRequired }}</p>
           <button
             v-if="canJoin"
@@ -1638,28 +1540,18 @@ defineExpose({
                   :title="t.tooltips.menu"
                   @click.stop="toggleMessageMenu(message.id)"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="5" r="1.5"/>
-                    <circle cx="12" cy="12" r="1.5"/>
-                    <circle cx="12" cy="19" r="1.5"/>
-                  </svg>
+                  <Icon name="more-vertical" :size="16" />
                 </button>
 
                 <!-- Dropdown menu -->
                 <div v-if="openMenuId === message.id" class="mtchat__message-menu">
                   <button @click.stop="handleReplyFromMenu(message)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M9 14L4 9l5-5"/>
-                      <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
-                    </svg>
+                    <Icon name="reply" :size="14" />
                     {{ t.actions.reply }}
                   </button>
 
                   <button v-if="canEditMessage(message)" @click.stop="handleEditFromMenu(message)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                    </svg>
+                    <Icon name="edit" :size="14" />
                     {{ t.actions.edit }}
                   </button>
 
@@ -1699,9 +1591,7 @@ defineExpose({
                   class="mtchat__read-receipt"
                   @click.stop="showReadersDialog(message)"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
+                  <Icon name="check" :size="14" />
                 </span>
               </div>
 
@@ -1735,9 +1625,7 @@ defineExpose({
           :title="t.tooltips.scrollDown"
           @click="handleScrollToBottom"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
+<Icon name="chevron-down" :size="18" />
         </button>
       </div>
 
@@ -1760,9 +1648,7 @@ defineExpose({
               </div>
             </div>
             <button class="mtchat__edit-cancel" @click="cancelEdit">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
+              <Icon name="close" :size="16" />
             </button>
           </div>
 
@@ -1778,9 +1664,7 @@ defineExpose({
               </div>
             </div>
             <button class="mtchat__reply-cancel" @click="chat.clearReplyTo()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
+              <Icon name="close" :size="16" />
             </button>
           </div>
 
@@ -1953,6 +1837,8 @@ defineExpose({
   --mtchat-primary: #3B82F6;
   --mtchat-primary-hover: #2563eb;
   --mtchat-primary-text: #ffffff;
+  --mtchat-danger: #dc2626;
+  --mtchat-success: #16a34a;
 }
 
 /* Dark theme (PrimeVue Lara Dark Blue) */
@@ -1966,6 +1852,8 @@ defineExpose({
   --mtchat-primary: #60a5fa;
   --mtchat-primary-hover: #3b82f6;
   --mtchat-primary-text: #1f2937;
+  --mtchat-danger: #f87171;
+  --mtchat-success: #4ade80;
 }
 
 /* Sidebar */
@@ -2320,11 +2208,11 @@ defineExpose({
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #f44336;
+  background: var(--mtchat-danger);
 }
 
 .mtchat__status--connected::before {
-  background: #4caf50;
+  background: var(--mtchat-success);
 }
 
 /* Header info as button */
@@ -2383,37 +2271,6 @@ button.mtchat__header-info:focus {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   z-index: 100;
   overflow: hidden;
-}
-
-.mtchat__menu-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--mtchat-text);
-  text-align: left;
-  transition: background-color 0.15s;
-}
-
-.mtchat__menu-item:hover {
-  background: var(--mtchat-hover);
-}
-
-.mtchat__menu-item svg {
-  flex-shrink: 0;
-}
-
-.mtchat__menu-item--danger {
-  color: #f44336;
-}
-
-.mtchat__menu-item--danger:hover {
-  background: rgba(244, 67, 54, 0.1);
 }
 
 .mtchat__menu-backdrop {
@@ -3388,5 +3245,41 @@ button.mtchat__header-info:focus {
     max-height: none;
     min-height: 0;
   }
+}
+</style>
+
+<!-- Non-scoped styles for slot content -->
+<style>
+/* Menu item styles (global for slot content) */
+.mtchat__menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--mtchat-text);
+  text-align: left;
+  transition: background-color 0.15s;
+}
+
+.mtchat__menu-item:hover {
+  background: var(--mtchat-bg-hover);
+}
+
+.mtchat__menu-item svg,
+.mtchat__menu-item .mtchat-icon {
+  flex-shrink: 0;
+}
+
+.mtchat__menu-item--danger {
+  color: var(--mtchat-danger);
+}
+
+.mtchat__menu-item--danger:hover {
+  background: color-mix(in srgb, var(--mtchat-danger) 10%, transparent);
 }
 </style>

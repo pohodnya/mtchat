@@ -20,7 +20,7 @@
 
       <!-- File icon -->
       <div v-else class="preview-file">
-        <i :class="getFileIcon(attachment.contentType)" />
+        <Icon :name="getFileIconName(attachment.contentType)" :size="24" />
       </div>
 
       <!-- Filename -->
@@ -34,10 +34,12 @@
       </div>
 
       <!-- Status icons -->
-      <i v-if="attachment.status === 'uploaded'" class="pi pi-check status-icon success" />
-      <i
+      <Icon v-if="attachment.status === 'uploaded'" name="check" :size="12" class="status-icon success" />
+      <Icon
         v-if="attachment.status === 'error'"
-        class="pi pi-exclamation-triangle status-icon error"
+        name="error"
+        :size="12"
+        class="status-icon error"
         :title="attachment.error"
         @click="$emit('retry', attachment.id)"
       />
@@ -48,7 +50,7 @@
         :disabled="attachment.status === 'uploading'"
         @click="$emit('remove', attachment.id)"
       >
-        <i class="pi pi-times" />
+        <Icon name="close" :size="10" />
       </button>
     </div>
   </div>
@@ -56,6 +58,8 @@
 
 <script setup lang="ts">
 import type { PendingAttachment } from '../../types'
+import { getFileIconName } from '../../types'
+import Icon from '../Icon.vue'
 
 defineProps<{
   attachments: PendingAttachment[]
@@ -65,12 +69,6 @@ defineEmits<{
   (e: 'remove', id: string): void
   (e: 'retry', id: string): void
 }>()
-
-function getFileIcon(contentType: string): string {
-  if (contentType === 'application/pdf') return 'pi pi-file-pdf'
-  if (contentType.startsWith('image/')) return 'pi pi-image'
-  return 'pi pi-file'
-}
 
 function truncateFilename(name: string, maxLength = 20): string {
   if (name.length <= maxLength) return name
@@ -96,8 +94,8 @@ function truncateFilename(name: string, maxLength = 20): string {
   align-items: center;
   width: 80px;
   padding: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--mtchat-bg-secondary);
+  border: 1px solid var(--mtchat-border);
   border-radius: 8px;
   transition: all 0.2s;
 }
@@ -107,11 +105,11 @@ function truncateFilename(name: string, maxLength = 20): string {
 }
 
 .preview-item.uploaded {
-  border-color: rgba(102, 187, 106, 0.3);
+  border-color: rgba(102, 187, 106, 0.5);
 }
 
 .preview-item.error {
-  border-color: rgba(239, 83, 80, 0.3);
+  border-color: rgba(239, 83, 80, 0.5);
   background: rgba(239, 83, 80, 0.1);
 }
 
@@ -128,19 +126,15 @@ function truncateFilename(name: string, maxLength = 20): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--mtchat-bg-hover);
   border-radius: 4px;
-}
-
-.preview-file i {
-  font-size: 24px;
-  color: #888;
+  color: var(--mtchat-text-secondary);
 }
 
 .preview-name {
   margin-top: 4px;
   font-size: 10px;
-  color: #888;
+  color: var(--mtchat-text-secondary);
   text-align: center;
   word-break: break-all;
   line-height: 1.2;
@@ -152,14 +146,14 @@ function truncateFilename(name: string, maxLength = 20): string {
   left: 0;
   right: 0;
   height: 3px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--mtchat-border);
   border-radius: 0 0 8px 8px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: #4fc3f7;
+  background: var(--mtchat-primary);
   transition: width 0.2s;
 }
 
@@ -167,15 +161,14 @@ function truncateFilename(name: string, maxLength = 20): string {
   position: absolute;
   top: 4px;
   right: 20px;
-  font-size: 12px;
 }
 
 .status-icon.success {
-  color: #66bb6a;
+  color: var(--mtchat-success);
 }
 
 .status-icon.error {
-  color: #ef5350;
+  color: var(--mtchat-danger);
   cursor: pointer;
 }
 
@@ -205,9 +198,5 @@ function truncateFilename(name: string, maxLength = 20): string {
 .remove-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-.remove-btn i {
-  font-size: 10px;
 }
 </style>

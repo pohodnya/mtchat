@@ -7,7 +7,7 @@
       @error="handleImageError"
     />
     <div class="thumbnail-overlay">
-      <i class="pi pi-search-plus" />
+      <Icon name="zoom-in" :size="24" />
     </div>
     <!-- Size indicator for large images -->
     <div v-if="attachment.width && attachment.height" class="size-badge">
@@ -18,6 +18,7 @@
 
 <script setup lang="ts">
 import type { Attachment } from '../../types'
+import Icon from '../Icon.vue'
 
 defineProps<{
   attachment: Attachment
@@ -41,7 +42,7 @@ function handleImageError(event: Event) {
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--mtchat-bg-secondary);
 }
 
 .attachment-thumbnail img {
@@ -62,17 +63,13 @@ function handleImageError(event: Event) {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: white;
   opacity: 0;
   transition: opacity 0.2s;
 }
 
 .attachment-thumbnail:hover .thumbnail-overlay {
   opacity: 1;
-}
-
-.thumbnail-overlay i {
-  color: white;
-  font-size: 24px;
 }
 
 .size-badge {

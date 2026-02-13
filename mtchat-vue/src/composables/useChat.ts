@@ -725,6 +725,14 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       if (!messages.value.some((m) => m.id === message!.id)) {
         messages.value = [...messages.value, message]
       }
+
+      // If user is viewing this dialog and message is from another user,
+      // mark as read after a short delay (for smart notifications)
+      if (isFromOtherUser && !isSystemMessage) {
+        setTimeout(() => {
+          markAsRead(message!.id)
+        }, 500)
+      }
     }
   }
 

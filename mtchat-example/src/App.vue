@@ -9,22 +9,34 @@
 import { computed, watch } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
-import { useSettings, useWebhookNotifications } from './composables'
+import { useSettings, useWebhookNotifications, useUsers } from './composables'
 
 const { settings } = useSettings()
 const theme = computed(() => settings.value.theme)
+
+// Get current user for filtering notifications
+const { currentUser } = useUsers()
 
 // Webhook notifications
 const toast = useToast()
 const { lastEvent, isConnected } = useWebhookNotifications()
 
-// Show toast when notification.pending webhook arrives
+// Show toast when webhook arrives
+// Note: Backend uses snake_case for event types (message_new, not message.new)
 watch(lastEvent, (event) => {
   if (!event) return
 
-  if (event.type === 'notification.pending') {
-    const dialog = event.payload?.dialog
-    const sender = event.payload?.sender
+  console.log('[Webhook] Processing event:', event.type, 'recipient:', event.payload?.recipient_id, 'current user:', currentUser.value?.id)
+
+  if (event.type === 'notification_pending') {
+    // Smart notification - message not read after delay
+    // Only show for current user (if user is selected)
+    const recipientId = event.payload?.recipient_id
+    if (currentUser.value && recipientId && currentUser.value.id !== recipientId) {
+      console.log('[Webhook] Skipping notification - not for current user')
+      return
+    }
+
     const message = event.payload?.message
 
     // Extract text content from HTML
@@ -33,35 +45,14 @@ watch(lastEvent, (event) => {
 
     toast.add({
       severity: 'info',
-      summary: `${sender?.display_name || 'Unknown'} (${dialog?.title || 'Chat'})`,
+      summary: `New unread message`,
       detail: truncated,
       life: 10000,
     })
-  } else if (event.type === 'message.new') {
-    // Instant message webhook (if NOTIFICATION_DELAY_SECS=0)
-    const dialog = event.payload?.dialog
-    const sender = event.payload?.sender
-    const message = event.payload?.message
-
-    const content = message?.content?.replace(/<[^>]*>/g, '') || ''
-    const truncated = content.length > 100 ? content.slice(0, 100) + '...' : content
-
-    toast.add({
-      severity: 'secondary',
-      summary: `New message in ${dialog?.title || 'Chat'}`,
-      detail: `${sender?.display_name || 'Unknown'}: ${truncated}`,
-      life: 5000,
-    })
-  } else if (event.type === 'participant.joined' || event.type === 'participant.left') {
-    const dialog = event.payload?.dialog
-    const action = event.type === 'participant.joined' ? 'joined' : 'left'
-
-    toast.add({
-      severity: 'secondary',
-      summary: `Participant ${action}`,
-      detail: dialog?.title || 'Chat',
-      life: 3000,
-    })
+  } else if (event.type === 'message_new') {
+    // Instant message webhook - don't show toast (use notification_pending for smart notifications)
+  } else if (event.type === 'participant_joined' || event.type === 'participant_left') {
+    // Only show for current user's dialogs (skip for now - no user filtering available)
   }
 })
 

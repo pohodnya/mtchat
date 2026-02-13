@@ -299,6 +299,64 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/**
+ * Get icon name for file type (for use with Icon component)
+ */
+export function getFileIconName(contentType?: string): string {
+  if (!contentType) return 'file'
+
+  // PDF
+  if (contentType === 'application/pdf') return 'file-pdf'
+
+  // Images
+  if (contentType.startsWith('image/')) return 'image'
+
+  // Spreadsheets (Excel, ODS, CSV) - check before documents due to 'spreadsheetml.document' in xlsx MIME
+  if (
+    contentType.includes('excel') ||
+    contentType.includes('spreadsheet') ||
+    contentType === 'text/csv'
+  ) return 'file-spreadsheet'
+
+  // Presentations (PowerPoint, ODP) - check before documents due to 'presentation' in MIME
+  if (
+    contentType.includes('powerpoint') ||
+    contentType.includes('presentation')
+  ) return 'file-document'
+
+  // Documents (Word, ODT, RTF)
+  if (
+    contentType.includes('word') ||
+    contentType.includes('wordprocessing') ||
+    contentType.includes('opendocument.text') ||
+    contentType === 'application/rtf'
+  ) return 'file-document'
+
+  // Archives
+  if (
+    contentType.includes('zip') ||
+    contentType.includes('rar') ||
+    contentType.includes('7z') ||
+    contentType.includes('gzip') ||
+    contentType.includes('tar')
+  ) return 'file-archive'
+
+  // Video
+  if (contentType.startsWith('video/')) return 'file-video'
+
+  // Audio
+  if (contentType.startsWith('audio/')) return 'file-audio'
+
+  // Text/Code files
+  if (
+    contentType.startsWith('text/') ||
+    contentType === 'application/json' ||
+    contentType === 'application/xml'
+  ) return 'file-document'
+
+  return 'file'
+}
+
 // ============ API Request/Response ============
 
 /**

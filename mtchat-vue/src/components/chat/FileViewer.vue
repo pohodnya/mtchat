@@ -4,9 +4,7 @@
       <div class="viewer-container">
         <!-- Close button -->
         <button class="viewer-close" :title="t.fileViewer.close" @click="$emit('close')">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
+          <Icon name="close" :size="24" />
         </button>
 
         <!-- Navigation -->
@@ -17,9 +15,7 @@
           :title="t.fileViewer.previous"
           @click.stop="prev"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
+          <Icon name="chevron-left" :size="24" />
         </button>
 
         <button
@@ -29,9 +25,7 @@
           :title="t.fileViewer.next"
           @click.stop="next"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
+          <Icon name="chevron-right" :size="24" />
         </button>
 
         <!-- Content area -->
@@ -70,10 +64,7 @@
           <!-- PDF -->
           <template v-else-if="currentFileType === 'pdf'">
             <div v-if="pdfError" class="viewer-file-preview">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
+              <Icon name="error" :size="64" />
               <span class="viewer-file-name">{{ pdfError }}</span>
             </div>
             <div
@@ -95,7 +86,7 @@
           <!-- Other file types -->
           <template v-else>
             <div class="viewer-file-preview">
-              <component :is="getFileIcon(currentFile?.content_type)" class="viewer-file-icon" />
+              <Icon :name="getFileIconName(currentFile?.content_type)" :size="64" class="viewer-file-icon" />
               <a
                 class="viewer-file-name viewer-file-name--clickable"
                 href="#"
@@ -129,10 +120,7 @@
               :title="t.fileViewer.zoomOut"
               @click="zoomOut()"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35M8 11h6" />
-              </svg>
+              <Icon name="zoom-out" :size="18" />
             </button>
             <span class="viewer-zoom-level">{{ Math.round(zoom * 100) }}%</span>
             <button
@@ -141,20 +129,14 @@
               :title="t.fileViewer.zoomIn"
               @click="zoomIn()"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
-              </svg>
+              <Icon name="zoom-in" :size="18" />
             </button>
             <button
               class="viewer-zoom-btn"
               :title="t.fileViewer.resetZoom"
               @click="resetZoom"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
+              <Icon name="reset" :size="18" />
             </button>
           </div>
 
@@ -165,9 +147,7 @@
             :title="t.fileViewer.download"
             @click="downloadCurrentFile"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
-            </svg>
+            <Icon name="download" :size="20" />
           </button>
         </div>
       </div>
@@ -176,10 +156,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, watch, onMounted, onUnmounted, nextTick, h, type FunctionalComponent } from 'vue'
+import { ref, shallowRef, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import type { Attachment } from '../../types'
-import { getAttachmentType } from '../../types'
+import { getAttachmentType, getFileIconName } from '../../types'
 import { useI18n } from '../../i18n'
+import Icon from '../Icon.vue'
 import * as pdfjsLib from 'pdfjs-dist'
 // @ts-ignore - Vite handles this import
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -680,61 +661,6 @@ function getFileTypeLabel(contentType?: string): string {
   }
 
   return typeMap[contentType] || contentType.split('/')[1]?.toUpperCase() || labels.file
-}
-
-// File icons as functional components
-const IconDocument: FunctionalComponent = () => h('svg', {
-  width: 64, height: 64, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5
-}, [
-  h('path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
-  h('path', { d: 'M14 2v6h6M16 13H8M16 17H8M10 9H8' })
-])
-
-const IconSpreadsheet: FunctionalComponent = () => h('svg', {
-  width: 64, height: 64, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5
-}, [
-  h('path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
-  h('path', { d: 'M14 2v6h6M8 13h8M8 17h8M8 9h2' })
-])
-
-const IconArchive: FunctionalComponent = () => h('svg', {
-  width: 64, height: 64, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5
-}, [
-  h('path', { d: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4' })
-])
-
-const IconVideo: FunctionalComponent = () => h('svg', {
-  width: 64, height: 64, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5
-}, [
-  h('rect', { x: 2, y: 2, width: 20, height: 20, rx: 2.18, ry: 2.18 }),
-  h('path', { d: 'M10 8l6 4-6 4V8z' })
-])
-
-const IconAudio: FunctionalComponent = () => h('svg', {
-  width: 64, height: 64, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5
-}, [
-  h('path', { d: 'M9 18V5l12-2v13' }),
-  h('circle', { cx: 6, cy: 18, r: 3 }),
-  h('circle', { cx: 18, cy: 16, r: 3 })
-])
-
-const IconFile: FunctionalComponent = () => h('svg', {
-  width: 64, height: 64, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5
-}, [
-  h('path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
-  h('path', { d: 'M14 2v6h6' })
-])
-
-function getFileIcon(contentType?: string): FunctionalComponent {
-  if (!contentType) return IconFile
-
-  if (contentType.includes('word') || contentType.includes('document')) return IconDocument
-  if (contentType.includes('excel') || contentType.includes('spreadsheet')) return IconSpreadsheet
-  if (contentType.includes('zip') || contentType.includes('rar') || contentType.includes('7z') || contentType.includes('gzip')) return IconArchive
-  if (contentType.startsWith('video/')) return IconVideo
-  if (contentType.startsWith('audio/')) return IconAudio
-
-  return IconFile
 }
 
 // Keyboard handling
