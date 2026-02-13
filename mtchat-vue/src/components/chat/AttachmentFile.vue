@@ -30,8 +30,15 @@ defineEmits<{
 const icon = computed(() => getFileIconName(props.attachment.content_type))
 
 const iconClass = computed(() => {
-  if (props.attachment.content_type === 'application/pdf') {
+  const ct = props.attachment.content_type
+  if (ct === 'application/pdf') {
     return 'pdf'
+  }
+  if (ct.includes('spreadsheet') || ct.includes('excel') || ct === 'text/csv') {
+    return 'spreadsheet'
+  }
+  if (ct.includes('zip') || ct.includes('rar') || ct.includes('7z') || ct.includes('gzip') || ct.includes('tar')) {
+    return 'archive'
   }
   return 'generic'
 })
@@ -72,6 +79,16 @@ function download() {
 .file-icon.pdf {
   background: color-mix(in srgb, var(--mtchat-danger) 15%, transparent);
   color: var(--mtchat-danger);
+}
+
+.file-icon.spreadsheet {
+  background: color-mix(in srgb, var(--mtchat-success) 15%, transparent);
+  color: var(--mtchat-success);
+}
+
+.file-icon.archive {
+  background: color-mix(in srgb, var(--mtchat-warning) 15%, transparent);
+  color: var(--mtchat-warning);
 }
 
 .file-icon.generic {

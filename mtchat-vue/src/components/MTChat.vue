@@ -659,6 +659,9 @@ defineExpose({
   --mtchat-border: #e2e8f0;
   --mtchat-primary: #3b82f6;
   --mtchat-primary-bg: rgba(59, 130, 246, 0.1);
+  --mtchat-danger: #ef4444;
+  --mtchat-success: #22c55e;
+  --mtchat-warning: #f59e0b;
 }
 
 .mtchat--dark {
@@ -670,6 +673,9 @@ defineExpose({
   --mtchat-border: #3f3f46;
   --mtchat-primary: #60a5fa;
   --mtchat-primary-bg: rgba(96, 165, 250, 0.15);
+  --mtchat-danger: #f87171;
+  --mtchat-success: #4ade80;
+  --mtchat-warning: #fbbf24;
 }
 
 /* Main area */
