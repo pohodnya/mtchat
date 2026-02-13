@@ -30,6 +30,7 @@ const emit = defineEmits<{
   cancelReply: []
   cancelEdit: []
   join: []
+  editLastMessage: []
 }>()
 
 // i18n
@@ -105,8 +106,7 @@ function handleFileChange(event: Event) {
 // Arrow up to edit last message (handled by parent)
 function handleArrowUp() {
   if (editorIsEmpty.value && !props.editingMessage) {
-    // Parent should handle finding last own message
-    // This is emitted to MTChat which has access to messages
+    emit('editLastMessage')
   }
 }
 

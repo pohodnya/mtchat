@@ -251,6 +251,18 @@ function handleEdit(message: Message) {
   })
 }
 
+function handleEditLastMessage() {
+  // Find last own message that can be edited (user messages only)
+  const messages = chat.messages.value
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.sender_id === props.config.userId && msg.message_type !== 'system') {
+      handleEdit(msg)
+      break
+    }
+  }
+}
+
 function handleMarkAsRead() {
   chat.markAsRead()
 }
@@ -568,6 +580,7 @@ defineExpose({
         @edit="handleEditSubmit"
         @cancel-reply="chat.clearReplyTo()"
         @cancel-edit="chat.clearEditMessage()"
+        @edit-last-message="handleEditLastMessage"
         @join="handleJoin"
       />
     </main>
