@@ -36,6 +36,7 @@ const emit = defineEmits<{
   'update:isEmpty': [isEmpty: boolean]
   attach: []
   'arrow-up': []
+  cancel: []
 }>()
 
 const { t } = useI18n()
@@ -97,6 +98,11 @@ const CustomKeyboardShortcuts = Extension.create({
           return true
         }
         return false
+      },
+      // Escape - cancel edit/reply
+      'Escape': () => {
+        emit('cancel')
+        return true
       },
     }
   },

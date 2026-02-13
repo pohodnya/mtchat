@@ -110,6 +110,16 @@ function handleArrowUp() {
   }
 }
 
+// Escape to cancel edit or reply
+function handleCancel() {
+  if (props.editingMessage) {
+    emit('cancelEdit')
+    editorRef.value?.clear()
+  } else if (props.replyToMessage) {
+    emit('cancelReply')
+  }
+}
+
 // Cancel edit
 function cancelEdit() {
   emit('cancelEdit')
@@ -201,6 +211,7 @@ defineExpose({
         @update:is-empty="editorIsEmpty = $event"
         @attach="handleFileSelect"
         @arrow-up="handleArrowUp"
+        @cancel="handleCancel"
       />
     </template>
   </div>
