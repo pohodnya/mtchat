@@ -7,6 +7,7 @@ import ConfirmationService from 'primevue/confirmationservice'
 import Tooltip from 'primevue/tooltip'
 
 import 'primeicons/primeicons.css'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 
 import App from './App.vue'
 import AdminPage from './pages/AdminPage.vue'

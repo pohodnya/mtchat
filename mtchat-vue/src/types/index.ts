@@ -532,6 +532,32 @@ export interface MTChatProps {
 
 // ============ Composable Types ============
 
+// ============ Virtual Scroll Types ============
+
+/**
+ * Virtual scroll item types for flat list rendering
+ */
+export type VirtualItemType = 'message' | 'date-divider' | 'unread-divider'
+
+/**
+ * Virtual scroll item wrapping messages and dividers
+ * Used by DynamicScroller for efficient rendering
+ */
+export interface VirtualItem {
+  /** Unique item ID (message ID or generated divider ID) */
+  id: string
+  /** Item type: message, date-divider, or unread-divider */
+  type: VirtualItemType
+  /** Message data (only for type='message') */
+  message?: Message
+  /** Formatted date string (only for type='date-divider') */
+  date?: string
+  /** Raw date for sorting/grouping (only for type='date-divider') */
+  dateKey?: string
+}
+
+// ============ Composable Types ============
+
 /**
  * useChat composable options
  */
