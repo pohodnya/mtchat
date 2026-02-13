@@ -524,11 +524,11 @@ defineExpose({
   overflow-y: auto;
 }
 
-/* Context menu */
+/* Context menu - uses explicit colors since teleported to body */
 .chat-sidebar__context-menu {
   position: fixed;
-  background: var(--mtchat-bg);
-  border: 1px solid var(--mtchat-border);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;
@@ -550,12 +550,20 @@ defineExpose({
   background: none;
   border: none;
   font-size: 13px;
-  color: var(--mtchat-text);
+  color: #1e293b;
   cursor: pointer;
   border-radius: 4px;
 }
 
+.chat-sidebar__context-menu--dark button {
+  color: #e4e4e7;
+}
+
 .chat-sidebar__context-menu button:hover {
-  background: var(--mtchat-bg-hover);
+  background: #f1f5f9;
+}
+
+.chat-sidebar__context-menu--dark button:hover {
+  background: #3d3d3d;
 }
 </style>
