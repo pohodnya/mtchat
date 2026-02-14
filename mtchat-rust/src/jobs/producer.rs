@@ -1,34 +1,24 @@
 //! Job producer for enqueueing background tasks.
 
-use std::sync::Arc;
-use std::time::Duration;
-
 use apalis::prelude::Storage;
 use apalis_redis::RedisStorage;
-use fred::clients::Pool as RedisPool;
-use fred::prelude::*;
 
 use super::types::NotificationJob;
+
+/// Notification delay in seconds (check if message was read).
+const NOTIFICATION_DELAY_SECS: i64 = 1;
 
 /// Job producer for enqueueing background tasks.
 #[derive(Clone)]
 pub struct JobProducer {
     notifications: Option<RedisStorage<NotificationJob>>,
-    redis: Option<Arc<RedisPool>>,
-    delay: Duration,
 }
 
 impl JobProducer {
     /// Create a new job producer.
-    pub fn new(
-        notifications: RedisStorage<NotificationJob>,
-        redis: Arc<RedisPool>,
-        delay_seconds: u64,
-    ) -> Self {
+    pub fn new(notifications: RedisStorage<NotificationJob>) -> Self {
         Self {
             notifications: Some(notifications),
-            redis: Some(redis),
-            delay: Duration::from_secs(delay_seconds),
         }
     }
 
@@ -36,8 +26,6 @@ impl JobProducer {
     pub fn noop() -> Self {
         Self {
             notifications: None,
-            redis: None,
-            delay: Duration::from_secs(30),
         }
     }
 
@@ -46,10 +34,9 @@ impl JobProducer {
         self.notifications.is_some()
     }
 
-    /// Enqueue a notification job with debounce.
+    /// Enqueue a notification job with 1 second delay.
     ///
-    /// If a job with the same debounce key (dialog_id:recipient_id) already exists,
-    /// the new job will replace it. Only the latest job will be executed.
+    /// The delay allows checking if user read the message while in chat.
     pub async fn enqueue_notification(&self, job: NotificationJob) -> Result<(), JobProducerError> {
         let notifications = match &self.notifications {
             Some(n) => n,
@@ -59,38 +46,14 @@ impl JobProducer {
             }
         };
 
-        let redis = self.redis.as_ref().ok_or(JobProducerError::NotConfigured)?;
-
-        let debounce_key = format!("mtchat:debounce:notifications:{}", job.debounce_key());
-        let job_id = job.job_id.clone();
-
-        // Store debounce key -> job_id mapping
-        // This allows the worker to check if the job is still current
-        let ttl = self.delay.as_secs() as i64 + 60; // delay + buffer
-        redis
-            .set::<(), _, _>(
-                &debounce_key,
-                &job_id,
-                Some(Expiration::EX(ttl)),
-                None,
-                false,
-            )
-            .await
-            .map_err(|e| JobProducerError::Redis(e.to_string()))?;
-
-        // Schedule the job with delay (seconds)
+        // Schedule the job with 1 second delay
         notifications
             .clone()
-            .schedule(job, self.delay.as_secs() as i64)
+            .schedule(job, NOTIFICATION_DELAY_SECS)
             .await
             .map_err(|e| JobProducerError::Apalis(e.to_string()))?;
 
-        tracing::debug!(
-            debounce_key = %debounce_key,
-            job_id = %job_id,
-            delay_secs = self.delay.as_secs(),
-            "Notification job enqueued"
-        );
+        tracing::debug!("Notification job enqueued with {}s delay", NOTIFICATION_DELAY_SECS);
 
         Ok(())
     }
@@ -101,9 +64,6 @@ impl JobProducer {
 pub enum JobProducerError {
     #[error("Job queue not configured")]
     NotConfigured,
-
-    #[error("Redis error: {0}")]
-    Redis(String),
 
     #[error("Apalis error: {0}")]
     Apalis(String),

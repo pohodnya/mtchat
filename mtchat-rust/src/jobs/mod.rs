@@ -1,13 +1,12 @@
 //! Background job processing for MTChat.
 //!
 //! This module provides:
-//! - Smart notifications with debounce (only notify if message not read)
+//! - Smart notifications (only notify if message not read after 1 second)
 //! - Auto-archiving of inactive dialogs
 //!
 //! # Architecture
 //!
 //! Jobs are processed using [apalis](https://docs.rs/apalis) with Redis backend.
-//! Debounce is implemented by storing job_id in Redis and checking it before execution.
 //!
 //! ```text
 //! ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
@@ -18,17 +17,15 @@
 //!                                                          ▼
 //!                         ┌─────────────────────────────────────────┐
 //!                         │              Worker                      │
-//!                         │  ┌─────────────────────────────────┐    │
-//!                         │  │      handle_notification        │    │
-//!                         │  │  1. Check debounce (Redis)      │    │
-//!                         │  │  2. Check read status (DB)      │    │
-//!                         │  │  3. Send webhook if unread      │    │
-//!                         │  └─────────────────────────────────┘    │
+//!                         │  ┌─────────────────────────────────────┐ │
+//!                         │  │      handle_notification            │ │
+//!                         │  │  1. Check read status (DB)          │ │
+//!                         │  │  2. Send webhook if unread          │ │
+//!                         │  └─────────────────────────────────────┘ │
 //!                         └─────────────────────────────────────────┘
 //! ```
 
 pub mod handlers;
-pub mod middleware;
 pub mod producer;
 pub mod types;
 pub mod worker;

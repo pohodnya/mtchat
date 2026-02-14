@@ -14,8 +14,6 @@ use super::types::NotificationJob;
 /// Worker configuration.
 #[derive(Clone)]
 pub struct WorkerConfig {
-    /// Delay before processing notification jobs (seconds).
-    pub notification_delay_secs: u64,
     /// Cron schedule for auto-archive job.
     pub archive_cron: String,
     /// Seconds of inactivity before auto-archive (default: 259200 = 3 days).
@@ -27,7 +25,6 @@ pub struct WorkerConfig {
 impl Default for WorkerConfig {
     fn default() -> Self {
         Self {
-            notification_delay_secs: 30,
             archive_cron: "0 */5 * * * *".to_string(), // every 5 minutes
             archive_after_secs: 259200, // 3 days
             notification_concurrency: 4,
@@ -39,10 +36,6 @@ impl WorkerConfig {
     /// Create config from environment variables.
     pub fn from_env() -> Self {
         Self {
-            notification_delay_secs: std::env::var("NOTIFICATION_DELAY_SECS")
-                .ok()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(30),
             archive_cron: std::env::var("ARCHIVE_CRON")
                 .unwrap_or_else(|_| "0 */5 * * * *".to_string()),
             archive_after_secs: std::env::var("ARCHIVE_AFTER_SECS")

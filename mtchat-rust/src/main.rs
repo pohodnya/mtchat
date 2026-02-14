@@ -1378,16 +1378,9 @@ async fn main() {
             let notification_storage: RedisStorage<NotificationJob> =
                 RedisStorage::new(apalis_conn);
 
-            let jobs = JobProducer::new(
-                notification_storage.clone(),
-                redis_pool.clone(),
-                worker_config.notification_delay_secs,
-            );
+            let jobs = JobProducer::new(notification_storage.clone());
 
-            tracing::info!(
-                delay_secs = worker_config.notification_delay_secs,
-                "Job queue enabled"
-            );
+            tracing::info!("Job queue enabled");
 
             (
                 PresenceService::new(redis_pool.clone()),

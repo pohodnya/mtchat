@@ -7,7 +7,6 @@ use chrono::{Duration, Utc};
 use fred::clients::Pool as RedisPool;
 use sqlx::PgPool;
 
-use super::middleware::{cleanup_debounce_key, is_job_current, NOTIFICATION_DEBOUNCE_PREFIX};
 use super::types::{AutoArchiveJob, NotificationJob};
 use crate::repositories::{DialogRepository, MessageRepository, ParticipantRepository};
 use crate::webhooks::{WebhookEvent, WebhookSender};
@@ -36,19 +35,8 @@ pub async fn handle_notification(job: NotificationJob, ctx: Data<JobContext>) ->
         dialog_id = %job.dialog_id,
         recipient_id = %job.recipient_id,
         message_id = %job.message_id,
-        job_id = %job.job_id,
         "Processing notification job"
     );
-
-    // Check debounce - is this job still current?
-    let debounce_key = job.debounce_key();
-    if !is_job_current(&ctx.redis, NOTIFICATION_DEBOUNCE_PREFIX, &debounce_key, &job.job_id).await {
-        // Job was superseded by newer one, skip
-        return Ok(());
-    }
-
-    // Clean up debounce key
-    cleanup_debounce_key(&ctx.redis, NOTIFICATION_DEBOUNCE_PREFIX, &debounce_key).await;
 
     // Get participant to check read status
     let participant = match ctx.participants.find(job.dialog_id, job.recipient_id).await {
