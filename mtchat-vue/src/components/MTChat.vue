@@ -148,7 +148,7 @@ watch(() => chat.error.value, (error) => {
 })
 
 watch(showInfoPanel, (show) => {
-  if (isMobile.value || isTablet.value) {
+  if (isMobile.value) {
     if (show) mobileView.value = 'info'
     else if (mobileView.value === 'info') mobileView.value = 'chat'
   }
@@ -175,7 +175,7 @@ watch(() => chat.messages.value, (messages) => {
 async function handleSelectDialog(dialog: DialogListItem) {
   await chat.selectDialog(dialog.id)
   emit('dialog-selected', dialog)
-  if (isMobile.value || isTablet.value) {
+  if (isMobile.value) {
     mobileView.value = 'chat'
   }
 }
@@ -321,10 +321,12 @@ function getCurrentMessageReaders() {
 
 // Navigation
 function goBack() {
-  if (isInlineMode.value && showInfoPanel.value) {
+  // Tablet/inline: just close info panel
+  if ((isTablet.value || isInlineMode.value) && showInfoPanel.value) {
     showInfoPanel.value = false
     return
   }
+  // Mobile: navigate between views
   if (mobileView.value === 'info') {
     mobileView.value = 'chat'
     showInfoPanel.value = false
@@ -791,14 +793,12 @@ defineExpose({
   opacity: 0;
 }
 
-/* Mobile/Tablet responsive */
-.mtchat--mobile,
-.mtchat--tablet {
+/* Mobile responsive - single column */
+.mtchat--mobile {
   position: relative;
 }
 
-.mtchat--mobile .chat-sidebar,
-.mtchat--tablet .chat-sidebar {
+.mtchat--mobile .chat-sidebar {
   position: absolute;
   top: 0;
   left: 0;
@@ -808,19 +808,15 @@ defineExpose({
 }
 
 .mtchat--mobile.mtchat--view-chat .chat-sidebar,
-.mtchat--mobile.mtchat--view-info .chat-sidebar,
-.mtchat--tablet.mtchat--view-chat .chat-sidebar,
-.mtchat--tablet.mtchat--view-info .chat-sidebar {
+.mtchat--mobile.mtchat--view-info .chat-sidebar {
   display: none;
 }
 
-.mtchat--mobile.mtchat--view-list .mtchat__main,
-.mtchat--tablet.mtchat--view-list .mtchat__main {
+.mtchat--mobile.mtchat--view-list .mtchat__main {
   display: none;
 }
 
-.mtchat--mobile .mtchat__info-panel,
-.mtchat--tablet .mtchat__info-panel {
+.mtchat--mobile .mtchat__info-panel {
   position: absolute;
   top: 0;
   right: 0;
