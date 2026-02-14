@@ -22,7 +22,6 @@ const toast = useToast()
 const { lastEvent, isConnected } = useWebhookNotifications()
 
 // Show toast when webhook arrives
-// Note: Backend uses snake_case for event types (message_new, not message.new)
 watch(lastEvent, (event) => {
   if (!event) return
 
@@ -30,10 +29,9 @@ watch(lastEvent, (event) => {
 
   if (event.type === 'notification_pending') {
     // Smart notification - message not read after delay
-    // Only show for current user (if user is selected)
+    // Only show for current user
     const recipientId = event.payload?.recipient_id
-    if (currentUser.value && recipientId && currentUser.value.id !== recipientId) {
-      console.log('[Webhook] Skipping notification - not for current user')
+    if (!currentUser.value || recipientId !== currentUser.value.id) {
       return
     }
 
@@ -45,7 +43,7 @@ watch(lastEvent, (event) => {
 
     toast.add({
       severity: 'info',
-      summary: `New unread message`,
+      summary: 'New unread message',
       detail: truncated,
       life: 10000,
     })
