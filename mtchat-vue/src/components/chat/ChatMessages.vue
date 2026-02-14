@@ -294,7 +294,7 @@ function highlightMessage(messageId: string) {
       messageEl.classList.add('chat-messages__message--highlight')
       setTimeout(() => {
         messageEl.classList.remove('chat-messages__message--highlight')
-      }, 2000)
+      }, 5000)
     }
   }, 100)
 }
@@ -1040,7 +1040,7 @@ defineExpose({
 
 .chat-messages__message--highlight {
   background: var(--mtchat-primary-bg, rgba(59, 130, 246, 0.1));
-  animation: highlight-fade 2s ease-out;
+  animation: highlight-fade 4s ease-in;
 }
 
 @keyframes highlight-fade {
