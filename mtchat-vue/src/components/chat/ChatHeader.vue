@@ -3,7 +3,7 @@
  * ChatHeader - Dialog header with title, status, and actions menu
  */
 
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { DialogListItem } from '../../types'
 import { useI18n } from '../../i18n'
 import Icon from '../Icon.vue'
@@ -40,7 +40,7 @@ const { t, tt } = useI18n()
 const showMenu = ref(false)
 
 // Computed title
-const dialogTitle = props.dialog.title || `${props.dialog.object_type}/${props.dialog.object_id}`
+const dialogTitle = computed(() => props.dialog.title || `${props.dialog.object_type}/${props.dialog.object_id}`)
 
 function closeMenu() {
   showMenu.value = false
