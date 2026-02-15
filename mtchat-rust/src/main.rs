@@ -1376,7 +1376,11 @@ async fn main() {
                 .await
                 .expect("Failed to connect to Redis for job queue");
             let notification_storage: RedisStorage<NotificationJob> =
-                RedisStorage::new(apalis_conn);
+                RedisStorage::new_with_config(
+                    apalis_conn,
+                    apalis_redis::Config::default()
+                        .set_poll_interval(std::time::Duration::from_millis(500)),
+                );
 
             let jobs = JobProducer::new(notification_storage.clone());
 

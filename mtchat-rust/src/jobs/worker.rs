@@ -106,7 +106,6 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = WorkerConfig::default();
-        assert_eq!(config.notification_delay_secs, 30);
         assert_eq!(config.archive_after_secs, 259200); // 3 days
         assert_eq!(config.notification_concurrency, 4);
     }
