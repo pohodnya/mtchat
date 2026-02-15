@@ -26,11 +26,17 @@ pub struct JobContext {
     pub archive_after_secs: i64,
 }
 
+/// Notification delay in milliseconds (check if message was read).
+const NOTIFICATION_DELAY_MS: u64 = 1000;
+
 /// Handle notification job.
 ///
-/// Checks if the message has been read by the recipient.
+/// Waits briefly, then checks if the message has been read by the recipient.
 /// If not read and notifications are enabled, sends a webhook.
 pub async fn handle_notification(job: NotificationJob, ctx: Data<JobContext>) -> Result<(), Error> {
+    // Wait before checking read status (gives user time to read if in chat)
+    tokio::time::sleep(std::time::Duration::from_millis(NOTIFICATION_DELAY_MS)).await;
+
     tracing::debug!(
         dialog_id = %job.dialog_id,
         recipient_id = %job.recipient_id,

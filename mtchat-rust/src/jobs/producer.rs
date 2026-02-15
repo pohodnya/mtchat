@@ -5,9 +5,6 @@ use apalis_redis::RedisStorage;
 
 use super::types::NotificationJob;
 
-/// Notification delay in seconds (check if message was read).
-const NOTIFICATION_DELAY_SECS: i64 = 1;
-
 /// Job producer for enqueueing background tasks.
 #[derive(Clone)]
 pub struct JobProducer {
@@ -34,9 +31,9 @@ impl JobProducer {
         self.notifications.is_some()
     }
 
-    /// Enqueue a notification job with 1 second delay.
+    /// Enqueue a notification job immediately.
     ///
-    /// The delay allows checking if user read the message while in chat.
+    /// The handler will add a small delay to check if user read the message.
     pub async fn enqueue_notification(&self, job: NotificationJob) -> Result<(), JobProducerError> {
         let notifications = match &self.notifications {
             Some(n) => n,
@@ -46,14 +43,14 @@ impl JobProducer {
             }
         };
 
-        // Schedule the job with 1 second delay
+        // Push job immediately (handler will add delay)
         notifications
             .clone()
-            .schedule(job, NOTIFICATION_DELAY_SECS)
+            .push(job)
             .await
             .map_err(|e| JobProducerError::Apalis(e.to_string()))?;
 
-        tracing::debug!("Notification job enqueued with {}s delay", NOTIFICATION_DELAY_SECS);
+        tracing::debug!("Notification job enqueued");
 
         Ok(())
     }
