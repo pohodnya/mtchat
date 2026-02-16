@@ -18,7 +18,7 @@
           <label>API Base URL</label>
           <InputText
             v-model="localSettings.apiBaseUrl"
-            placeholder="http://localhost:8080"
+            placeholder="http://localhost:8081"
             class="w-full"
           />
         </div>

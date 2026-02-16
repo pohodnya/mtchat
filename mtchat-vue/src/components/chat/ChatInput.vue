@@ -21,7 +21,6 @@ const props = defineProps<{
   editingMessage: Message | null
   isLoading: boolean
   canSend: boolean
-  canJoin: boolean
 }>()
 
 const emit = defineEmits<{
@@ -29,7 +28,6 @@ const emit = defineEmits<{
   edit: [messageId: string, content: string]
   cancelReply: []
   cancelEdit: []
-  join: []
   editLastMessage: []
 }>()
 
@@ -143,77 +141,67 @@ defineExpose({
 </script>
 
 <template>
-  <div class="chat-input">
-    <!-- Join prompt (not a participant) -->
-    <div v-if="!canSend && canJoin" class="chat-input__join-prompt">
-      <p>{{ t.chat.joinToSend }}</p>
-      <button class="chat-input__btn chat-input__btn--primary" @click="emit('join')">
-        {{ t.buttons.join }}
+  <div v-if="canSend" class="chat-input">
+    <!-- Edit preview -->
+    <div v-if="editingMessage" class="chat-input__preview chat-input__preview--edit">
+      <div class="chat-input__preview-indicator"></div>
+      <div class="chat-input__preview-content">
+        <div class="chat-input__preview-label">{{ t.chat.editing }}</div>
+        <div class="chat-input__preview-text">
+          {{ truncateText(stripHtml(editingMessage.content), 100) }}
+        </div>
+      </div>
+      <button class="chat-input__preview-cancel" @click="cancelEdit">
+        <Icon name="close" :size="16" />
       </button>
     </div>
 
-    <template v-else-if="canSend">
-      <!-- Edit preview -->
-      <div v-if="editingMessage" class="chat-input__preview chat-input__preview--edit">
-        <div class="chat-input__preview-indicator"></div>
-        <div class="chat-input__preview-content">
-          <div class="chat-input__preview-label">{{ t.chat.editing }}</div>
-          <div class="chat-input__preview-text">
-            {{ truncateText(stripHtml(editingMessage.content), 100) }}
-          </div>
+    <!-- Reply preview -->
+    <div v-if="replyToMessage && !editingMessage" class="chat-input__preview chat-input__preview--reply">
+      <div class="chat-input__preview-indicator"></div>
+      <div class="chat-input__preview-content">
+        <div class="chat-input__preview-author">
+          {{ replyToMessage.sender_id ? getSenderDisplayName(replyToMessage.sender_id) : '' }}
         </div>
-        <button class="chat-input__preview-cancel" @click="cancelEdit">
-          <Icon name="close" :size="16" />
-        </button>
-      </div>
-
-      <!-- Reply preview -->
-      <div v-if="replyToMessage && !editingMessage" class="chat-input__preview chat-input__preview--reply">
-        <div class="chat-input__preview-indicator"></div>
-        <div class="chat-input__preview-content">
-          <div class="chat-input__preview-author">
-            {{ replyToMessage.sender_id ? getSenderDisplayName(replyToMessage.sender_id) : '' }}
-          </div>
-          <div class="chat-input__preview-text">
-            {{ truncateText(stripHtml(replyToMessage.content), 100) }}
-          </div>
+        <div class="chat-input__preview-text">
+          {{ truncateText(stripHtml(replyToMessage.content), 100) }}
         </div>
-        <button class="chat-input__preview-cancel" @click="emit('cancelReply')">
-          <Icon name="close" :size="16" />
-        </button>
       </div>
+      <button class="chat-input__preview-cancel" @click="emit('cancelReply')">
+        <Icon name="close" :size="16" />
+      </button>
+    </div>
 
-      <!-- Attachment preview -->
-      <AttachmentPreview
-        :attachments="fileUpload.pendingAttachments.value"
-        @remove="fileUpload.removeAttachment"
-        @retry="fileUpload.retryUpload"
-      />
+    <!-- Attachment preview -->
+    <AttachmentPreview
+      :attachments="fileUpload.pendingAttachments.value"
+      @remove="fileUpload.removeAttachment"
+      @retry="fileUpload.retryUpload"
+    />
 
-      <!-- Hidden file input -->
-      <input
-        ref="fileInputRef"
-        type="file"
-        multiple
-        class="chat-input__file-input"
-        @change="handleFileChange"
-      />
+    <!-- Hidden file input -->
+    <input
+      ref="fileInputRef"
+      type="file"
+      multiple
+      class="chat-input__file-input"
+      @change="handleFileChange"
+    />
 
-      <!-- Editor -->
-      <MessageEditor
-        ref="editorRef"
-        :placeholder="t.input.placeholder"
-        :disabled="isLoading"
-        :participants="participants"
-        :current-user-id="currentUserId"
-        :has-attachments="fileUpload.pendingAttachments.value.length > 0"
-        @submit="handleSubmit"
-        @update:is-empty="editorIsEmpty = $event"
-        @attach="handleFileSelect"
-        @arrow-up="handleArrowUp"
-        @cancel="handleCancel"
-      />
-    </template>
+    <!-- Editor -->
+    <MessageEditor
+      ref="editorRef"
+      :placeholder="t.input.placeholder"
+      :disabled="isLoading"
+      :participants="participants"
+      :current-user-id="currentUserId"
+      :has-attachments="fileUpload.pendingAttachments.value.length > 0"
+      @submit="handleSubmit"
+      @update:is-empty="editorIsEmpty = $event"
+      @attach="handleFileSelect"
+      @arrow-up="handleArrowUp"
+      @cancel="handleCancel"
+    />
   </div>
 </template>
 
@@ -222,39 +210,6 @@ defineExpose({
   border-top: 1px solid var(--mtchat-border);
   background: var(--mtchat-bg);
   padding: 12px;
-}
-
-/* Join prompt */
-.chat-input__join-prompt {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-}
-
-.chat-input__join-prompt p {
-  margin: 0;
-  color: var(--mtchat-text-secondary);
-  font-size: 14px;
-}
-
-.chat-input__btn {
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-}
-
-.chat-input__btn--primary {
-  background: var(--mtchat-primary);
-  color: white;
-}
-
-.chat-input__btn--primary:hover {
-  opacity: 0.9;
 }
 
 /* Preview (reply/edit) */

@@ -534,8 +534,8 @@ export interface MTChatProps {
   showHeader?: boolean
   /** Show sidebar with dialog list (full mode only) */
   showSidebar?: boolean
-  /** Theme */
-  theme?: 'light' | 'dark'
+  /** Theme: 'light', 'dark', or 'custom' (uses inherited CSS variables) */
+  theme?: 'light' | 'dark' | 'custom'
 }
 
 // ============ Composable Types ============

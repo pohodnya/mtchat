@@ -33,7 +33,8 @@ const props = withDefaults(
     dialogId?: string
     showHeader?: boolean
     showSidebar?: boolean
-    theme?: 'light' | 'dark'
+    /** Theme: 'light', 'dark', or 'custom' (uses inherited CSS variables) */
+    theme?: 'light' | 'dark' | 'custom'
   }>(),
   {
     mode: 'full',
@@ -442,7 +443,7 @@ defineExpose({
     ref="containerRef"
     :class="[
       'mtchat',
-      `mtchat--${theme}`,
+      theme !== 'custom' ? `mtchat--${theme}` : null,
       {
         'mtchat--inline': isInlineMode,
         'mtchat--mobile': isMobile,
@@ -498,7 +499,6 @@ defineExpose({
         :is-inline-mode="isInlineMode"
         @back="goBack"
         @show-info="showInfoPanel = true"
-        @join="handleJoin"
         @leave="handleLeave"
         @archive="chat.archiveDialog(chat.currentDialog.value!.id)"
         @unarchive="chat.unarchiveDialog(chat.currentDialog.value!.id)"
@@ -577,13 +577,11 @@ defineExpose({
         :editing-message="chat.editingMessage.value"
         :is-loading="chat.isLoading.value"
         :can-send="canSendMessage"
-        :can-join="canJoin"
         @send="handleSend"
         @edit="handleEditSubmit"
         @cancel-reply="chat.clearReplyTo()"
         @cancel-edit="chat.clearEditMessage()"
         @edit-last-message="handleEditLastMessage"
-        @join="handleJoin"
       />
     </main>
 

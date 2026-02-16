@@ -11,7 +11,8 @@
       "import": "./dist/mtchat-vue-primevue.js",
       "require": "./dist/mtchat-vue-primevue.umd.cjs",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./theme/aura.css": "./dist/theme/aura.css"
   },
   "files": [
     "dist"
@@ -23,7 +24,6 @@
   },
   "peerDependencies": {
     "vue": "^3.4.0",
-    "@mtchat/vue": "^1.0.0",
     "primevue": "^4.0.0"
   },
   "devDependencies": {

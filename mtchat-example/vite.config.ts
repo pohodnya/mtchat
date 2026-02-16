@@ -9,18 +9,21 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
       // В dev mode используем исходники SDK напрямую (hot reload)
       '@mtchat/vue': resolve(__dirname, '../mtchat-vue/src/index.ts'),
+      '@mtchat/vue-primevue': resolve(__dirname, '../mtchat-vue-primevue/src/index.ts'),
     },
+    // Ensure single instance of these packages
+    dedupe: ['vue', 'primevue', '@mtchat/vue'],
   },
   // Включаем обработку зависимостей из mtchat-vue
   optimizeDeps: {
     include: [],
-    exclude: ['@mtchat/vue', 'pdfjs-dist'],
+    exclude: ['@mtchat/vue', '@mtchat/vue-primevue', 'pdfjs-dist'],
   },
   server: {
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8081',
         changeOrigin: true,
         ws: true,
       },

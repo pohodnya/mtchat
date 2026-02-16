@@ -1,8 +1,16 @@
 <script setup lang="ts">
 /**
  * PrimeButton - PrimeVue Button adapter
+ *
+ * Maps MtButton variants to PrimeVue Button props:
+ * - primary → default (no severity)
+ * - secondary → severity="secondary"
+ * - danger → severity="danger"
+ * - ghost → outlined
+ * - text → text
  */
 
+import { computed } from 'vue'
 import Button from 'primevue/button'
 import type { MtButtonProps } from '@mtchat/vue'
 
@@ -19,26 +27,34 @@ const emit = defineEmits<{
   click: [event: MouseEvent]
 }>()
 
-// Map variant to PrimeVue severity
-const severityMap: Record<string, string> = {
-  primary: '',
-  secondary: 'secondary',
-  danger: 'danger',
-  ghost: 'secondary',
-  text: 'secondary',
-}
+const buttonProps = computed(() => {
+  const base: Record<string, any> = {}
 
-// Map size to PrimeVue size
-const sizeMap: Record<string, string> = {
-  sm: 'small',
-  md: '',
-  lg: 'large',
-}
+  // Size
+  if (props.size === 'sm') base.size = 'small'
+  if (props.size === 'lg') base.size = 'large'
 
-const severity = severityMap[props.variant] || 'secondary'
-const size = sizeMap[props.size] || ''
-const text = props.variant === 'text'
-const outlined = props.variant === 'ghost'
+  // Variant
+  switch (props.variant) {
+    case 'primary':
+      // Default PrimeVue button is primary
+      break
+    case 'secondary':
+      base.severity = 'secondary'
+      break
+    case 'danger':
+      base.severity = 'danger'
+      break
+    case 'ghost':
+      base.outlined = true
+      break
+    case 'text':
+      base.text = true
+      break
+  }
+
+  return base
+})
 </script>
 
 <template>
@@ -46,10 +62,7 @@ const outlined = props.variant === 'ghost'
     :type="type"
     :disabled="disabled"
     :loading="loading"
-    :severity="severity || undefined"
-    :size="size || undefined"
-    :text="text"
-    :outlined="outlined"
+    v-bind="buttonProps"
     :aria-label="title"
     v-tooltip.top="title"
     @click="emit('click', $event)"

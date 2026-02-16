@@ -168,7 +168,7 @@ function getInitials(name: string): string {
 }
 
 .chat-info-panel__header {
-  height: var(--mtchat-header-height, 48px);
+  height: var(--mtchat-header-height, 57px);
   display: flex;
   align-items: center;
   justify-content: space-between;

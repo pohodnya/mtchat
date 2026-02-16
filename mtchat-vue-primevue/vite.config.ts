@@ -3,6 +3,18 @@ import vue from '@vitejs/plugin-vue'
 import dts from 'vite-plugin-dts'
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js'
 import { resolve } from 'path'
+import { copyFileSync, mkdirSync } from 'fs'
+
+// Plugin to copy theme CSS to dist
+function copyThemePlugin() {
+  return {
+    name: 'copy-theme',
+    closeBundle() {
+      mkdirSync('dist/theme', { recursive: true })
+      copyFileSync('src/theme/aura.css', 'dist/theme/aura.css')
+    },
+  }
+}
 
 export default defineConfig({
   plugins: [
@@ -13,6 +25,7 @@ export default defineConfig({
       include: ['src/**/*.ts', 'src/**/*.vue'],
     }),
     cssInjectedByJsPlugin(),
+    copyThemePlugin(),
   ],
   build: {
     lib: {
@@ -22,11 +35,11 @@ export default defineConfig({
       formats: ['es', 'umd'],
     },
     rollupOptions: {
-      external: ['vue', '@mtchat/vue', 'primevue/button', 'primevue/dialog', 'primevue/menu', 'primevue/contextmenu', 'primevue/inputtext', 'primevue/checkbox', 'primevue/radiobutton', 'primevue/tabs', 'primevue/tab', 'primevue/tablist', 'primevue/accordion', 'primevue/accordionpanel', 'primevue/accordionheader', 'primevue/accordioncontent', 'primevue/tooltip'],
+      // Note: @mtchat/vue is bundled (not external) so users only need this single package
+      external: ['vue', 'primevue/button', 'primevue/dialog', 'primevue/menu', 'primevue/contextmenu', 'primevue/inputtext', 'primevue/checkbox', 'primevue/radiobutton', 'primevue/tabs', 'primevue/tab', 'primevue/tablist', 'primevue/accordion', 'primevue/accordionpanel', 'primevue/accordionheader', 'primevue/accordioncontent', 'primevue/tooltip'],
       output: {
         globals: {
           vue: 'Vue',
-          '@mtchat/vue': 'MTChatVue',
           'primevue/button': 'PrimeVueButton',
           'primevue/dialog': 'PrimeVueDialog',
           'primevue/menu': 'PrimeVueMenu',

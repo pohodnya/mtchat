@@ -18,7 +18,7 @@ function handleChange(value: boolean) {
 </script>
 
 <template>
-  <div class="prime-checkbox">
+  <span class="prime-checkbox">
     <Checkbox
       :model-value="modelValue"
       :disabled="disabled"
@@ -26,8 +26,8 @@ function handleChange(value: boolean) {
       :binary="true"
       @update:model-value="handleChange"
     />
-    <label v-if="label" class="prime-checkbox__label">{{ label }}</label>
-  </div>
+    <span v-if="label" class="prime-checkbox__label">{{ label }}</span>
+  </span>
 </template>
 
 <style scoped>

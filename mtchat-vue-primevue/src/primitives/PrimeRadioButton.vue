@@ -26,7 +26,7 @@ function handleChange() {
       :name="name"
       @update:model-value="handleChange"
     />
-    <label v-if="label" class="prime-radio__label">{{ label }}</label>
+    <label v-if="label" class="prime-radio__label" @click="handleChange">{{ label }}</label>
   </div>
 </template>
 

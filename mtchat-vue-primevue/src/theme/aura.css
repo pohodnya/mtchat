@@ -1,0 +1,101 @@
+/**
+ * MTChat PrimeVue Aura Theme
+ *
+ * Maps PrimeVue design tokens to MTChat CSS variables.
+ * Works with any PrimeVue preset (Aura, Lara, Nora, etc.)
+ *
+ * Theme modes:
+ * - Light: default, uses --p-surface-0 as background
+ * - Dark: activated by .mtchat-prime--dark class or PrimeVue dark mode selector
+ *
+ * Customization:
+ * - Override PrimeVue tokens (--p-*) via your preset
+ * - Override MTChat tokens (--mtchat-*) via CSS on .mtchat-prime
+ */
+
+/* Base styles and layout tokens (theme-independent) */
+.mtchat-prime {
+  /* Layout tokens */
+  --mtchat-header-height: 57px;
+  --mtchat-resizer-width: 2px;
+
+  /* Spacing tokens */
+  --mtchat-spacing-xs: 4px;
+  --mtchat-spacing-sm: 8px;
+  --mtchat-spacing-md: 12px;
+  --mtchat-spacing-lg: 16px;
+
+  /* Border radius - match PrimeVue */
+  --mtchat-border-radius: var(--p-border-radius, 6px);
+  --mtchat-border-radius-lg: var(--p-border-radius-lg, 8px);
+
+  /* Font */
+  --mtchat-font-family: var(--p-font-family, inherit);
+}
+
+/* Light theme (default) */
+.mtchat-prime--light {
+  /* Background colors */
+  --mtchat-bg: var(--p-surface-0, #ffffff);
+  --mtchat-bg-secondary: var(--p-surface-50, #fafafa);
+  --mtchat-bg-hover: var(--p-surface-100, #f4f4f5);
+
+  /* Text colors */
+  --mtchat-text: var(--p-text-color, #3f3f46);
+  --mtchat-text-secondary: var(--p-text-muted-color, #71717a);
+
+  /* Border */
+  --mtchat-border: var(--p-surface-200, #e4e4e7);
+
+  /* Semantic colors */
+  --mtchat-primary: var(--p-primary-color, #6366f1);
+  --mtchat-primary-bg: color-mix(in srgb, var(--p-primary-color, #6366f1) 10%, transparent);
+  --mtchat-danger: var(--p-red-500, #ef4444);
+  --mtchat-success: var(--p-green-500, #22c55e);
+  --mtchat-warning: var(--p-yellow-500, #eab308);
+}
+
+/* Dark theme */
+.mtchat-prime--dark {
+  /* Background colors - use darker surfaces */
+  --mtchat-bg: var(--p-surface-900, #18181b);
+  --mtchat-bg-secondary: var(--p-surface-800, #27272a);
+  --mtchat-bg-hover: var(--p-surface-700, #3f3f46);
+
+  /* Text colors - lighter for dark bg */
+  --mtchat-text: var(--p-surface-0, #fafafa);
+  --mtchat-text-secondary: var(--p-surface-400, #a1a1aa);
+
+  /* Border */
+  --mtchat-border: var(--p-surface-700, #3f3f46);
+
+  /* Semantic colors - slightly brighter for dark mode */
+  --mtchat-primary: var(--p-primary-400, #818cf8);
+  --mtchat-primary-bg: color-mix(in srgb, var(--p-primary-400, #818cf8) 15%, transparent);
+  --mtchat-danger: var(--p-red-400, #f87171);
+  --mtchat-success: var(--p-green-400, #4ade80);
+  --mtchat-warning: var(--p-yellow-400, #facc15);
+}
+
+/* Support PrimeVue dark mode selectors (when theme prop not explicitly set) */
+.dark-mode .mtchat-prime:not(.mtchat-prime--light):not(.mtchat-prime--dark),
+.p-dark .mtchat-prime:not(.mtchat-prime--light):not(.mtchat-prime--dark) {
+  /* Background colors */
+  --mtchat-bg: var(--p-surface-900, #18181b);
+  --mtchat-bg-secondary: var(--p-surface-800, #27272a);
+  --mtchat-bg-hover: var(--p-surface-700, #3f3f46);
+
+  /* Text colors */
+  --mtchat-text: var(--p-surface-0, #fafafa);
+  --mtchat-text-secondary: var(--p-surface-400, #a1a1aa);
+
+  /* Border */
+  --mtchat-border: var(--p-surface-700, #3f3f46);
+
+  /* Semantic colors */
+  --mtchat-primary: var(--p-primary-400, #818cf8);
+  --mtchat-primary-bg: color-mix(in srgb, var(--p-primary-400, #818cf8) 15%, transparent);
+  --mtchat-danger: var(--p-red-400, #f87171);
+  --mtchat-success: var(--p-green-400, #4ade80);
+  --mtchat-warning: var(--p-yellow-400, #facc15);
+}

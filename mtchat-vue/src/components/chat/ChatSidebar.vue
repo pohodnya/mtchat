@@ -13,7 +13,7 @@ const props = defineProps<{
   availableDialogs: DialogListItem[]
   archivedDialogs: DialogListItem[]
   currentDialogId: string | null
-  theme: 'light' | 'dark'
+  theme: 'light' | 'dark' | 'custom'
 }>()
 
 const emit = defineEmits<{
@@ -335,9 +335,12 @@ defineExpose({
 /* Search */
 .chat-sidebar__search {
   display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 12px;
+  height: var(--mtchat-header-height, 57px);
+  padding: 0 12px;
   border-bottom: 1px solid var(--mtchat-border);
+  flex-shrink: 0;
 }
 
 .chat-sidebar__search-wrapper {

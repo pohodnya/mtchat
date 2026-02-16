@@ -21,7 +21,7 @@ const props = defineProps<{
   email?: string
   phone?: string
   loading?: boolean
-  theme?: 'light' | 'dark'
+  theme?: 'light' | 'dark' | 'custom'
 }>()
 
 const emit = defineEmits<{
@@ -101,7 +101,7 @@ function handleClose() {
       <div v-if="email || phone" class="join-dialog__field">
         <label class="join-dialog__label">{{ t.joinDialog.showContacts }}</label>
         <div class="join-dialog__toggles">
-          <div v-if="email" class="join-dialog__toggle-row">
+          <label v-if="email" class="join-dialog__toggle-row">
             <component
               :is="MtCheckbox"
               v-model="showEmail"
@@ -110,8 +110,8 @@ function handleClose() {
               <Icon name="email" :size="14" />
               {{ email }}
             </span>
-          </div>
-          <div v-if="phone" class="join-dialog__toggle-row">
+          </label>
+          <label v-if="phone" class="join-dialog__toggle-row">
             <component
               :is="MtCheckbox"
               v-model="showPhone"
@@ -120,7 +120,7 @@ function handleClose() {
               <Icon name="phone" :size="14" />
               {{ phone }}
             </span>
-          </div>
+          </label>
         </div>
       </div>
     </div>

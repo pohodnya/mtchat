@@ -19,7 +19,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   back: []
   showInfo: []
-  join: []
   leave: []
   archive: []
   unarchive: []
@@ -94,18 +93,8 @@ function closeMenu() {
 
     <!-- Actions -->
     <div class="chat-header__actions">
-      <!-- Join button (for non-participants) -->
-      <button
-        v-if="dialog.can_join && !dialog.i_am_participant"
-        class="chat-header__btn chat-header__btn--primary"
-        :disabled="isLoading"
-        @click="emit('join')"
-      >
-        {{ t.buttons.join }}
-      </button>
-
       <!-- Menu (for participants) -->
-      <div v-else-if="dialog.i_am_participant" class="chat-header__menu-container">
+      <div v-if="dialog.i_am_participant" class="chat-header__menu-container">
         <button
           class="chat-header__menu-btn"
           :title="t.tooltips.menu"
@@ -172,10 +161,11 @@ function closeMenu() {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  height: var(--mtchat-header-height, 57px);
+  padding: 0 12px;
   background: var(--mtchat-bg);
   border-bottom: 1px solid var(--mtchat-border);
-  min-height: 48px;
+  flex-shrink: 0;
 }
 
 .chat-header__back {
@@ -272,29 +262,6 @@ function closeMenu() {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.chat-header__btn {
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-}
-
-.chat-header__btn--primary {
-  background: var(--mtchat-primary);
-  color: white;
-}
-
-.chat-header__btn--primary:hover {
-  opacity: 0.9;
-}
-
-.chat-header__btn--primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .chat-header__menu-container {

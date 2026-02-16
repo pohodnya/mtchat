@@ -18,7 +18,7 @@ function handleChange(e: Event) {
 </script>
 
 <template>
-  <label class="mt-checkbox" :class="{ 'mt-checkbox--disabled': disabled }">
+  <span class="mt-checkbox" :class="{ 'mt-checkbox--disabled': disabled }">
     <input
       type="checkbox"
       :checked="modelValue"
@@ -44,7 +44,7 @@ function handleChange(e: Event) {
       </svg>
     </span>
     <span v-if="label" class="mt-checkbox__label">{{ label }}</span>
-  </label>
+  </span>
 </template>
 
 <style scoped>
