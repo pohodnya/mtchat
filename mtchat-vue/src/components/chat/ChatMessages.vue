@@ -201,18 +201,28 @@ function scrollToBottom(smooth = false) {
   if (useVirtualScroll.value && scrollerRef.value) {
     const el = scrollerRef.value.$el
     if (el) {
-      if (smooth) {
-        // Smooth scroll directly — don't use scrollToItem which jumps instantly
-        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-      } else {
-        const lastIndex = virtualItems.value.length - 1
-        if (lastIndex >= 0) {
-          scrollerRef.value.scrollToItem(lastIndex)
-          nextTick(() => {
-            el.scrollTop = el.scrollHeight
-          })
+      const lastIndex = virtualItems.value.length - 1
+      if (lastIndex < 0) return
+
+      // scrollToItem renders bottom items so the scroller can measure their real heights
+      // (estimated heights from min-item-size undercount large messages)
+      scrollerRef.value.scrollToItem(lastIndex)
+      nextTick(() => {
+        // After render, scrollHeight is now accurate for the bottom region
+        if (smooth) {
+          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+        } else {
+          el.scrollTop = el.scrollHeight
         }
-      }
+        // Second rAF: virtual scroller may remeasure after layout — correct again
+        requestAnimationFrame(() => {
+          if (smooth) {
+            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+          } else {
+            el.scrollTop = el.scrollHeight
+          }
+        })
+      })
     }
   } else if (containerRef.value) {
     if (smooth) {
