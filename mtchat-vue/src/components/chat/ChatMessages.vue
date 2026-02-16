@@ -204,30 +204,20 @@ function handleReadTracking(isAtBottom: boolean) {
 
 function scrollToBottom(smooth = false) {
   if (useVirtualScroll.value && scrollerRef.value) {
-    const el = scrollerRef.value.$el
-    if (el) {
-      const lastIndex = virtualItems.value.length - 1
-      if (lastIndex < 0) return
-
-      // scrollToItem renders bottom items so the scroller can measure their real heights
-      // (estimated heights from min-item-size undercount large messages)
+    const lastIndex = virtualItems.value.length - 1
+    if (lastIndex >= 0) {
       scrollerRef.value.scrollToItem(lastIndex)
-      nextTick(() => {
-        // After render, scrollHeight is now accurate for the bottom region
-        if (smooth) {
-          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-        } else {
-          el.scrollTop = el.scrollHeight
-        }
-        // Second rAF: virtual scroller may remeasure after layout — correct again
-        requestAnimationFrame(() => {
+      // Wait for virtual scroller to measure item heights
+      setTimeout(() => {
+        const el = scrollerRef.value?.$el
+        if (el) {
           if (smooth) {
             el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
           } else {
             el.scrollTop = el.scrollHeight
           }
-        })
-      })
+        }
+      }, 50)
     }
   } else if (containerRef.value) {
     if (smooth) {
@@ -262,10 +252,10 @@ function scrollToMessage(messageId: string) {
     // Find index of message in virtualItems
     const index = virtualItems.value.findIndex(item => item.id === messageId)
     if (index >= 0) {
-      // scrollToItem ensures the item is rendered by the virtual scroller
+      // First jump to item so virtual scroller renders it
       scrollerRef.value.scrollToItem(index)
       nextTick(() => {
-        // Now smooth-scroll to center it
+        // Then smooth scroll to center
         const container = scrollerRef.value?.$el
         const messageEl = container?.querySelector(`[data-message-id="${messageId}"]`)
         if (messageEl) {
@@ -292,7 +282,7 @@ function highlightMessage(messageId: string) {
       messageEl.classList.add('chat-messages__message--highlight')
       setTimeout(() => {
         messageEl.classList.remove('chat-messages__message--highlight')
-      }, 5000)
+      }, 3000)
     }
   }, 100)
 }
