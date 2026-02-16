@@ -452,6 +452,7 @@ defineExpose({
         'mtchat--view-list': mobileView === 'list',
         'mtchat--view-chat': mobileView === 'chat',
         'mtchat--view-info': mobileView === 'info',
+        'mtchat--info-open': showInfoPanel && hasDialog,
         'mtchat--resizing': isResizingSidebar || isResizingInfo,
       }
     ]"
@@ -789,6 +790,21 @@ defineExpose({
 .mtchat-info-panel-leave-to {
   transform: translateX(100%);
   opacity: 0;
+}
+
+/* Tablet responsive - two columns max (sidebar+chat OR chat+info) */
+.mtchat--tablet .chat-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.mtchat--tablet.mtchat--info-open .chat-sidebar {
+  display: none;
+}
+
+.mtchat--tablet .mtchat__info-panel {
+  width: 320px;
+  flex-shrink: 0;
 }
 
 /* Mobile responsive - single column */
