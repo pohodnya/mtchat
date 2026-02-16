@@ -96,6 +96,8 @@ async function toggleArchivedAccordion() {
 // Context menu
 function handleDialogContextMenu(e: MouseEvent, dialog: DialogListItem) {
   e.preventDefault()
+  // Only show context menu for dialogs where user is participant
+  if (!dialog.i_am_participant) return
   const menuWidth = 160
   const menuHeight = 80
   let x = e.clientX
