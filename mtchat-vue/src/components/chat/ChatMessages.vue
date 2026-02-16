@@ -14,11 +14,16 @@
 
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, shallowRef } from 'vue'
 import type { Message, DialogParticipant, Attachment, VirtualItem } from '../../types'
+import type { MtMenuItem, MtMenuExpose } from '../../registry/types'
 import { useI18n } from '../../i18n'
+import { useRegistry } from '../../registry/useRegistry'
 import AttachmentList from './AttachmentList.vue'
 import Icon from '../Icon.vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
+
+// Registry components
+const { MtMenu } = useRegistry()
 
 const props = defineProps<{
   messages: Message[]
@@ -60,7 +65,8 @@ const scrollerRef = shallowRef<any>(null)
 const showScrollButton = ref(false)
 const stickyDate = ref<string | null>(null)
 const hiddenDividerDate = ref<string | null>(null)
-const openMenuId = ref<string | null>(null)
+const messageMenuRef = ref<MtMenuExpose | null>(null)
+const activeMenuMessage = ref<Message | null>(null)
 
 // Mark as read timer
 let readTimeout: ReturnType<typeof setTimeout> | null = null
@@ -512,22 +518,35 @@ function canEditMessage(message: Message): boolean {
   return message.sender_id === props.currentUserId && message.message_type !== 'system'
 }
 
-function toggleMessageMenu(messageId: string) {
-  openMenuId.value = openMenuId.value === messageId ? null : messageId
-}
+// Menu items for active message
+const messageMenuItems = computed<MtMenuItem[]>(() => {
+  const message = activeMenuMessage.value
+  if (!message) return []
 
-function closeMessageMenu() {
-  openMenuId.value = null
-}
+  const items: MtMenuItem[] = []
 
-function handleReply(message: Message) {
-  closeMessageMenu()
-  emit('reply', message)
-}
+  // Reply
+  items.push({
+    label: t.value.actions.reply,
+    icon: 'reply',
+    command: () => emit('reply', message),
+  })
 
-function handleEdit(message: Message) {
-  closeMessageMenu()
-  emit('edit', message)
+  // Edit (only for own messages)
+  if (canEditMessage(message)) {
+    items.push({
+      label: t.value.actions.edit,
+      icon: 'edit',
+      command: () => emit('edit', message),
+    })
+  }
+
+  return items
+})
+
+function toggleMessageMenu(event: Event, message: Message) {
+  activeMenuMessage.value = message
+  messageMenuRef.value?.toggle(event)
 }
 
 function handleOpenGallery(message: Message, index: number) {
@@ -550,26 +569,14 @@ function getItemSizeDependencies(item: VirtualItem): any[] {
   return []
 }
 
-// ============ Click outside to close menu ============
-
-function handleDocumentClick(e: MouseEvent) {
-  if (openMenuId.value) {
-    const menu = (e.target as Element).closest('.chat-messages__message-menu')
-    const btn = (e.target as Element).closest('.chat-messages__action-btn')
-    if (!menu && !btn) {
-      closeMessageMenu()
-    }
-  }
-}
+// ============ Lifecycle ============
 
 onMounted(() => {
-  document.addEventListener('click', handleDocumentClick)
   // Initial scroll to bottom
   nextTick(() => scrollToBottom())
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleDocumentClick)
   if (readTimeout) {
     clearTimeout(readTimeout)
   }
@@ -655,21 +662,10 @@ defineExpose({
                 <button
                   class="chat-messages__action-btn"
                   :title="t.tooltips.menu"
-                  @click.stop="toggleMessageMenu(item.message.id)"
+                  @click.stop="toggleMessageMenu($event, item.message)"
                 >
                   <Icon name="more-vertical" :size="16" />
                 </button>
-
-                <div v-if="openMenuId === item.message.id" class="chat-messages__message-menu">
-                  <button @click.stop="handleReply(item.message)">
-                    <Icon name="reply" :size="14" />
-                    {{ t.actions.reply }}
-                  </button>
-                  <button v-if="canEditMessage(item.message)" @click.stop="handleEdit(item.message)">
-                    <Icon name="edit" :size="14" />
-                    {{ t.actions.edit }}
-                  </button>
-                </div>
               </div>
 
               <!-- Quoted message (if reply) -->
@@ -777,21 +773,10 @@ defineExpose({
               <button
                 class="chat-messages__action-btn"
                 :title="t.tooltips.menu"
-                @click.stop="toggleMessageMenu(message.id)"
+                @click.stop="toggleMessageMenu($event, message)"
               >
                 <Icon name="more-vertical" :size="16" />
               </button>
-
-              <div v-if="openMenuId === message.id" class="chat-messages__message-menu">
-                <button @click.stop="handleReply(message)">
-                  <Icon name="reply" :size="14" />
-                  {{ t.actions.reply }}
-                </button>
-                <button v-if="canEditMessage(message)" @click.stop="handleEdit(message)">
-                  <Icon name="edit" :size="14" />
-                  {{ t.actions.edit }}
-                </button>
-              </div>
             </div>
 
             <!-- Quoted message (if reply) -->
@@ -869,6 +854,18 @@ defineExpose({
     >
       <Icon name="chevron-down" :size="18" />
     </button>
+
+    <!-- Message actions menu (shared across all messages) -->
+    <component
+      :is="MtMenu"
+      ref="messageMenuRef"
+      :items="messageMenuItems"
+      :popup="true"
+    >
+      <template #item-icon="{ item }">
+        <Icon :name="item.icon" :size="14" />
+      </template>
+    </component>
   </div>
 </template>
 
@@ -1098,38 +1095,6 @@ defineExpose({
 .chat-messages__action-btn:hover {
   background: var(--mtchat-bg-hover);
   color: var(--mtchat-text);
-}
-
-.chat-messages__message-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background: var(--mtchat-bg);
-  border: 1px solid var(--mtchat-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 100;
-  min-width: 140px;
-  padding: 4px;
-}
-
-.chat-messages__message-menu button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: none;
-  border: none;
-  font-size: 13px;
-  color: var(--mtchat-text);
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.chat-messages__message-menu button:hover {
-  background: var(--mtchat-bg-hover);
 }
 
 /* Quoted message */

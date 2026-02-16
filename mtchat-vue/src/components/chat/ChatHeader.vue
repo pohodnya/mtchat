@@ -5,8 +5,13 @@
 
 import { ref, computed } from 'vue'
 import type { DialogListItem } from '../../types'
+import type { MtMenuItem, MtMenuExpose } from '../../registry/types'
 import { useI18n } from '../../i18n'
+import { useRegistry } from '../../registry/useRegistry'
 import Icon from '../Icon.vue'
+
+// Registry components
+const { MtMenu } = useRegistry()
 
 const props = defineProps<{
   dialog: DialogListItem
@@ -27,22 +32,72 @@ const emit = defineEmits<{
   toggleNotifications: []
 }>()
 
-// Slots for custom menu actions
-defineSlots<{
-  'menu-actions'(props: { closeMenu: () => void; menuItemClass: string }): any
-}>()
 
 // i18n
 const { t, tt } = useI18n()
 
 // State
-const showMenu = ref(false)
+const menuRef = ref<MtMenuExpose | null>(null)
 
 // Computed title
 const dialogTitle = computed(() => props.dialog.title || `${props.dialog.object_type}/${props.dialog.object_id}`)
 
-function closeMenu() {
-  showMenu.value = false
+// Menu items
+const menuItems = computed<MtMenuItem[]>(() => {
+  const items: MtMenuItem[] = []
+
+  // Info
+  items.push({
+    label: t.value.buttons.info,
+    icon: 'info',
+    command: () => emit('showInfo'),
+  })
+
+  // Notifications toggle
+  items.push({
+    label: props.dialog.notifications_enabled !== false
+      ? t.value.buttons.muteNotifications
+      : t.value.buttons.unmuteNotifications,
+    icon: props.dialog.notifications_enabled !== false ? 'bell' : 'bell-off',
+    disabled: props.isLoading,
+    command: () => emit('toggleNotifications'),
+  })
+
+  // Pin/Unpin (not for archived)
+  if (!props.dialog.is_archived) {
+    items.push({
+      label: props.dialog.is_pinned ? t.value.buttons.unpin : t.value.buttons.pin,
+      icon: props.dialog.is_pinned ? 'unpin' : 'pin',
+      disabled: props.isLoading,
+      command: () => props.dialog.is_pinned ? emit('unpin') : emit('pin'),
+    })
+  }
+
+  // Archive/Unarchive
+  items.push({
+    label: props.dialog.is_archived ? t.value.buttons.unarchive : t.value.buttons.archive,
+    icon: 'archive',
+    disabled: props.isLoading,
+    command: () => props.dialog.is_archived ? emit('unarchive') : emit('archive'),
+  })
+
+  // Separator before leave
+  items.push({ label: '', separator: true })
+
+  // Leave chat
+  items.push({
+    label: t.value.buttons.leaveChat,
+    icon: 'logout',
+    danger: true,
+    disabled: props.isLoading,
+    command: () => emit('leave'),
+  })
+
+  return items
+})
+
+function toggleMenu(event: Event) {
+  menuRef.value?.toggle(event)
 }
 </script>
 
@@ -98,61 +153,23 @@ function closeMenu() {
         <button
           class="chat-header__menu-btn"
           :title="t.tooltips.menu"
-          @click="showMenu = !showMenu"
+          @click="toggleMenu"
         >
           <Icon name="more-vertical" :size="20" />
         </button>
 
-        <div v-if="showMenu" class="chat-header__menu" @click.stop>
-          <button class="chat-header__menu-item" @click="emit('showInfo'); closeMenu()">
-            <Icon name="info" :size="16" />
-            {{ t.buttons.info }}
-          </button>
-          <button
-            class="chat-header__menu-item"
-            :disabled="isLoading"
-            @click="emit('toggleNotifications'); closeMenu()"
-          >
-            <Icon v-if="dialog.notifications_enabled !== false" name="bell" :size="16" />
-            <Icon v-else name="bell-off" :size="16" />
-            {{ dialog.notifications_enabled !== false ? t.buttons.muteNotifications : t.buttons.unmuteNotifications }}
-          </button>
-          <button
-            v-if="!dialog.is_archived"
-            class="chat-header__menu-item"
-            :disabled="isLoading"
-            @click="dialog.is_pinned ? emit('unpin') : emit('pin'); closeMenu()"
-          >
-            <Icon v-if="dialog.is_pinned" name="unpin" :size="16" />
-            <Icon v-else name="pin" :size="16" />
-            {{ dialog.is_pinned ? t.buttons.unpin : t.buttons.pin }}
-          </button>
-          <button
-            class="chat-header__menu-item"
-            :disabled="isLoading"
-            @click="dialog.is_archived ? emit('unarchive') : emit('archive'); closeMenu()"
-          >
-            <Icon name="archive" :size="16" />
-            {{ dialog.is_archived ? t.buttons.unarchive : t.buttons.archive }}
-          </button>
-
-          <!-- Custom actions slot -->
-          <slot name="menu-actions" :close-menu="closeMenu" :menu-item-class="'chat-header__menu-item'" />
-
-          <button
-            class="chat-header__menu-item chat-header__menu-item--danger"
-            :disabled="isLoading"
-            @click="emit('leave'); closeMenu()"
-          >
-            <Icon name="logout" :size="16" />
-            {{ t.buttons.leaveChat }}
-          </button>
-        </div>
+        <component
+          :is="MtMenu"
+          ref="menuRef"
+          :items="menuItems"
+          :popup="true"
+        >
+          <template #item-icon="{ item }">
+            <Icon :name="item.icon" :size="16" />
+          </template>
+        </component>
       </div>
     </div>
-
-    <!-- Backdrop to close menu -->
-    <div v-if="showMenu" class="chat-header__backdrop" @click="closeMenu"></div>
   </header>
 </template>
 
@@ -281,73 +298,5 @@ function closeMenu() {
 .chat-header__menu-btn:hover {
   background: var(--mtchat-bg-hover);
   color: var(--mtchat-text);
-}
-
-.chat-header__menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background: var(--mtchat-bg);
-  border: 1px solid var(--mtchat-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 100;
-  min-width: 200px;
-  padding: 4px;
-}
-
-.chat-header__menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 12px;
-  background: none;
-  border: none;
-  font-size: 13px;
-  color: var(--mtchat-text);
-  cursor: pointer;
-  border-radius: 6px;
-  text-align: left;
-}
-
-.chat-header__menu-item:hover {
-  background: var(--mtchat-bg-hover);
-}
-
-.chat-header__menu-item:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.chat-header__menu-item--danger {
-  color: #ef4444;
-}
-
-/* Slot content styling */
-.chat-header__menu :slotted(.chat-header__menu-item) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 12px;
-  background: none;
-  border: none;
-  font-size: 13px;
-  color: var(--mtchat-text);
-  cursor: pointer;
-  border-radius: 6px;
-  text-align: left;
-}
-
-.chat-header__menu :slotted(.chat-header__menu-item:hover) {
-  background: var(--mtchat-bg-hover);
-}
-
-.chat-header__backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
 }
 </style>
