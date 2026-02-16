@@ -102,7 +102,7 @@ const isResizingSidebar = ref(false)
 const isResizingInfo = ref(false)
 
 // Resize constraints
-const SIDEBAR_MIN_WIDTH = 200
+const SIDEBAR_MIN_WIDTH = 280
 const INFO_MIN_WIDTH = 240
 const MAX_COLUMN_PERCENT = 30
 const MAIN_MIN_PERCENT = 50

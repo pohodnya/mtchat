@@ -498,6 +498,10 @@ defineExpose({
 /* Archived section */
 .chat-sidebar__archived {
   border-top: 1px solid var(--mtchat-border);
+  max-height: 50%;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
 }
 
 .chat-sidebar__archived-toggle {
@@ -523,8 +527,9 @@ defineExpose({
 }
 
 .chat-sidebar__archived-list {
-  max-height: 50%;
+  flex: 1;
   overflow-y: auto;
+  min-height: 0;
 }
 
 /* Context menu - uses explicit colors since teleported to body */
