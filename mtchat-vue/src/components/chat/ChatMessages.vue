@@ -65,13 +65,9 @@ const openMenuId = ref<string | null>(null)
 // Mark as read timer
 let readTimeout: ReturnType<typeof setTimeout> | null = null
 
-// Virtual scroll threshold (use virtual scroll when message count exceeds this)
-const VIRTUAL_SCROLL_THRESHOLD = 100
-
-// Use virtual scroll when message count exceeds threshold
-const useVirtualScroll = computed(() => {
-  return props.messages.length >= VIRTUAL_SCROLL_THRESHOLD
-})
+// Always use virtual scroll — DynamicScroller works fine with any item count
+// and avoids scroll position bugs when switching between v-for and virtual scroller
+const useVirtualScroll = computed(() => true)
 
 // ============ Virtual Items ============
 
