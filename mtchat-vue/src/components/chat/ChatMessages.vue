@@ -17,24 +17,8 @@ import type { Message, DialogParticipant, Attachment, VirtualItem } from '../../
 import { useI18n } from '../../i18n'
 import AttachmentList from './AttachmentList.vue'
 import Icon from '../Icon.vue'
-
-// Try to import vue-virtual-scroller (optional dependency)
-// We use shallowRef to store components loaded at runtime
-const DynamicScroller = shallowRef<any>(null)
-const DynamicScrollerItem = shallowRef<any>(null)
-const virtualScrollerLoaded = ref(false)
-
-// Load virtual scroller on module init (non-blocking)
-import('vue-virtual-scroller')
-  .then((vvs) => {
-    DynamicScroller.value = vvs.DynamicScroller
-    DynamicScrollerItem.value = vvs.DynamicScrollerItem
-    virtualScrollerLoaded.value = true
-  })
-  .catch(() => {
-    // vue-virtual-scroller not installed, will use fallback
-    virtualScrollerLoaded.value = true
-  })
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 
 const props = defineProps<{
   messages: Message[]
@@ -84,12 +68,9 @@ let readTimeout: ReturnType<typeof setTimeout> | null = null
 // Virtual scroll threshold (use virtual scroll when message count exceeds this)
 const VIRTUAL_SCROLL_THRESHOLD = 100
 
-// Check if virtual scroller is available
-const hasVirtualScroller = computed(() => DynamicScroller.value !== null)
-
-// Use virtual scroll when available and message count exceeds threshold
+// Use virtual scroll when message count exceeds threshold
 const useVirtualScroll = computed(() => {
-  return hasVirtualScroller.value && props.messages.length >= VIRTUAL_SCROLL_THRESHOLD
+  return props.messages.length >= VIRTUAL_SCROLL_THRESHOLD
 })
 
 // ============ Virtual Items ============
@@ -602,9 +583,8 @@ defineExpose({
     </div>
 
     <!-- Virtual scroll mode -->
-    <component
+    <DynamicScroller
       v-if="useVirtualScroll"
-      :is="DynamicScroller"
       ref="scrollerRef"
       :items="virtualItems"
       :min-item-size="60"
@@ -613,8 +593,7 @@ defineExpose({
       @scroll="handleScroll"
     >
       <template #default="{ item, active }">
-        <component
-          :is="DynamicScrollerItem"
+        <DynamicScrollerItem
           :item="item"
           :active="active"
           :size-dependencies="getItemSizeDependencies(item)"
@@ -729,9 +708,9 @@ defineExpose({
               />
             </div>
           </div>
-        </component>
+        </DynamicScrollerItem>
       </template>
-    </component>
+    </DynamicScroller>
 
     <!-- Fallback: standard v-for rendering -->
     <div v-else ref="containerRef" class="chat-messages" @scroll="handleScroll">

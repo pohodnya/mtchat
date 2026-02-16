@@ -18,6 +18,18 @@
  * />
  * ```
  *
+ * @example With PrimeVue components
+ * ```vue
+ * <script setup>
+ * import { MTChat, provideRegistry } from '@mtchat/vue'
+ * import { primevueRegistry } from '@mtchat/vue-primevue'
+ * provideRegistry(primevueRegistry)
+ * </script>
+ * <template>
+ *   <MTChat :config="config" />
+ * </template>
+ * ```
+ *
  * @example Composable usage
  * ```ts
  * const { messages, sendMessage, joinDialog } = useChat({ config })
@@ -33,6 +45,56 @@ export type { IconName } from './components/Icon.vue'
 // SDK Classes
 export { MTChatClient, MTChatApi, MTChatWebSocket } from './sdk'
 export type { WsEventHandler } from './sdk'
+
+// Component Registry (for swapping UI primitives)
+export { provideRegistry, useRegistry, REGISTRY_KEY } from './registry'
+export type { ComponentRegistry, PartialRegistry } from './registry'
+
+// Native primitives (for custom registry building)
+export {
+  MtButton,
+  MtDialog,
+  MtMenu,
+  MtContextMenu,
+  MtInput,
+  MtCheckbox,
+  MtRadioButton,
+  MtTabs,
+  MtTab,
+  MtAccordion,
+  MtAccordionPanel,
+  vTooltip,
+} from './primitives'
+
+// Primitive prop types (for custom implementations)
+export type {
+  MtButtonProps,
+  MtButtonVariant,
+  MtButtonSize,
+  MtDialogProps,
+  MtDialogEmits,
+  MtMenuProps,
+  MtMenuEmits,
+  MtMenuExpose,
+  MtMenuItem,
+  MtContextMenuProps,
+  MtContextMenuEmits,
+  MtContextMenuExpose,
+  MtInputProps,
+  MtInputEmits,
+  MtInputExpose,
+  MtCheckboxProps,
+  MtCheckboxEmits,
+  MtRadioButtonProps,
+  MtRadioButtonEmits,
+  MtTabsProps,
+  MtTabsEmits,
+  MtTabProps,
+  MtAccordionProps,
+  MtAccordionEmits,
+  MtAccordionPanelProps,
+  MtTooltipOptions,
+} from './registry'
 
 // Composables
 export { useChat } from './composables/useChat'

@@ -15,7 +15,7 @@
 
     <!-- Chat Component (Full Mode) -->
     <div v-else class="chat-full-wrapper">
-      <MTChat
+      <MTChatPrime
         :key="currentUser.id"
         :config="chatConfig"
         mode="full"
@@ -64,7 +64,7 @@
             </svg>
           </button>
         </template>
-      </MTChat>
+      </MTChatPrime>
     </div>
 
     <!-- Create Chat Dialog -->
@@ -100,7 +100,8 @@ import { computed, ref } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
 import Dialog from 'primevue/dialog'
-import { MTChat, type MTChatConfig, type Message } from '@mtchat/vue'
+import { MTChatPrime } from '@mtchat/vue-primevue'
+import type { MTChatConfig, Message } from '@mtchat/vue'
 import TMSLayout from '../components/TMSLayout.vue'
 import { useUsers, useSettings, useTenants } from '../composables'
 
