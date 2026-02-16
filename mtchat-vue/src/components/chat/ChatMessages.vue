@@ -147,36 +147,41 @@ function handleScroll() {
 }
 
 function updateStickyDate(container: HTMLElement) {
-  const dateDividers = container.querySelectorAll('.chat-messages__date-divider')
-  const containerRect = container.getBoundingClientRect()
-  let activeDateText: string | null = null
-  let hiddenDate: string | null = null
-  let hideSticky = false
+  const containerTop = container.getBoundingClientRect().top
 
-  const dividerArray = Array.from(dateDividers)
+  // Find the message that overlaps the top of container (partially or fully visible)
+  const messages = container.querySelectorAll('[data-message-id]')
+  let topMessageDate: string | null = null
 
-  for (let i = 0; i < dividerArray.length; i++) {
-    const divider = dividerArray[i]
-    const rect = divider.getBoundingClientRect()
-    const relativeTop = rect.top - containerRect.top
-
-    if (relativeTop < 0) {
-      activeDateText = divider.textContent?.trim() || null
-      hiddenDate = activeDateText
-
-      const nextDivider = dividerArray[i + 1]
-      if (nextDivider) {
-        const nextRect = nextDivider.getBoundingClientRect()
-        const nextRelativeTop = nextRect.top - containerRect.top
-        if (nextRelativeTop >= 0 && nextRelativeTop < 60) {
-          hideSticky = true
-        }
+  for (const msg of messages) {
+    const rect = msg.getBoundingClientRect()
+    // Message overlaps top if its bottom is below container top and top is above some threshold
+    if (rect.bottom > containerTop && rect.top < containerTop + 100) {
+      const msgId = msg.getAttribute('data-message-id')
+      const item = virtualItems.value.find(i => i.message?.id === msgId)
+      if (item?.message) {
+        topMessageDate = formatDateDivider(item.message.sent_at)
       }
+      break
     }
   }
 
-  stickyDate.value = hideSticky ? null : activeDateText
-  hiddenDividerDate.value = hideSticky ? null : hiddenDate
+  // Check if any date divider is visible near top (within 50px)
+  const dividers = container.querySelectorAll('.chat-messages__date-divider[data-date]')
+  let dividerNearTop = false
+
+  for (const div of dividers) {
+    const rect = div.getBoundingClientRect()
+    const relativeTop = rect.top - containerTop
+    if (relativeTop >= -10 && relativeTop < 50) {
+      dividerNearTop = true
+      break
+    }
+  }
+
+  // Show sticky date only if no divider near top
+  stickyDate.value = dividerNearTop ? null : topMessageDate
+  hiddenDividerDate.value = stickyDate.value
 }
 
 function handleReadTracking(isAtBottom: boolean) {
@@ -614,6 +619,7 @@ defineExpose({
           <div
             v-if="item.type === 'date-divider'"
             :class="['chat-messages__date-divider', { 'chat-messages__date-divider--hidden': item.date === hiddenDividerDate }]"
+            :data-date="item.date"
           >
             <span>{{ item.date }}</span>
           </div>
