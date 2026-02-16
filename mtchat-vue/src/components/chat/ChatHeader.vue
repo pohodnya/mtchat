@@ -191,6 +191,7 @@ function closeMenu() {
   padding: 4px 8px;
   cursor: pointer;
   border-radius: 8px;
+  outline: none;
 }
 
 .chat-header__title-row {
