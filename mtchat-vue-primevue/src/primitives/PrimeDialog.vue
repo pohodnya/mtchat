@@ -2,9 +2,9 @@
 /**
  * PrimeDialog - PrimeVue Dialog adapter
  *
- * Dialog is teleported to body by PrimeVue, so it's outside the .mtchat-prime
- * wrapper. CSS below maps PrimeVue tokens (--p-*) to MTChat variables (--mtchat-*)
- * on the dialog root via the theme class.
+ * Uses appendTo="self" to keep the dialog inside the component tree,
+ * so PrimeVue's scoped preset styles and CSS layers apply correctly.
+ * CSS below maps PrimeVue tokens to MTChat CSS variables for the dialog.
  */
 
 import { computed } from 'vue'
@@ -43,6 +43,7 @@ function handleVisibleChange(value: boolean) {
     :draggable="draggable"
     :style="{ maxWidth, width: '100%' }"
     :pt="dialogPt"
+    append-to="self"
     @update:visible="handleVisibleChange"
   >
     <slot />
@@ -54,9 +55,8 @@ function handleVisibleChange(value: boolean) {
 
 <style>
 /*
- * Dialog is teleported to <body>, outside .mtchat-prime wrapper.
- * Map PrimeVue design tokens to MTChat CSS variables here.
- * PrimeVue injects --p-* tokens globally, so they're available on body.
+ * MTChat CSS variables mapping from PrimeVue tokens.
+ * Used by JoinDialog content (labels, inputs, etc.)
  */
 .mtchat-dialog--light {
   --mtchat-bg: var(--p-surface-0, #ffffff);
