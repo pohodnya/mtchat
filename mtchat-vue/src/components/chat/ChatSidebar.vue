@@ -5,8 +5,13 @@
 
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { DialogListItem } from '../../types'
+import type { MtMenuItem, MtContextMenuExpose } from '../../registry/types'
 import { useI18n } from '../../i18n'
+import { useRegistry } from '../../registry/useRegistry'
 import Icon from '../Icon.vue'
+
+// Registry components
+const { MtContextMenu } = useRegistry()
 
 const props = defineProps<{
   participatingDialogs: DialogListItem[]
@@ -38,7 +43,8 @@ const activeTab = ref<'participating' | 'available'>('participating')
 const searchInput = ref('')
 const showArchivedAccordion = ref(false)
 const archivedLoaded = ref(false)
-const contextMenu = ref<{ x: number; y: number; dialog: DialogListItem } | null>(null)
+const contextMenuRef = ref<MtContextMenuExpose | null>(null)
+const contextMenuDialog = ref<DialogListItem | null>(null)
 
 // Debounce timer
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
@@ -72,6 +78,55 @@ const sortedArchivedDialogs = computed(() => {
   })
 })
 
+// Context menu items
+const contextMenuItems = computed<MtMenuItem[]>(() => {
+  const dialog = contextMenuDialog.value
+  if (!dialog || !dialog.i_am_participant) return []
+
+  const items: MtMenuItem[] = []
+
+  // Pin/Unpin (not for archived)
+  if (!dialog.is_archived) {
+    items.push({
+      label: dialog.is_pinned ? t.value.buttons.unpin : t.value.buttons.pin,
+      icon: dialog.is_pinned ? 'unpin' : 'pin',
+      command: () => {
+        if (dialog.is_pinned) {
+          emit('unpinDialog', dialog.id)
+        } else {
+          emit('pinDialog', dialog.id)
+        }
+      },
+    })
+  }
+
+  // Notifications toggle
+  items.push({
+    label: dialog.notifications_enabled !== false
+      ? t.value.buttons.muteNotifications
+      : t.value.buttons.unmuteNotifications,
+    icon: dialog.notifications_enabled !== false ? 'bell' : 'bell-off',
+    command: () => {
+      emit('toggleNotifications', dialog.id)
+    },
+  })
+
+  // Archive/Unarchive
+  items.push({
+    label: dialog.is_archived ? t.value.buttons.unarchive : t.value.buttons.archive,
+    icon: 'archive',
+    command: () => {
+      if (dialog.is_archived) {
+        emit('unarchiveDialog', dialog.id)
+      } else {
+        emit('archiveDialog', dialog.id)
+      }
+    },
+  })
+
+  return items
+})
+
 // Debounced search
 watch(searchInput, (newValue) => {
   if (searchTimeout) clearTimeout(searchTimeout)
@@ -95,52 +150,10 @@ async function toggleArchivedAccordion() {
 
 // Context menu
 function handleDialogContextMenu(e: MouseEvent, dialog: DialogListItem) {
-  e.preventDefault()
   // Only show context menu for dialogs where user is participant
   if (!dialog.i_am_participant) return
-  const menuWidth = 160
-  const menuHeight = 80
-  let x = e.clientX
-  let y = e.clientY
-
-  if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 8
-  if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 8
-  x = Math.max(8, x)
-  y = Math.max(8, y)
-
-  contextMenu.value = { x, y, dialog }
-}
-
-function closeContextMenu() {
-  contextMenu.value = null
-}
-
-function handleContextPin() {
-  if (!contextMenu.value) return
-  const dialog = contextMenu.value.dialog
-  if (dialog.is_pinned) {
-    emit('unpinDialog', dialog.id)
-  } else {
-    emit('pinDialog', dialog.id)
-  }
-  closeContextMenu()
-}
-
-function handleContextArchive() {
-  if (!contextMenu.value) return
-  const dialog = contextMenu.value.dialog
-  if (dialog.is_archived) {
-    emit('unarchiveDialog', dialog.id)
-  } else {
-    emit('archiveDialog', dialog.id)
-  }
-  closeContextMenu()
-}
-
-function handleContextNotifications() {
-  if (!contextMenu.value) return
-  emit('toggleNotifications', contextMenu.value.dialog.id)
-  closeContextMenu()
+  contextMenuDialog.value = dialog
+  contextMenuRef.value?.show(e)
 }
 
 // Keyboard shortcut
@@ -150,26 +163,14 @@ function handleKeydown(e: KeyboardEvent) {
     searchInputRef.value?.focus()
     searchInputRef.value?.select()
   }
-  if (e.key === 'Escape' && contextMenu.value) {
-    closeContextMenu()
-  }
-}
-
-function handleDocumentClick(e: MouseEvent) {
-  if (contextMenu.value) {
-    const menu = (e.target as Element).closest('.chat-sidebar__context-menu')
-    if (!menu) closeContextMenu()
-  }
 }
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
-  document.addEventListener('click', handleDocumentClick)
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
-  document.removeEventListener('click', handleDocumentClick)
   if (searchTimeout) clearTimeout(searchTimeout)
 })
 
@@ -298,30 +299,15 @@ defineExpose({
     </div>
 
     <!-- Context Menu -->
-    <Teleport to="body">
-      <div
-        v-if="contextMenu"
-        class="chat-sidebar__context-menu"
-        :class="{ 'chat-sidebar__context-menu--dark': theme === 'dark' }"
-        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-        @click.stop
-      >
-        <button v-if="contextMenu.dialog.i_am_participant && !contextMenu.dialog.is_archived" @click="handleContextPin">
-          <Icon v-if="contextMenu.dialog.is_pinned" name="unpin" :size="16" />
-          <Icon v-else name="pin" :size="16" />
-          {{ contextMenu.dialog.is_pinned ? t.buttons.unpin : t.buttons.pin }}
-        </button>
-        <button v-if="contextMenu.dialog.i_am_participant" @click="handleContextNotifications">
-          <Icon v-if="contextMenu.dialog.notifications_enabled !== false" name="bell" :size="16" />
-          <Icon v-else name="bell-off" :size="16" />
-          {{ contextMenu.dialog.notifications_enabled !== false ? t.buttons.muteNotifications : t.buttons.unmuteNotifications }}
-        </button>
-        <button v-if="contextMenu.dialog.i_am_participant" @click="handleContextArchive">
-          <Icon name="archive" :size="16" />
-          {{ contextMenu.dialog.is_archived ? t.buttons.unarchive : t.buttons.archive }}
-        </button>
-      </div>
-    </Teleport>
+    <component
+      :is="MtContextMenu"
+      ref="contextMenuRef"
+      :items="contextMenuItems"
+    >
+      <template #item-icon="{ item }">
+        <Icon :name="item.icon" :size="16" />
+      </template>
+    </component>
   </aside>
 </template>
 
@@ -534,46 +520,4 @@ defineExpose({
   min-height: 0;
 }
 
-/* Context menu - uses explicit colors since teleported to body */
-.chat-sidebar__context-menu {
-  position: fixed;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  padding: 4px;
-  min-width: 160px;
-}
-
-.chat-sidebar__context-menu--dark {
-  background: #2d2d2d;
-  border-color: #3d3d3d;
-}
-
-.chat-sidebar__context-menu button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: none;
-  border: none;
-  font-size: 13px;
-  color: #1e293b;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.chat-sidebar__context-menu--dark button {
-  color: #e4e4e7;
-}
-
-.chat-sidebar__context-menu button:hover {
-  background: #f1f5f9;
-}
-
-.chat-sidebar__context-menu--dark button:hover {
-  background: #3d3d3d;
-}
 </style>
