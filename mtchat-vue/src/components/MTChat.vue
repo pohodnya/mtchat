@@ -33,8 +33,8 @@ const props = withDefaults(
     dialogId?: string
     showHeader?: boolean
     showSidebar?: boolean
-    /** Theme: 'light', 'dark', or 'custom' (uses inherited CSS variables) */
-    theme?: 'light' | 'dark' | 'custom'
+    /** Theme name — applied as CSS class `mtchat--${theme}` */
+    theme?: string
   }>(),
   {
     mode: 'full',
@@ -443,7 +443,7 @@ defineExpose({
     ref="containerRef"
     :class="[
       'mtchat',
-      theme !== 'custom' ? `mtchat--${theme}` : null,
+      `mtchat--${theme}`,
       {
         'mtchat--inline': isInlineMode,
         'mtchat--mobile': isMobile,

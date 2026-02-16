@@ -13,7 +13,7 @@ const props = defineProps<{
   availableDialogs: DialogListItem[]
   archivedDialogs: DialogListItem[]
   currentDialogId: string | null
-  theme: 'light' | 'dark' | 'custom'
+  theme: string
 }>()
 
 const emit = defineEmits<{

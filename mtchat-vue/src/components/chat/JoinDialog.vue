@@ -21,7 +21,7 @@ const props = defineProps<{
   email?: string
   phone?: string
   loading?: boolean
-  theme?: 'light' | 'dark' | 'custom'
+  theme?: string
 }>()
 
 const emit = defineEmits<{

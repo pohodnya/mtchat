@@ -44,8 +44,8 @@ export interface MtDialogProps {
   maxWidth?: string
   /** Whether dialog can be dragged */
   draggable?: boolean
-  /** Theme for CSS variables */
-  theme?: 'light' | 'dark'
+  /** Theme name */
+  theme?: string
 }
 
 export interface MtDialogEmits {

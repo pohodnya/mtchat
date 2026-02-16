@@ -15,7 +15,7 @@ const { MtDialog } = useRegistry()
 defineProps<{
   show: boolean
   readers: DialogParticipant[]
-  theme?: 'light' | 'dark' | 'custom'
+  theme?: string
 }>()
 
 const emit = defineEmits<{

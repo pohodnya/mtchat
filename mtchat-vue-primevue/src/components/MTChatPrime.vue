@@ -58,7 +58,7 @@ provideRegistry(primevueRegistry)
       :dialog-id="dialogId"
       :show-header="showHeader"
       :show-sidebar="showSidebar"
-      theme="custom"
+      :theme="theme"
       @connected="$emit('connected')"
       @disconnected="$emit('disconnected')"
       @error="$emit('error', $event)"
