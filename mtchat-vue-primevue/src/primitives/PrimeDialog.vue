@@ -40,6 +40,7 @@ function handleVisibleChange(value: boolean) {
     :draggable="draggable"
     :style="{ maxWidth, width: '100%' }"
     :pt="dialogPt"
+    append-to="self"
     @update:visible="handleVisibleChange"
   >
     <slot />
