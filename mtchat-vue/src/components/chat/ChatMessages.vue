@@ -199,21 +199,20 @@ function handleReadTracking(isAtBottom: boolean) {
 
 function scrollToBottom(smooth = false) {
   if (useVirtualScroll.value && scrollerRef.value) {
-    // For virtual scroller, scroll to last item
-    const lastIndex = virtualItems.value.length - 1
-    if (lastIndex >= 0) {
-      scrollerRef.value.scrollToItem(lastIndex)
-      // After scrolling to item, ensure we're at the very bottom
-      nextTick(() => {
-        const el = scrollerRef.value?.$el
-        if (el) {
-          if (smooth) {
-            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-          } else {
+    const el = scrollerRef.value.$el
+    if (el) {
+      if (smooth) {
+        // Smooth scroll directly — don't use scrollToItem which jumps instantly
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      } else {
+        const lastIndex = virtualItems.value.length - 1
+        if (lastIndex >= 0) {
+          scrollerRef.value.scrollToItem(lastIndex)
+          nextTick(() => {
             el.scrollTop = el.scrollHeight
-          }
+          })
         }
-      })
+      }
     }
   } else if (containerRef.value) {
     if (smooth) {
@@ -248,8 +247,15 @@ function scrollToMessage(messageId: string) {
     // Find index of message in virtualItems
     const index = virtualItems.value.findIndex(item => item.id === messageId)
     if (index >= 0) {
+      // scrollToItem ensures the item is rendered by the virtual scroller
       scrollerRef.value.scrollToItem(index)
       nextTick(() => {
+        // Now smooth-scroll to center it
+        const container = scrollerRef.value?.$el
+        const messageEl = container?.querySelector(`[data-message-id="${messageId}"]`)
+        if (messageEl) {
+          messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
         highlightMessage(messageId)
       })
     }
