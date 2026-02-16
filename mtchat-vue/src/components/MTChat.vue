@@ -607,6 +607,7 @@ defineExpose({
           :object-id="chat.currentDialog.value?.object_id"
           :object-url="isInlineMode ? undefined : chat.currentDialog.value?.object_url"
           :participants="chat.participants.value"
+          :participants-count="chat.currentDialog.value?.participants_count || 0"
           :current-user-id="config.userId"
           @close="showInfoPanel = false"
         />

@@ -313,8 +313,8 @@ async fn management_create_dialog(
     let dialog = state.dialogs.create(&dialog).await?;
 
     // Add participants with their profiles
-    for (i, participant) in req.participants.iter().enumerate() {
-        let joined_as = if i == 0 { JoinedAs::Creator } else { JoinedAs::Participant };
+    for participant in req.participants.iter() {
+        let joined_as = JoinedAs::Participant;
         let profile = ParticipantProfile {
             display_name: participant.display_name.clone(),
             company: participant.company.clone(),
@@ -1232,11 +1232,28 @@ struct ParticipantResponse {
 async fn list_participants(
     State(state): State<AppState>,
     UserId(user_id): UserId,
+    OptionalScopeConfig(scope_config): OptionalScopeConfig,
     Path(dialog_id): Path<Uuid>,
 ) -> Result<Json<ApiResponse<Vec<ParticipantResponse>>>, ApiError> {
-    // Check user is participant
-    if !state.participants.exists(dialog_id, user_id).await? {
-        return Err(ApiError::Forbidden("Not a participant".into()));
+    // Check if user is participant
+    let is_participant = state.participants.exists(dialog_id, user_id).await?;
+
+    // If not participant, check scope access (potential participant)
+    if !is_participant {
+        let has_scope_access = if let Some(scope) = &scope_config {
+            state.scopes.check_access(
+                dialog_id,
+                scope.tenant_uid.clone(),
+                &scope.scope_level1,
+                &scope.scope_level2,
+            ).await?
+        } else {
+            false
+        };
+
+        if !has_scope_access {
+            return Err(ApiError::Forbidden("Not a participant".into()));
+        }
     }
 
     let participants = state.participants.list_by_dialog(dialog_id).await?;
@@ -1246,11 +1263,24 @@ async fn list_participants(
     let online_users = state.presence.get_online_users(&user_ids).await.unwrap_or_default();
 
     // Build response with online status
+    // For non-participants, hide contact details (email, phone)
     let responses: Vec<ParticipantResponse> = participants
         .into_iter()
-        .map(|p| ParticipantResponse {
-            is_online: online_users.contains(&p.user_id),
-            participant: p,
+        .map(|p| {
+            let participant = if is_participant {
+                p
+            } else {
+                // Hide contacts for potential participants
+                DialogParticipant {
+                    email: None,
+                    phone: None,
+                    ..p
+                }
+            };
+            ParticipantResponse {
+                is_online: online_users.contains(&participant.user_id),
+                participant,
+            }
         })
         .collect();
 

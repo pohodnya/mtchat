@@ -780,12 +780,6 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   async function loadParticipants(): Promise<void> {
     if (!currentDialog.value) return
 
-    // Don't load participants if not a participant
-    if (!currentDialog.value.i_am_participant) {
-      participants.value = []
-      return
-    }
-
     try {
       const loadedParticipants = await client.api.getParticipants(currentDialog.value.id)
       participants.value = loadedParticipants
@@ -794,7 +788,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       const online = loadedParticipants.filter((p) => p.is_online).map((p) => p.user_id)
       onlineUsers.value = new Set(online)
     } catch (e) {
-      // 403 = not a participant, expected
+      // 403 = no access, clear participants
       const err = e instanceof Error ? e : new Error(String(e))
       if (err.message.includes('403') || err.message.includes('Forbidden')) {
         participants.value = []

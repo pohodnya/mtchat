@@ -34,7 +34,7 @@
     <!-- Participants -->
     <div class="chat-info-panel__section">
       <h3 class="chat-info-panel__section-title">
-        {{ t.infoPanel.participants }} ({{ participants.length }})
+        {{ t.infoPanel.participants }} ({{ participantsCount }})
       </h3>
       <div class="chat-info-panel__participants">
         <div
@@ -58,7 +58,6 @@
             <div class="chat-info-panel__participant-name">
               {{ participant.display_name || t.user.defaultName }}
               <span v-if="participant.user_id === currentUserId" class="chat-info-panel__you-badge">{{ t.user.youBadge }}</span>
-              <span v-if="participant.joined_as === 'creator'" class="chat-info-panel__creator-badge">{{ t.user.creator }}</span>
             </div>
 
             <div v-if="participant.company" class="chat-info-panel__participant-company">
@@ -104,6 +103,7 @@ const props = defineProps<{
   objectId?: string
   objectUrl?: string
   participants: DialogParticipant[]
+  participantsCount: number
   currentUserId: string
 }>()
 
@@ -309,15 +309,6 @@ function getInitials(name: string): string {
   font-size: 12px;
   color: var(--mtchat-text-secondary, #666);
   font-weight: normal;
-}
-
-.chat-info-panel__creator-badge {
-  font-size: 11px;
-  padding: 1px 6px;
-  background: var(--mtchat-primary, #007AFF);
-  color: white;
-  border-radius: 4px;
-  font-weight: 500;
 }
 
 .chat-info-panel__participant-company {
