@@ -498,7 +498,7 @@ defineExpose({
         :show-back-button="(isMobile && mobileView === 'chat') || (isTablet && showInfoPanel) || (isInlineMode && showInfoPanel)"
         :is-inline-mode="isInlineMode"
         @back="goBack"
-        @show-info="showInfoPanel = true"
+        @show-info="showInfoPanel = !showInfoPanel"
         @leave="handleLeave"
         @archive="chat.archiveDialog(chat.currentDialog.value!.id)"
         @unarchive="chat.unarchiveDialog(chat.currentDialog.value!.id)"
