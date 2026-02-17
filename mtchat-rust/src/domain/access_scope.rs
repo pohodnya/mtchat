@@ -65,6 +65,7 @@ impl DialogAccessScope {
 }
 
 /// User's scope configuration (from JWT token or header)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserScopeConfig {
     pub tenant_uid: Uuid,

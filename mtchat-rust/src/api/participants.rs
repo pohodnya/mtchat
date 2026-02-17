@@ -41,7 +41,7 @@ pub async fn list_participants(
                 .scopes
                 .check_access(
                     dialog_id,
-                    scope.tenant_uid.clone(),
+                    scope.tenant_uid,
                     &scope.scope_level1,
                     &scope.scope_level2,
                 )

@@ -234,7 +234,7 @@ async fn broadcast_presence(
 
 pub async fn broadcast_message(
     connections: &Connections,
-    dialog_id: Uuid,
+    _dialog_id: Uuid,
     message: &crate::domain::Message,
 ) {
     let event = WsEvent::MessageNew {

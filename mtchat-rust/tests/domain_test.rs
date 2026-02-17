@@ -186,16 +186,16 @@ fn test_message_type_as_str() {
 }
 
 #[test]
-fn test_message_type_from_str() {
-    assert_eq!(MessageType::from_str("user"), MessageType::User);
-    assert_eq!(MessageType::from_str("system"), MessageType::System);
+fn test_message_type_parse() {
+    assert_eq!(MessageType::parse("user"), MessageType::User);
+    assert_eq!(MessageType::parse("system"), MessageType::System);
 }
 
 #[test]
-fn test_message_type_from_str_unknown_defaults_to_user() {
-    assert_eq!(MessageType::from_str("unknown"), MessageType::User);
-    assert_eq!(MessageType::from_str(""), MessageType::User);
-    assert_eq!(MessageType::from_str("SYSTEM"), MessageType::User); // case-sensitive
+fn test_message_type_parse_unknown_defaults_to_user() {
+    assert_eq!(MessageType::parse("unknown"), MessageType::User);
+    assert_eq!(MessageType::parse(""), MessageType::User);
+    assert_eq!(MessageType::parse("SYSTEM"), MessageType::User); // case-sensitive
 }
 
 #[test]
@@ -207,7 +207,7 @@ fn test_message_type_default() {
 fn test_message_type_roundtrip() {
     for variant in [MessageType::User, MessageType::System] {
         let s = variant.as_str();
-        let recovered = MessageType::from_str(s);
+        let recovered = MessageType::parse(s);
         assert_eq!(recovered, variant);
     }
 }

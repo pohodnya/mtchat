@@ -223,6 +223,7 @@ fn compute_signature(secret: &str, payload: &str) -> String {
 /// Verify HMAC-SHA256 signature
 ///
 /// Use this on the receiving end to verify webhook authenticity.
+#[allow(dead_code)]
 pub fn verify_signature(secret: &str, payload: &str, signature: &str) -> bool {
     let expected = compute_signature(secret, payload);
     // Constant-time comparison to prevent timing attacks
@@ -230,6 +231,7 @@ pub fn verify_signature(secret: &str, payload: &str, signature: &str) -> bool {
 }
 
 /// Constant-time comparison
+#[allow(dead_code)]
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;

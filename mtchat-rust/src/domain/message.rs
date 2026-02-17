@@ -6,9 +6,10 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 /// Message type: user-sent or system-generated
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum MessageType {
+    #[default]
     User,
     System,
 }
@@ -21,7 +22,7 @@ impl MessageType {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s {
             "system" => MessageType::System,
             _ => MessageType::User,
@@ -29,17 +30,11 @@ impl MessageType {
     }
 }
 
-impl Default for MessageType {
-    fn default() -> Self {
-        MessageType::User
-    }
-}
-
 // Custom sqlx decode for MessageType from VARCHAR
 impl<'r> sqlx::Decode<'r, sqlx::Postgres> for MessageType {
     fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
         let s: &str = <&str as sqlx::Decode<sqlx::Postgres>>::decode(value)?;
-        Ok(MessageType::from_str(s))
+        Ok(MessageType::parse(s))
     }
 }
 
