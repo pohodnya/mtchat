@@ -158,13 +158,24 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      - name: Check if version exists
+        id: check
+        run: |
+          if npm view @mtchat/vue@${GITHUB_REF_NAME#v} version 2>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set version from tag
+        if: steps.check.outputs.exists == 'false'
         run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
 
       - run: npm ci
       - run: npm run build
 
       - name: Publish to npm
+        if: steps.check.outputs.exists == 'false'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -184,7 +195,17 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      - name: Check if version exists
+        id: check
+        run: |
+          if npm view @mtchat/vue-primevue@${GITHUB_REF_NAME#v} version 2>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set version from tag
+        if: steps.check.outputs.exists == 'false'
         run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
         working-directory: mtchat-vue-primevue
 
@@ -201,6 +222,7 @@ jobs:
         working-directory: mtchat-vue-primevue
 
       - name: Publish to npm
+        if: steps.check.outputs.exists == 'false'
         run: npm publish --access public
         working-directory: mtchat-vue-primevue
         env:
