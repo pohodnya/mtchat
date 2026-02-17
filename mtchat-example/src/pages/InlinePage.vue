@@ -30,12 +30,13 @@
         :tabs="['Информация', 'Маршрут', 'Чат']"
         @close="selectedObjectId = null"
       >
-        <MTChat
+        <MTChatPrime
           :key="chatKey"
           :config="chatConfig"
           mode="inline"
           :object-type="selectedObject.type"
           :object-id="selectedObject.id"
+          :show-header="true"
           :show-sidebar="false"
           :theme="settings.theme"
           @connected="onConnected"
@@ -53,7 +54,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
-import { MTChat, type MTChatConfig } from '@mtchat/vue'
+import { MTChatPrime, MTChatConfig, Message } from '@mtchat/vue-primevue'
 import TMSLayout from '../components/TMSLayout.vue'
 import TMSDataTable from '../components/TMSDataTable.vue'
 import TMSChatPanel from '../components/TMSChatPanel.vue'

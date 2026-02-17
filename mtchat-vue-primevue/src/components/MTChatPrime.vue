@@ -27,6 +27,9 @@ const props = withDefaults(
     theme?: 'light' | 'dark'
   }>(),
   {
+    mode: 'full',
+    showHeader: true,
+    showSidebar: true,
     theme: 'light',
   }
 )

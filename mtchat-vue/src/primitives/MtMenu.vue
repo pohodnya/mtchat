@@ -17,6 +17,7 @@ const emit = defineEmits<MtMenuEmits>()
 const visible = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
 const position = ref({ top: 0, left: 0 })
+const justOpened = ref(false)
 
 function toggle(event: Event) {
   if (visible.value) {
@@ -28,6 +29,12 @@ function toggle(event: Event) {
 
 function show(event: Event) {
   visible.value = true
+  justOpened.value = true
+
+  // Reset justOpened after current event processing completes
+  requestAnimationFrame(() => {
+    justOpened.value = false
+  })
 
   nextTick(() => {
     if (props.popup && event.target) {
@@ -70,6 +77,9 @@ function handleItemClick(item: MtMenuItem) {
 }
 
 function handleOutsideClick(e: MouseEvent) {
+  // Ignore clicks in the same frame when menu was just opened
+  if (justOpened.value) return
+
   if (menuRef.value && !menuRef.value.contains(e.target as Node)) {
     hide()
   }
