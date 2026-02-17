@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mtchat.fullname" . }}-api
+  labels:
+    {{- include "mtchat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mtchat.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.api.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "mtchat.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      {{- with .Values.api.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "mtchat.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "mtchat.fullname" . }}
+          env:
+            # Database URL (constructed from components)
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mtchat.postgresql.secretName" . }}
+                  key: {{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.secretKeys.userPasswordKey }}{{ else }}{{ .Values.postgresql.external.secretKeys.passwordKey }}{{ end }}
+            - name: DATABASE_URL
+              value: "postgres://{{ include "mtchat.postgresql.username" . }}:$(PG_PASSWORD)@{{ include "mtchat.postgresql.host" . }}:{{ include "mtchat.postgresql.port" . }}/{{ include "mtchat.postgresql.database" . }}"
+            # Redis URL
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_URL
+              value: "redis://{{ include "mtchat.redis.host" . }}:{{ include "mtchat.redis.port" . }}"
+            {{- else if .Values.redis.external.existingSecret }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redis.external.existingSecret }}
+                  key: {{ .Values.redis.external.secretKeys.urlKey }}
+            {{- else }}
+            - name: REDIS_URL
+              value: "redis://{{ include "mtchat.redis.host" . }}:{{ include "mtchat.redis.port" . }}"
+            {{- end }}
+            # JWT Secret
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mtchat.secretName" . }}
+                  key: {{ .Values.secrets.secretKeys.jwtSecretKey }}
+            # Admin API Token
+            - name: ADMIN_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mtchat.secretName" . }}
+                  key: {{ .Values.secrets.secretKeys.adminApiTokenKey }}
+            # S3 configuration
+            - name: S3_ENDPOINT
+              value: {{ include "mtchat.minio.endpoint" . | quote }}
+            {{- if .Values.minio.enabled }}
+            - name: S3_PUBLIC_ENDPOINT
+              value: {{ include "mtchat.minio.endpoint" . | quote }}
+            {{- else if .Values.minio.external.publicEndpoint }}
+            - name: S3_PUBLIC_ENDPOINT
+              value: {{ .Values.minio.external.publicEndpoint | quote }}
+            {{- end }}
+            {{- if .Values.minio.enabled }}
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.minio.existingSecret }}{{ .Values.minio.existingSecret }}{{ else }}{{ include "mtchat.fullname" . }}-minio{{ end }}
+                  key: root-user
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.minio.existingSecret }}{{ .Values.minio.existingSecret }}{{ else }}{{ include "mtchat.fullname" . }}-minio{{ end }}
+                  key: root-password
+            {{- else }}
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.external.existingSecret }}
+                  key: {{ .Values.minio.external.secretKeys.accessKeyId }}
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.external.existingSecret }}
+                  key: {{ .Values.minio.external.secretKeys.secretAccessKey }}
+            {{- end }}
+            # Webhook secret
+            {{- if .Values.webhooks.secret }}
+            - name: WEBHOOK_SECRET
+              value: {{ .Values.webhooks.secret | quote }}
+            {{- end }}
+            {{- with .Values.api.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      {{- with .Values.api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

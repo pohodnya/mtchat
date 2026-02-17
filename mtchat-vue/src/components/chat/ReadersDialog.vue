@@ -8,6 +8,7 @@
 import type { DialogParticipant } from '../../types'
 import { useI18n } from '../../i18n'
 import { useRegistry } from '../../registry'
+import { getInitials } from '../../utils/helpers'
 
 const { t } = useI18n()
 const { MtDialog } = useRegistry()
@@ -19,17 +20,8 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'close'): void
+  close: []
 }>()
-
-function getInitials(name: string): string {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }
-  return name.slice(0, 2).toUpperCase()
-}
 
 function handleClose() {
   emit('close')
@@ -68,7 +60,7 @@ function handleClose() {
   </component>
 </template>
 
-<style>
+<style scoped>
 .readers-dialog__body {
   max-height: 300px;
   overflow-y: auto;

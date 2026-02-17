@@ -24,7 +24,7 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
-  (e: 'click'): void
+  click: []
 }>()
 
 const icon = computed(() => getFileIconName(props.attachment.content_type))
@@ -92,7 +92,7 @@ function download() {
 }
 
 .file-icon.generic {
-  background: rgba(59, 130, 246, 0.15);
+  background: var(--mtchat-primary-bg, rgba(59, 130, 246, 0.15));
   color: var(--mtchat-primary);
 }
 

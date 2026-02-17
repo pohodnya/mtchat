@@ -191,15 +191,17 @@ defineExpose({
         <input
           ref="searchInputRef"
           v-model="searchInput"
-          type="text"
+          type="search"
           :placeholder="t.search.placeholder"
           class="chat-sidebar__search-input"
+          :aria-label="t.search.placeholder"
           @keydown.esc="clearSearch"
         />
         <button
           v-if="searchInput"
           class="chat-sidebar__search-clear"
           type="button"
+          :aria-label="t.search.clear"
           @click="clearSearch"
         >
           <Icon name="close" :size="14" />
@@ -209,8 +211,10 @@ defineExpose({
     </div>
 
     <!-- Tabs -->
-    <div class="chat-sidebar__tabs">
+    <div class="chat-sidebar__tabs" role="tablist">
       <button
+        role="tab"
+        :aria-selected="activeTab === 'participating'"
         :class="['chat-sidebar__tab', { 'chat-sidebar__tab--active': activeTab === 'participating' }]"
         @click="activeTab = 'participating'"
       >
@@ -220,6 +224,8 @@ defineExpose({
         </span>
       </button>
       <button
+        role="tab"
+        :aria-selected="activeTab === 'available'"
         :class="['chat-sidebar__tab', { 'chat-sidebar__tab--active': activeTab === 'available' }]"
         @click="activeTab = 'available'"
       >
@@ -231,12 +237,14 @@ defineExpose({
     </div>
 
     <!-- Dialog List Container -->
-    <div class="chat-sidebar__list-container">
+    <div class="chat-sidebar__list-container" role="tabpanel">
       <!-- Dialog List -->
-      <div class="chat-sidebar__list">
+      <div class="chat-sidebar__list" role="listbox" :aria-label="activeTab === 'participating' ? t.tabs.myChats : t.tabs.available">
         <div
           v-for="dialog in sortedActiveDialogs"
           :key="dialog.id"
+          role="option"
+          :aria-selected="currentDialogId === dialog.id"
           :class="['chat-sidebar__item', { 'chat-sidebar__item--active': currentDialogId === dialog.id }]"
           @click="emit('selectDialog', dialog)"
           @contextmenu="handleDialogContextMenu($event, dialog)"

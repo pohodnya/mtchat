@@ -132,6 +132,7 @@ export type {
 
   // WebSocket types
   WsEvent,
+  WsEventPayload,
   WsEventType,
   WsClientMessage,
   WsClientMessageType,

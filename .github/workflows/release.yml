@@ -1,0 +1,283 @@
+# =============================================================================
+# MTChat Release - Triggered by version tags (v*)
+# =============================================================================
+#
+# Workflow:
+#   1. Build & push Docker image to DockerHub
+#   2. Publish @mtchat/vue to npm
+#   3. Publish @mtchat/vue-primevue to npm
+#   4. Generate changelog & create GitHub Release
+#
+# Trigger: push tag matching v* (e.g. v0.1.0, v1.0.0)
+#
+# Required secrets:
+#   DOCKERHUB_USERNAME  - DockerHub username
+#   DOCKERHUB_TOKEN     - DockerHub access token
+#   NPM_TOKEN           - npm publish token (for @mtchat scope)
+#
+# =============================================================================
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  DOCKER_IMAGE: mtchat/backend
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ===========================================================================
+  # Validate: run tests before releasing
+  # ===========================================================================
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mtchat_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # Rust checks
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mtchat-rust
+      - run: cargo fmt --manifest-path mtchat-rust/Cargo.toml --check
+      - run: cargo clippy --manifest-path mtchat-rust/Cargo.toml -- -D warnings
+      - run: cargo test --manifest-path mtchat-rust/Cargo.toml --lib
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/mtchat_test
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/mtchat_test
+        run: cargo test --manifest-path mtchat-rust/Cargo.toml --tests
+
+      # Vue SDK checks
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+        working-directory: mtchat-vue
+      - run: npm run typecheck
+        working-directory: mtchat-vue
+      - run: npm run build
+        working-directory: mtchat-vue
+
+  # ===========================================================================
+  # Docker: build multi-arch and push to DockerHub + GHCR
+  # ===========================================================================
+  docker:
+    name: Docker Image
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.DOCKER_IMAGE }}
+            ghcr.io/${{ github.repository }}/backend
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./mtchat-rust
+          file: ./mtchat-rust/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ===========================================================================
+  # npm: publish @mtchat/vue
+  # ===========================================================================
+  npm-vue:
+    name: Publish @mtchat/vue
+    needs: validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mtchat-vue
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Set version from tag
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ===========================================================================
+  # npm: publish @mtchat/vue-primevue
+  # ===========================================================================
+  npm-primevue:
+    name: Publish @mtchat/vue-primevue
+    needs: npm-vue
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Set version from tag
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
+        working-directory: mtchat-vue-primevue
+
+      # Build base SDK first (needed for file: dependency)
+      - run: npm ci
+        working-directory: mtchat-vue
+      - run: npm run build
+        working-directory: mtchat-vue
+
+      # Build and publish primevue wrapper
+      - run: npm ci
+        working-directory: mtchat-vue-primevue
+      - run: npm run build
+        working-directory: mtchat-vue-primevue
+
+      - name: Publish to npm
+        run: npm publish --access public
+        working-directory: mtchat-vue-primevue
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ===========================================================================
+  # GitHub Release with changelog
+  # ===========================================================================
+  github-release:
+    name: GitHub Release
+    needs: [docker, npm-vue, npm-primevue]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for changelog generation
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git tag --sort=-version:refname | head -n 2 | tail -n 1)
+
+          if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "$GITHUB_REF_NAME" ]; then
+            # First release - show all commits
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges HEAD)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges "${PREV_TAG}..${GITHUB_REF_NAME}")
+          fi
+
+          # Categorize commits
+          FEATURES=$(echo "$COMMITS" | grep -iE "^- (feat|add|new)" || true)
+          FIXES=$(echo "$COMMITS" | grep -iE "^- (fix|bug|patch)" || true)
+          REFACTOR=$(echo "$COMMITS" | grep -iE "^- (refactor|chore|style|ci|docs)" || true)
+          OTHER=$(echo "$COMMITS" | grep -viE "^- (feat|add|new|fix|bug|patch|refactor|chore|style|ci|docs)" || true)
+
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "## What's Changed"
+            echo ""
+            if [ -n "$FEATURES" ]; then
+              echo "### Features"
+              echo "$FEATURES"
+              echo ""
+            fi
+            if [ -n "$FIXES" ]; then
+              echo "### Bug Fixes"
+              echo "$FIXES"
+              echo ""
+            fi
+            if [ -n "$REFACTOR" ]; then
+              echo "### Other Changes"
+              echo "$REFACTOR"
+              echo ""
+            fi
+            if [ -n "$OTHER" ]; then
+              echo "### Other"
+              echo "$OTHER"
+              echo ""
+            fi
+            echo "---"
+            echo ""
+            echo "### Packages"
+            echo "- Docker: \`docker pull ${{ env.DOCKER_IMAGE }}:${{ steps.version.outputs.version }}\`"
+            echo "- npm: \`npm install @mtchat/vue@${{ steps.version.outputs.version }}\`"
+            echo "- npm: \`npm install @mtchat/vue-primevue@${{ steps.version.outputs.version }}\`"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: v${{ steps.version.outputs.version }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

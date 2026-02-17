@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
-    <div v-if="show" class="viewer-overlay" @click="handleOverlayClick">
+    <div v-if="show" class="viewer-overlay" role="dialog" aria-modal="true" @click="handleOverlayClick">
       <div class="viewer-container">
         <!-- Close button -->
-        <button class="viewer-close" :title="t.fileViewer.close" @click="$emit('close')">
+        <button class="viewer-close" :title="t.fileViewer.close" :aria-label="t.fileViewer.close" @click="$emit('close')">
           <Icon name="close" :size="24" />
         </button>
 
@@ -13,6 +13,7 @@
           class="viewer-nav viewer-nav--prev"
           :disabled="currentIndex <= 0"
           :title="t.fileViewer.previous"
+          :aria-label="t.fileViewer.previous"
           @click.stop="prev"
         >
           <Icon name="chevron-left" :size="24" />
@@ -23,6 +24,7 @@
           class="viewer-nav viewer-nav--next"
           :disabled="currentIndex >= files.length - 1"
           :title="t.fileViewer.next"
+          :aria-label="t.fileViewer.next"
           @click.stop="next"
         >
           <Icon name="chevron-right" :size="24" />
@@ -177,7 +179,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'close'): void
+  close: []
 }>()
 
 // Refs

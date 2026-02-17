@@ -1,3 +1,13 @@
-target
+target/
+.git/
+.gitignore
 .env
+.env.*
 *.log
+*.md
+LICENSE
+config/
+tests/
+.github/
+.vscode/
+.idea/

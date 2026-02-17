@@ -1,0 +1,23 @@
+MTChat has been deployed!
+
+1. Get the API URL:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  https://{{ $host.host }}
+{{- end }}
+{{- else }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "mtchat.name" . }},app.kubernetes.io/component=api" -o jsonpath="{.items[0].metadata.name}")
+  kubectl port-forward --namespace {{ .Release.Namespace }} $POD_NAME 8080:8080
+  echo "API available at http://localhost:8080"
+{{- end }}
+
+2. Verify the deployment:
+  curl http://localhost:8080/health
+  curl http://localhost:8080/health/ready
+
+3. Configure your host application:
+  - Set baseUrl to the MTChat API URL
+  - Use the Management API to create dialogs
+  - Embed the mtchat-vue SDK in your frontend
+
+For more information, visit the project documentation.

@@ -10,6 +10,8 @@ import { useFileUpload } from '../../composables/useFileUpload'
 import type { MTChatApi } from '../../sdk/api'
 import AttachmentPreview from './AttachmentPreview.vue'
 import MessageEditor from './MessageEditor.vue'
+import { stripHtml } from '../../utils/sanitize'
+import { truncateText, getSenderDisplayName as _getSenderDisplayName } from '../../utils/helpers'
 import Icon from '../Icon.vue'
 
 const props = defineProps<{
@@ -49,24 +51,8 @@ const fileUpload = useFileUpload({
 })
 
 // Helpers
-function stripHtml(html: string): string {
-  if (typeof document !== 'undefined') {
-    const tmp = document.createElement('div')
-    tmp.innerHTML = html
-    return tmp.textContent || tmp.innerText || ''
-  }
-  return html.replace(/<[^>]*>/g, '')
-}
-
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return text.slice(0, maxLength) + '...'
-}
-
 function getSenderDisplayName(senderId: string): string {
-  const participant = props.participants.find(p => p.user_id === senderId)
-  if (participant?.display_name) return participant.display_name
-  return senderId === props.currentUserId ? t.value.user.you : senderId.slice(0, 8)
+  return _getSenderDisplayName(senderId, props.participants, props.currentUserId, t.value.user.you)
 }
 
 // Handle submit
@@ -234,7 +220,7 @@ defineExpose({
 }
 
 .chat-input__preview--edit .chat-input__preview-indicator {
-  background: #f59e0b;
+  background: var(--mtchat-warning, #f59e0b);
 }
 
 .chat-input__preview-content {
@@ -245,7 +231,7 @@ defineExpose({
 .chat-input__preview-label {
   font-size: 12px;
   font-weight: 600;
-  color: #f59e0b;
+  color: var(--mtchat-warning, #f59e0b);
   margin-bottom: 2px;
 }
 

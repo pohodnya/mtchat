@@ -37,7 +37,7 @@ export class MTChatClient {
       },
       onDisconnect: () => {
         config.onDisconnect?.()
-        this.emit({ type: 'disconnected' as any })
+        this.emit({ type: 'disconnected' })
       },
       onError: (error) => {
         config.onError?.(error)

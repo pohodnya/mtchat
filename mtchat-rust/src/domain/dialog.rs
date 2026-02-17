@@ -35,7 +35,7 @@ impl Dialog {
         created_by: Option<Uuid>,
     ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: Uuid::now_v7(),
             object_id,
             object_type: object_type.into(),
             title,

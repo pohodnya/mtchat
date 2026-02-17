@@ -1,0 +1,207 @@
+# =============================================================================
+# MTChat Helm Chart - Default Values
+# =============================================================================
+
+# -- API (mtchat-rust backend)
+api:
+  replicaCount: 2
+
+  image:
+    repository: ghcr.io/pohodnya/mtchat-api
+    tag: ""  # Defaults to Chart.appVersion
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets: []
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilization: 70
+    targetMemoryUtilization: 80
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Pod annotations (e.g. for Prometheus scraping)
+  podAnnotations: {}
+
+  # Additional environment variables
+  extraEnv: []
+
+# -- Ingress
+ingress:
+  enabled: false
+  className: ""  # e.g. "nginx"
+  annotations: {}
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+    # nginx.ingress.kubernetes.io/websocket-services: mtchat-api
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: chat.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: mtchat-tls
+  #    hosts:
+  #      - chat.example.com
+
+# -- PostgreSQL
+postgresql:
+  # Set to false to use an external database
+  enabled: true
+
+  image:
+    repository: postgres
+    tag: "17-alpine"
+
+  auth:
+    database: mtchat
+    username: mtchat
+    # password is set via existingSecret or generated
+    password: ""
+    existingSecret: ""
+    secretKeys:
+      userPasswordKey: password
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  # Connection settings for external database
+  # Only used when postgresql.enabled=false
+  external:
+    host: ""
+    port: 5432
+    database: mtchat
+    username: mtchat
+    existingSecret: ""
+    secretKeys:
+      passwordKey: password
+
+# -- Redis
+redis:
+  # Set to false to use an external Redis
+  enabled: true
+
+  image:
+    repository: redis
+    tag: "7-alpine"
+
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  # Connection settings for external Redis
+  external:
+    host: ""
+    port: 6379
+    existingSecret: ""
+    secretKeys:
+      urlKey: redis-url
+
+# -- MinIO (S3-compatible storage)
+minio:
+  # Set to false to use external S3
+  enabled: true
+
+  image:
+    repository: minio/minio
+    tag: "latest"
+
+  rootUser: mtchat-admin
+  rootPassword: ""
+  existingSecret: ""
+
+  bucket: mtchat-attachments
+
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # External S3 configuration (used when minio.enabled=false)
+  external:
+    endpoint: ""
+    publicEndpoint: ""
+    bucket: mtchat-attachments
+    region: us-east-1
+    existingSecret: ""
+    secretKeys:
+      accessKeyId: access-key-id
+      secretAccessKey: secret-access-key
+
+# -- Application secrets
+secrets:
+  # JWT secret for user token validation (min 32 chars)
+  jwtSecret: ""
+  # Admin API token for Management API
+  adminApiToken: ""
+  # Use an existing secret instead of creating one
+  existingSecret: ""
+  secretKeys:
+    jwtSecretKey: jwt-secret
+    adminApiTokenKey: admin-api-token
+
+# -- Webhooks (optional)
+webhooks:
+  url: ""
+  secret: ""
+
+# -- Job queue settings
+jobs:
+  notificationDelaySecs: 30
+  notificationConcurrency: 2
+  archiveCron: "0 */5 * * * *"
+  archiveAfterSecs: 259200
+
+# -- Sentry (optional)
+sentry:
+  dsn: ""
+
+# -- Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""

@@ -34,8 +34,8 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
-  (e: 'open-gallery', index: number): void
-  (e: 'open-file', attachment: Attachment): void
+  'open-gallery': [index: number]
+  'open-file': [attachment: Attachment]
 }>()
 
 const imageAttachments = computed(() =>

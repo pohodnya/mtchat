@@ -9,7 +9,6 @@
  * - Sticky date headers
  * - Unread message divider
  * - Scroll to bottom button
- * - Fallback to v-for when virtual scroller not installed or few messages
  */
 
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, shallowRef } from 'vue'
@@ -17,6 +16,8 @@ import type { Message, DialogParticipant, Attachment, VirtualItem } from '../../
 import type { MtMenuItem, MtMenuExpose } from '../../registry/types'
 import { useI18n } from '../../i18n'
 import { useRegistry } from '../../registry/useRegistry'
+import { sanitizeHtml, stripHtml } from '../../utils/sanitize'
+import { getInitials, truncateText, getSenderDisplayName as _getSenderDisplayName } from '../../utils/helpers'
 import AttachmentList from './AttachmentList.vue'
 import Icon from '../Icon.vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
@@ -59,7 +60,6 @@ const emit = defineEmits<{
 const { t, formatDateDivider } = useI18n()
 
 // Refs
-const containerRef = ref<HTMLElement | null>(null)
 const scrollerRef = shallowRef<any>(null)
 
 // State
@@ -71,10 +71,6 @@ const activeMenuMessage = ref<Message | null>(null)
 
 // Mark as read timer
 let readTimeout: ReturnType<typeof setTimeout> | null = null
-
-// Always use virtual scroll — DynamicScroller works fine with any item count
-// and avoids scroll position bugs when switching between v-for and virtual scroller
-const useVirtualScroll = computed(() => true)
 
 // ============ Virtual Items ============
 
@@ -123,7 +119,7 @@ const virtualItems = computed<VirtualItem[]>(() => {
 // ============ Scroll Handling ============
 
 function handleScroll() {
-  const container = useVirtualScroll.value ? scrollerRef.value?.$el : containerRef.value
+  const container = scrollerRef.value?.$el
   if (!container) return
 
   const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
@@ -210,31 +206,21 @@ function handleReadTracking(isAtBottom: boolean) {
 }
 
 function scrollToBottom(smooth = false) {
-  if (useVirtualScroll.value && scrollerRef.value) {
-    const lastIndex = virtualItems.value.length - 1
-    if (lastIndex >= 0) {
-      scrollerRef.value.scrollToItem(lastIndex)
-      // Wait for virtual scroller to measure item heights
-      setTimeout(() => {
-        const el = scrollerRef.value?.$el
-        if (el) {
-          if (smooth) {
-            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-          } else {
-            el.scrollTop = el.scrollHeight
-          }
+  if (!scrollerRef.value) return
+  const lastIndex = virtualItems.value.length - 1
+  if (lastIndex >= 0) {
+    scrollerRef.value.scrollToItem(lastIndex)
+    // Wait for virtual scroller to measure item heights
+    setTimeout(() => {
+      const el = scrollerRef.value?.$el
+      if (el) {
+        if (smooth) {
+          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+        } else {
+          el.scrollTop = el.scrollHeight
         }
-      }, 50)
-    }
-  } else if (containerRef.value) {
-    if (smooth) {
-      containerRef.value.scrollTo({
-        top: containerRef.value.scrollHeight,
-        behavior: 'smooth'
-      })
-    } else {
-      containerRef.value.scrollTop = containerRef.value.scrollHeight
-    }
+      }
+    }, 50)
   }
 }
 
@@ -255,35 +241,28 @@ function handleScrollToBottom() {
 }
 
 function scrollToMessage(messageId: string) {
-  if (useVirtualScroll.value && scrollerRef.value) {
-    // Find index of message in virtualItems
-    const index = virtualItems.value.findIndex(item => item.id === messageId)
-    if (index >= 0) {
-      // First jump to item so virtual scroller renders it
-      scrollerRef.value.scrollToItem(index)
-      nextTick(() => {
-        // Then smooth scroll to center
-        const container = scrollerRef.value?.$el
-        const messageEl = container?.querySelector(`[data-message-id="${messageId}"]`)
-        if (messageEl) {
-          messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }
-        highlightMessage(messageId)
-      })
-    }
-  } else {
-    const messageEl = containerRef.value?.querySelector(`[data-message-id="${messageId}"]`)
-    if (messageEl) {
-      messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (!scrollerRef.value) return
+  // Find index of message in virtualItems
+  const index = virtualItems.value.findIndex(item => item.id === messageId)
+  if (index >= 0) {
+    // First jump to item so virtual scroller renders it
+    scrollerRef.value.scrollToItem(index)
+    nextTick(() => {
+      // Then smooth scroll to center
+      const container = scrollerRef.value?.$el
+      const messageEl = container?.querySelector(`[data-message-id="${messageId}"]`)
+      if (messageEl) {
+        messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
       highlightMessage(messageId)
-    }
+    })
   }
 }
 
 function highlightMessage(messageId: string) {
   // Small delay to ensure element is in DOM after virtual scroll
   setTimeout(() => {
-    const container = useVirtualScroll.value ? scrollerRef.value?.$el : containerRef.value
+    const container = scrollerRef.value?.$el
     const messageEl = container?.querySelector(`[data-message-id="${messageId}"]`)
     if (messageEl) {
       messageEl.classList.add('chat-messages__message--highlight')
@@ -304,7 +283,7 @@ let isLoadingNewerLocal = false
 
 watch(() => props.isLoadingOlder, (loading) => {
   if (loading) {
-    const container = useVirtualScroll.value ? scrollerRef.value?.$el : containerRef.value
+    const container = scrollerRef.value?.$el
     if (container) {
       // Starting to load - save position
       scrollHeightBefore = container.scrollHeight
@@ -324,7 +303,7 @@ watch(() => props.messages.length, async () => {
   if (isLoadingOlderLocal) {
     // Finished loading older messages - restore position
     await nextTick()
-    const container = useVirtualScroll.value ? scrollerRef.value?.$el : containerRef.value
+    const container = scrollerRef.value?.$el
     if (container) {
       const scrollHeightAfter = container.scrollHeight
       container.scrollTop = scrollTopBefore + (scrollHeightAfter - scrollHeightBefore)
@@ -336,7 +315,7 @@ watch(() => props.messages.length, async () => {
   } else if (!props.jumpCooldown) {
     // New real-time message added - scroll to bottom if we're near bottom
     // Skip if jumpCooldown is active (resetToLatest or jumpToMessage in progress)
-    const container = useVirtualScroll.value ? scrollerRef.value?.$el : containerRef.value
+    const container = scrollerRef.value?.$el
     if (container) {
       const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
       // Only auto-scroll if user is already near bottom (< 100px away)
@@ -355,29 +334,9 @@ function getDateKey(dateString: string): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 }
 
-function shouldShowDateDivider(message: Message, index: number): boolean {
-  if (index === 0) return true
-  const prevMessage = props.messages[index - 1]
-  return getDateKey(message.sent_at) !== getDateKey(prevMessage.sent_at)
-}
-
 function formatTime(dateString: string): string {
   const date = new Date(dateString)
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-function stripHtml(html: string): string {
-  if (typeof document !== 'undefined') {
-    const tmp = document.createElement('div')
-    tmp.innerHTML = html
-    return tmp.textContent || tmp.innerText || ''
-  }
-  return html.replace(/<[^>]*>/g, '')
-}
-
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return text.slice(0, maxLength) + '...'
 }
 
 // ============ Participant/Sender Helpers ============
@@ -387,9 +346,7 @@ function getParticipant(userId: string): DialogParticipant | undefined {
 }
 
 function getSenderDisplayName(senderId: string): string {
-  const participant = getParticipant(senderId)
-  if (participant?.display_name) return participant.display_name
-  return senderId === props.currentUserId ? t.value.user.you : senderId.slice(0, 8)
+  return _getSenderDisplayName(senderId, props.participants, props.currentUserId, t.value.user.you)
 }
 
 function getSenderFullDisplay(senderId: string): string {
@@ -406,14 +363,6 @@ function getSenderFullDisplay(senderId: string): string {
     return `${company} — ${name}`
   }
   return name
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }
-  return name.slice(0, 2).toUpperCase()
 }
 
 function isUserOnline(userId: string): boolean {
@@ -599,12 +548,13 @@ defineExpose({
 
     <!-- Virtual scroll mode -->
     <DynamicScroller
-      v-if="useVirtualScroll"
       ref="scrollerRef"
       :items="virtualItems"
       :min-item-size="60"
       key-field="id"
       class="chat-messages"
+      role="log"
+      aria-live="polite"
       @scroll="handleScroll"
     >
       <template #default="{ item, active }">
@@ -663,6 +613,8 @@ defineExpose({
                 <button
                   class="chat-messages__action-btn"
                   :title="t.tooltips.menu"
+                  :aria-label="t.tooltips.menu"
+                  aria-haspopup="true"
                   @click.stop="toggleMessageMenu($event, item.message)"
                 >
                   <Icon name="more-vertical" :size="16" />
@@ -701,7 +653,7 @@ defineExpose({
               <div
                 v-if="item.message.content"
                 class="chat-messages__content"
-                v-html="item.message.content"
+                v-html="sanitizeHtml(item.message.content)"
               ></div>
 
               <!-- Attachments -->
@@ -717,132 +669,13 @@ defineExpose({
       </template>
     </DynamicScroller>
 
-    <!-- Fallback: standard v-for rendering -->
-    <div v-else ref="containerRef" class="chat-messages" @scroll="handleScroll">
-      <!-- Loading older messages indicator -->
-      <div v-if="isLoadingOlder" class="chat-messages__loading-older">
-        <span>{{ t.chat.loadingOlder }}</span>
-      </div>
-
-      <template v-for="(message, index) in messages" :key="message.id">
-        <!-- Date divider -->
-        <div
-          v-if="shouldShowDateDivider(message, index)"
-          :class="['chat-messages__date-divider', { 'chat-messages__date-divider--hidden': formatDateDivider(message.sent_at) === hiddenDividerDate }]"
-        >
-          <span>{{ formatDateDivider(message.sent_at) }}</span>
-        </div>
-
-        <!-- Unread divider -->
-        <div
-          v-if="message.id === firstUnreadMessageId"
-          class="chat-messages__unread-divider"
-        >
-          <span>{{ t.chat.newMessages }}</span>
-        </div>
-
-        <!-- System message -->
-        <div
-          v-if="message.message_type === 'system'"
-          :data-message-id="message.id"
-          class="chat-messages__system-message"
-        >
-          {{ formatSystemMessage(message) }}
-        </div>
-
-        <!-- User message -->
-        <div
-          v-else
-          :data-message-id="message.id"
-          class="chat-messages__message"
-        >
-          <!-- Avatar -->
-          <div class="chat-messages__avatar-wrapper">
-            <div class="chat-messages__avatar">
-              {{ message.sender_id ? getInitials(getSenderDisplayName(message.sender_id)) : '?' }}
-            </div>
-            <span
-              v-if="message.sender_id && isUserOnline(message.sender_id)"
-              class="chat-messages__avatar-online"
-            ></span>
-          </div>
-
-          <!-- Message body -->
-          <div class="chat-messages__body">
-            <!-- Actions (visible on hover) -->
-            <div class="chat-messages__actions">
-              <button
-                class="chat-messages__action-btn"
-                :title="t.tooltips.menu"
-                @click.stop="toggleMessageMenu($event, message)"
-              >
-                <Icon name="more-vertical" :size="16" />
-              </button>
-            </div>
-
-            <!-- Quoted message (if reply) -->
-            <div
-              v-if="message.reply_to_id"
-              class="chat-messages__quoted"
-              @click.stop="handleQuotedClick(message.reply_to_id)"
-            >
-              <div class="chat-messages__quoted-indicator"></div>
-              <div class="chat-messages__quoted-content">
-                <div class="chat-messages__quoted-author">
-                  {{ getMessageAuthor(message.reply_to_id) }}
-                </div>
-                <div class="chat-messages__quoted-text">
-                  {{ getQuotedText(message.reply_to_id) }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Header -->
-            <div class="chat-messages__header">
-              <span class="chat-messages__sender">
-                {{ message.sender_id ? getSenderFullDisplay(message.sender_id) : '' }}
-              </span>
-              <span class="chat-messages__time">{{ formatTime(message.sent_at) }}</span>
-              <span v-if="message.last_edited_at" class="chat-messages__edited">
-                ({{ t.chat.edited }})
-              </span>
-            </div>
-
-            <!-- Content -->
-            <div
-              v-if="message.content"
-              class="chat-messages__content"
-              v-html="message.content"
-            ></div>
-
-            <!-- Attachments -->
-            <AttachmentList
-              v-if="message.attachments && message.attachments.length > 0"
-              :attachments="message.attachments"
-              @open-gallery="(idx) => handleOpenGallery(message, idx)"
-              @open-file="(att) => emit('openFile', att)"
-            />
-          </div>
-        </div>
-      </template>
-
-      <!-- Loading newer messages indicator -->
-      <div v-if="isLoadingNewer" class="chat-messages__loading-newer">
-        <span>{{ t.chat.loadingNewer }}</span>
-      </div>
-
-      <div v-if="messages.length === 0" class="chat-messages__empty">
-        {{ t.chat.noMessages }}
-      </div>
-    </div>
-
     <!-- Loading overlay for jumping to message -->
     <div v-if="isJumpingToMessage" class="chat-messages__loading-overlay">
       <span>{{ t.chat.loadingOlder }}</span>
     </div>
 
-    <!-- Loading older indicator (virtual scroll mode) -->
-    <div v-if="useVirtualScroll && isLoadingOlder" class="chat-messages__loading-overlay">
+    <!-- Loading older indicator -->
+    <div v-if="isLoadingOlder" class="chat-messages__loading-overlay">
       <span>{{ t.chat.loadingOlder }}</span>
     </div>
 
@@ -851,6 +684,7 @@ defineExpose({
       v-if="showScrollButton"
       class="chat-messages__scroll-btn"
       :title="t.tooltips.scrollDown"
+      :aria-label="t.tooltips.scrollDown"
       @click="handleScrollToBottom"
     >
       <Icon name="chevron-down" :size="18" />
@@ -1061,7 +895,7 @@ defineExpose({
   right: 0;
   width: 10px;
   height: 10px;
-  background: #22c55e;
+  background: var(--mtchat-success, #22c55e);
   border: 2px solid var(--mtchat-bg);
   border-radius: 50%;
 }

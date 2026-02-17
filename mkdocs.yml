@@ -1,0 +1,121 @@
+site_name: MTChat Documentation
+site_description: Embeddable chat service for B2B/B2C platforms
+site_url: https://docs.mtchat.dev
+repo_url: https://github.com/nicenemo/mtchat
+repo_name: nicenemo/mtchat
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - i18n:
+      default_language: en
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: ru
+          name: Russian
+          build: true
+          nav_translations:
+            Home: Главная
+            Getting Started: Начало работы
+            Installation: Установка
+            Quick Start: Быстрый старт
+            Guide: Руководство
+            Architecture: Архитектура
+            Data Model: Модель данных
+            Scope Matching: Scope-правила
+            API Reference: API
+            Management API: Management API
+            Chat API: Chat API
+            WebSocket: WebSocket
+            Webhooks: Вебхуки
+            File Upload: Загрузка файлов
+            Vue SDK: Vue SDK
+            Overview: Обзор
+            Components: Компоненты
+            Configuration: Конфигурация
+            Full Mode: Полный режим
+            Inline Mode: Встроенный режим
+            Theming: Темы
+            Internationalization: Интернационализация
+            PrimeVue Integration: Интеграция PrimeVue
+            Events & Composables: События и Composables
+            i18n: Интернационализация
+            Integration Guide: Интеграция
+            Troubleshooting: Решение проблем
+            Configuration: Конфигурация
+            Security: Безопасность
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+  - Guide:
+    - Architecture: guide/architecture.md
+    - Data Model: guide/data-model.md
+    - Scope Matching: guide/scope-matching.md
+  - API Reference:
+    - Management API: api/management.md
+    - Chat API: api/chat.md
+    - WebSocket: api/websocket.md
+    - Webhooks: api/webhooks.md
+    - File Upload: api/file-upload.md
+  - Vue SDK:
+    - Overview: sdk/components.md
+    - Installation: sdk/installation.md
+    - Configuration: sdk/configuration.md
+    - Full Mode: sdk/full-mode.md
+    - Inline Mode: sdk/inline-mode.md
+    - Theming: sdk/theming.md
+    - Internationalization: sdk/i18n.md
+    - PrimeVue Integration: sdk/primevue.md
+    - Events & Composables: sdk/events.md
+  - Configuration: configuration.md
+  - Security: security.md

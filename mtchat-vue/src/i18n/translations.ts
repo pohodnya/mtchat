@@ -65,6 +65,7 @@ export interface TranslationStrings {
   search: {
     placeholder: string
     noResults: string
+    clear: string
   }
   tooltips: {
     chatInfo: string
@@ -214,6 +215,7 @@ export const translations: Record<Locale, TranslationStrings> = {
     search: {
       placeholder: 'Поиск по чатам...',
       noResults: 'Ничего не найдено',
+      clear: 'Очистить поиск',
     },
     tooltips: {
       chatInfo: 'Информация о чате',
@@ -362,6 +364,7 @@ export const translations: Record<Locale, TranslationStrings> = {
     search: {
       placeholder: 'Search chats...',
       noResults: 'No results found',
+      clear: 'Clear search',
     },
     tooltips: {
       chatInfo: 'Chat info',
@@ -510,6 +513,7 @@ export const translations: Record<Locale, TranslationStrings> = {
     search: {
       placeholder: '搜索聊天...',
       noResults: '未找到结果',
+      clear: '清除搜索',
     },
     tooltips: {
       chatInfo: '聊天信息',

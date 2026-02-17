@@ -416,6 +416,7 @@ export type DialogListType = 'participating' | 'available'
  */
 export type WsEventType =
   | 'connected'
+  | 'disconnected'
   | 'message.new'
   | 'message.read'
   | 'message.edited'
@@ -430,16 +431,28 @@ export type WsEventType =
   | 'error'
 
 /**
- * WebSocket event from server
+ * WebSocket event payload
  */
-export interface WsEvent {
+export interface WsEventPayload {
+  dialog_id?: string
+  message?: Message
+  user_id?: string
+  last_read_message_id?: string
+  is_online?: boolean
+  [key: string]: unknown
+}
+
+/**
+ * WebSocket event from server
+ *
+ * Events may arrive in two formats:
+ * 1. Nested: { type, payload: { dialog_id, ... } }
+ * 2. Flat: { type, dialog_id, ... }
+ * Handlers should check both locations.
+ */
+export interface WsEvent extends WsEventPayload {
   type: WsEventType
-  payload?: {
-    dialog_id?: string
-    message?: Message
-    user_id?: string
-    [key: string]: unknown
-  }
+  payload?: WsEventPayload
 }
 
 /**
@@ -595,7 +608,7 @@ export interface UseChatReturn {
   participants: import('vue').Ref<DialogParticipant[]>
   currentDialog: import('vue').Ref<DialogListItem | null>
   isConnected: import('vue').Ref<boolean>
-  isLoading: import('vue').Ref<boolean>
+  isLoading: import('vue').Ref<boolean> | import('vue').ComputedRef<boolean>
   error: import('vue').Ref<Error | null>
   /** ID of the first unread message (for divider) */
   firstUnreadMessageId: import('vue').Ref<string | null>

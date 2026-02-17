@@ -7,6 +7,7 @@
         class="chat-info-panel__close"
         @click="$emit('close')"
         :title="t.tooltips.close"
+        :aria-label="t.tooltips.close"
       >
         <Icon name="close" :size="20" />
       </button>
@@ -36,11 +37,12 @@
       <h3 class="chat-info-panel__section-title">
         {{ t.infoPanel.participants }} ({{ participantsCount }})
       </h3>
-      <div class="chat-info-panel__participants">
+      <div class="chat-info-panel__participants" role="list" :aria-label="t.infoPanel.participants">
         <div
           v-for="participant in sortedParticipants"
           :key="participant.user_id"
           class="chat-info-panel__participant"
+          role="listitem"
         >
           <!-- Avatar with online indicator -->
           <div class="chat-info-panel__avatar-wrapper">
@@ -93,6 +95,7 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import type { DialogParticipant } from '../../types'
 import { useI18n } from '../../i18n'
+import { getInitials } from '../../utils/helpers'
 import Icon from '../Icon.vue'
 
 const { t } = useI18n()
@@ -108,7 +111,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'close'): void
+  close: []
 }>()
 
 function handleKeydown(e: KeyboardEvent) {
@@ -149,13 +152,6 @@ const sortedParticipants = computed(() => {
   })
 })
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }
-  return name.slice(0, 2).toUpperCase()
-}
 </script>
 
 <style scoped>
@@ -285,7 +281,7 @@ function getInitials(name: string): string {
   right: -1px;
   width: 12px;
   height: 12px;
-  background: #4CAF50;
+  background: var(--mtchat-success, #22c55e);
   border: 2px solid var(--mtchat-bg, #ffffff);
   border-radius: 50%;
   z-index: 1;

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mtchat.fullname" . }}
+  labels:
+    {{- include "mtchat.labels" . | nindent 4 }}
+data:
+  RUST_LOG: "multitenancy_chat_api=info,tower_http=info"
+  PORT: "8080"
+  S3_REGION: {{ if .Values.minio.enabled }}"us-east-1"{{ else }}{{ .Values.minio.external.region | default "us-east-1" | quote }}{{ end }}
+  S3_BUCKET: {{ include "mtchat.s3.bucket" . | quote }}
+  NOTIFICATION_DELAY_SECS: {{ .Values.jobs.notificationDelaySecs | toString | quote }}
+  NOTIFICATION_CONCURRENCY: {{ .Values.jobs.notificationConcurrency | toString | quote }}
+  ARCHIVE_CRON: {{ .Values.jobs.archiveCron | quote }}
+  ARCHIVE_AFTER_SECS: {{ .Values.jobs.archiveAfterSecs | toString | quote }}
+  {{- if .Values.webhooks.url }}
+  WEBHOOK_URL: {{ .Values.webhooks.url | quote }}
+  {{- end }}
+  {{- if .Values.sentry.dsn }}
+  SENTRY_DSN: {{ .Values.sentry.dsn | quote }}
+  {{- end }}

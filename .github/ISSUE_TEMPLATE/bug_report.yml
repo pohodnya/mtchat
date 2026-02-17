@@ -1,0 +1,83 @@
+name: Bug Report
+description: Report a bug in MTChat
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of what the bug is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Open the chat list
+        2. Click on a dialog
+        3. Send a message with an attachment
+        4. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of MTChat is affected?
+      options:
+        - Backend (Rust API)
+        - Vue SDK (@mtchat/vue)
+        - PrimeVue wrapper (@mtchat/vue-primevue)
+        - Docker / Deployment
+        - Documentation
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: MTChat version (e.g., 0.4.0)
+      placeholder: "0.4.0"
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Any relevant environment details.
+      placeholder: |
+        OS: macOS 15
+        Browser: Chrome 130
+        Node.js: 20.x
+        Docker: 27.x
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Screenshots
+      description: Paste any relevant logs or attach screenshots.

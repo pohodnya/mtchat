@@ -1,0 +1,157 @@
+# =============================================================================
+# MTChat - Production Docker Compose
+# =============================================================================
+#
+# Usage:
+#   cp .env.example .env   # Edit ALL values!
+#   docker compose up -d
+#
+# Services:
+#   - postgres: PostgreSQL 17 database
+#   - redis: Redis 7 for PubSub, presence, job queue
+#   - minio: S3-compatible file storage
+#   - api: MTChat backend (Rust)
+#
+# The frontend (mtchat-vue SDK) is embedded in your host application,
+# not deployed as a separate service.
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mtchat
+    # Do not expose ports in production; only the api service needs access
+    # Uncomment for debugging:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mtchat
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mtchat
+    # Uncomment if you need direct MinIO console access:
+    # ports:
+    #   - "127.0.0.1:9001:9001"
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+      mc mb local/${S3_BUCKET:-mtchat-attachments} --ignore-existing;
+      mc anonymous set none local/${S3_BUCKET:-mtchat-attachments};
+      exit 0;
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    networks:
+      - mtchat
+    restart: "no"
+
+  api:
+    image: ghcr.io/pohodnya/mtchat-api:latest
+    # Or build from source:
+    # build:
+    #   context: ../mtchat-rust
+    #   dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN}
+      RUST_LOG: ${RUST_LOG:-multitenancy_chat_api=info,tower_http=info}
+      PORT: ${PORT:-8080}
+      # S3
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT}
+      S3_BUCKET: ${S3_BUCKET:-mtchat-attachments}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_PRESIGN_UPLOAD_EXPIRY: ${S3_PRESIGN_UPLOAD_EXPIRY:-300}
+      S3_PRESIGN_DOWNLOAD_EXPIRY: ${S3_PRESIGN_DOWNLOAD_EXPIRY:-3600}
+      # Sentry
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      # Webhooks
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      # Jobs
+      NOTIFICATION_DELAY_SECS: ${NOTIFICATION_DELAY_SECS:-30}
+      NOTIFICATION_CONCURRENCY: ${NOTIFICATION_CONCURRENCY:-2}
+      ARCHIVE_CRON: ${ARCHIVE_CRON:-0 */5 * * * *}
+      ARCHIVE_AFTER_SECS: ${ARCHIVE_AFTER_SECS:-259200}
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-8080}/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+    networks:
+      - mtchat
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  mtchat:
+    driver: bridge

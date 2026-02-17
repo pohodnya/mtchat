@@ -154,6 +154,28 @@ impl DialogRepository {
         Ok(count)
     }
 
+    /// Count participants for multiple dialogs in one query
+    pub async fn count_participants_batch(
+        &self,
+        dialog_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, i64>, sqlx::Error> {
+        if dialog_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let rows: Vec<(Uuid, i64)> = sqlx::query_as(
+            r#"SELECT dialog_id, COUNT(*) as cnt
+               FROM dialog_participants
+               WHERE dialog_id = ANY($1)
+               GROUP BY dialog_id"#,
+        )
+        .bind(dialog_ids)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().collect())
+    }
+
     /// Get last message timestamp for a dialog
     pub async fn get_last_message_at(
         &self,

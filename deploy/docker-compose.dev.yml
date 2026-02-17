@@ -1,0 +1,59 @@
+# =============================================================================
+# MTChat - Development Overrides
+# =============================================================================
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# Adds:
+#   - Exposed ports for all services (localhost only)
+#   - Source code volume mount for hot-reload (if building locally)
+#   - Debug logging
+#   - Example frontend app
+# =============================================================================
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  minio:
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+  api:
+    build:
+      context: ../mtchat-rust
+      dockerfile: docker/Dockerfile
+    environment:
+      RUST_LOG: multitenancy_chat_api=debug,tower_http=debug
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/multitenancy_chat
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-secret-for-local-development-only-32chars
+      ADMIN_API_TOKEN: demo-admin-token
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_BUCKET: mtchat-attachments
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_REGION: us-east-1
+      NOTIFICATION_DELAY_SECS: "2"
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  example:
+    build:
+      context: ..
+      dockerfile: mtchat-example/Dockerfile
+    ports:
+      - "127.0.0.1:80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - mtchat

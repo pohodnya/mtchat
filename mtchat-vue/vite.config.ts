@@ -13,6 +13,10 @@ export default defineConfig({
     }),
     cssInjectedByJsPlugin(),
   ],
+  test: {
+    environment: 'happy-dom',
+    include: ['src/**/*.test.ts'],
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),

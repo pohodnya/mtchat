@@ -34,7 +34,7 @@ impl DialogAccessScope {
         scope_level2: Vec<String>,
     ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: Uuid::now_v7(),
             dialog_id,
             tenant_uid,
             scope_level1,

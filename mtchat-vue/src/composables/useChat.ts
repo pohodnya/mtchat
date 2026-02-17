@@ -4,7 +4,7 @@
  * Reactive chat state management for Vue 3
  */
 
-import { ref, onMounted, onUnmounted, type Ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
 import { MTChatClient } from '../sdk/client'
 import type {
   Message,
@@ -15,6 +15,7 @@ import type {
   UseChatReturn,
   AttachmentInput,
   JoinDialogRequest,
+  WsEvent,
 } from '../types'
 
 /**
@@ -34,7 +35,14 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const participants: Ref<DialogParticipant[]> = ref([])
   const currentDialog: Ref<DialogListItem | null> = ref(null)
   const isConnected: Ref<boolean> = ref(false)
-  const isLoading: Ref<boolean> = ref(false)
+  // Split loading states to prevent race conditions between concurrent operations
+  const isLoadingDialogs: Ref<boolean> = ref(false)
+  const isLoadingMessages: Ref<boolean> = ref(false)
+  const isActionLoading: Ref<boolean> = ref(false)
+  // Combined loading state for backward compatibility (used by UI to disable buttons)
+  const isLoading: ComputedRef<boolean> = computed(() =>
+    isLoadingDialogs.value || isLoadingMessages.value || isActionLoading.value
+  )
   const error: Ref<Error | null> = ref(null)
   const firstUnreadMessageId: Ref<string | null> = ref(null)
   const replyToMessage: Ref<Message | null> = ref(null)
@@ -77,7 +85,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   async function loadParticipatingDialogs(): Promise<void> {
     try {
-      isLoading.value = true
+      isLoadingDialogs.value = true
       error.value = null
       const search = searchQuery.value || undefined
 
@@ -89,13 +97,13 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoading.value = false
+      isLoadingDialogs.value = false
     }
   }
 
   async function loadArchivedDialogs(): Promise<void> {
     try {
-      isLoading.value = true
+      isLoadingDialogs.value = true
       error.value = null
       const search = searchQuery.value || undefined
 
@@ -105,13 +113,13 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoading.value = false
+      isLoadingDialogs.value = false
     }
   }
 
   async function loadAvailableDialogs(): Promise<void> {
     try {
-      isLoading.value = true
+      isLoadingDialogs.value = true
       error.value = null
       const search = searchQuery.value || undefined
       availableDialogs.value = await client.api.getAvailableDialogs(search)
@@ -119,7 +127,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoading.value = false
+      isLoadingDialogs.value = false
     }
   }
 
@@ -135,7 +143,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     objId: string
   ): Promise<DialogListItem | null> {
     try {
-      isLoading.value = true
+      isLoadingDialogs.value = true
       error.value = null
       const dialog = await client.api.getDialogByObject(objType, objId)
       if (dialog) {
@@ -146,7 +154,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoading.value = false
+      isLoadingDialogs.value = false
     }
   }
 
@@ -202,7 +210,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   async function joinDialog(id: string, profile: JoinDialogRequest): Promise<void> {
     try {
-      isLoading.value = true
+      isActionLoading.value = true
       error.value = null
       await client.api.joinDialog(id, profile)
 
@@ -234,13 +242,13 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoading.value = false
+      isActionLoading.value = false
     }
   }
 
   async function leaveDialog(id: string): Promise<void> {
     try {
-      isLoading.value = true
+      isActionLoading.value = true
       error.value = null
       await client.api.leaveDialog(id)
 
@@ -265,7 +273,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoading.value = false
+      isActionLoading.value = false
     }
   }
 
@@ -273,7 +281,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   async function archiveDialog(dialogId: string): Promise<void> {
     try {
-      isLoading.value = true
+      isActionLoading.value = true
       error.value = null
       await client.api.archiveDialog(dialogId)
 
@@ -294,13 +302,13 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoading.value = false
+      isActionLoading.value = false
     }
   }
 
   async function unarchiveDialog(dialogId: string): Promise<void> {
     try {
-      isLoading.value = true
+      isActionLoading.value = true
       error.value = null
       await client.api.unarchiveDialog(dialogId)
 
@@ -320,7 +328,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoading.value = false
+      isActionLoading.value = false
     }
   }
 
@@ -437,7 +445,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
 
     try {
-      isLoading.value = true
+      isLoadingMessages.value = true
       error.value = null
 
       // Default limit for pagination
@@ -478,7 +486,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = err
       throw e
     } finally {
-      isLoading.value = false
+      isLoadingMessages.value = false
     }
   }
 
@@ -578,7 +586,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     if (!currentDialog.value.i_am_participant) return
 
     try {
-      isLoading.value = true
+      isLoadingMessages.value = true
       jumpCooldown.value = true
       error.value = null
 
@@ -601,7 +609,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoading.value = false
+      isLoadingMessages.value = false
       enableScrollCooldown()
     }
   }
@@ -955,22 +963,22 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   // ============ Event Handlers ============
 
-  function handleMessageNew(event: { payload?: { message?: Message }; id?: string; dialog_id?: string; sender_id?: string; content?: string; sent_at?: string; message_type?: string }): void {
+  function handleMessageNew(event: WsEvent): void {
     // Support both formats:
     // 1. { payload: { message: {...} } } - expected format
-    // 2. { id, dialog_id, sender_id, content, sent_at } - backend format
+    // 2. { id, dialog_id, sender_id, content, sent_at } - backend flat format
     let message: Message | undefined = event.payload?.message
-    const messageType = event.message_type || message?.message_type
+    const msgType = (event.message_type || event.payload?.message_type || message?.message_type) as Message['message_type'] | undefined
 
     if (!message && event.id && event.dialog_id) {
       // Backend sends flat structure
       message = {
-        id: event.id,
-        dialog_id: event.dialog_id,
-        sender_id: event.sender_id!,
-        content: event.content!,
-        sent_at: event.sent_at!,
-        message_type: messageType as Message['message_type'],
+        id: event.id as string,
+        dialog_id: event.dialog_id as string,
+        sender_id: event.sender_id as string,
+        content: event.content as string,
+        sent_at: event.sent_at as string,
+        message_type: msgType,
       }
     }
 
@@ -981,7 +989,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     // Increment unread_count for messages from other users (not system messages)
     const isFromOtherUser = message.sender_id !== config.userId
-    const isSystemMessage = messageType === 'system'
+    const isSystemMessage = msgType === 'system'
     const isCurrentlyViewingDialog = currentDialog.value?.id === message.dialog_id
 
     if (isFromOtherUser && !isSystemMessage && !isCurrentlyViewingDialog) {
@@ -1021,7 +1029,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  function handleParticipantJoined(event: { dialog_id?: string; user_id?: string; payload?: { dialog_id?: string; user_id?: string } }): void {
+  function handleParticipantJoined(event: WsEvent): void {
     // Support both flat and payload formats
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     const user_id = event.user_id || event.payload?.user_id
@@ -1060,7 +1068,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  function handleParticipantLeft(event: { dialog_id?: string; user_id?: string; payload?: { dialog_id?: string; user_id?: string } }): void {
+  function handleParticipantLeft(event: WsEvent): void {
     // Support both flat and payload formats
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     const user_id = event.user_id || event.payload?.user_id
@@ -1101,20 +1109,12 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  function handleDialogArchived(event: { dialog_id?: string; payload?: { dialog_id?: string } }): void {
+  function handleDialogArchived(event: WsEvent): void {
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     if (!dialog_id) return
 
-    console.log('[MTChat] dialog.archived event:', {
-      dialog_id,
-      participatingCount: participatingDialogs.value.length,
-      archivedCount: archivedDialogs.value.length,
-      participatingIds: participatingDialogs.value.map(d => d.id),
-    })
-
     // Move dialog from active to archived list
     const dialogIndex = participatingDialogs.value.findIndex((d) => d.id === dialog_id)
-    console.log('[MTChat] dialog.archived - found at index:', dialogIndex)
 
     if (dialogIndex !== -1) {
       const dialog = participatingDialogs.value[dialogIndex]
@@ -1125,10 +1125,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       ]
       // Add to archived list with is_archived flag
       archivedDialogs.value = [{ ...dialog, is_archived: true }, ...archivedDialogs.value]
-      console.log('[MTChat] dialog.archived - moved dialog to archived list')
     } else {
       // Dialog not in participating list - reload to sync state
-      console.log('[MTChat] dialog.archived - dialog not in participating list, reloading...')
       loadParticipatingDialogs().catch(() => {})
       loadArchivedDialogs().catch(() => {})
     }
@@ -1139,20 +1137,12 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  function handleDialogUnarchived(event: { dialog_id?: string; payload?: { dialog_id?: string } }): void {
+  function handleDialogUnarchived(event: WsEvent): void {
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     if (!dialog_id) return
 
-    console.log('[MTChat] dialog.unarchived event:', {
-      dialog_id,
-      archivedCount: archivedDialogs.value.length,
-      participatingCount: participatingDialogs.value.length,
-      archivedIds: archivedDialogs.value.map(d => d.id),
-    })
-
     // Move dialog from archived to active list
     const dialogIndex = archivedDialogs.value.findIndex((d) => d.id === dialog_id)
-    console.log('[MTChat] dialog.unarchived - found at index:', dialogIndex)
 
     if (dialogIndex !== -1) {
       const dialog = archivedDialogs.value[dialogIndex]
@@ -1163,10 +1153,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       ]
       // Add to active list with is_archived flag removed
       participatingDialogs.value = [{ ...dialog, is_archived: false }, ...participatingDialogs.value]
-      console.log('[MTChat] dialog.unarchived - moved dialog to active list')
     } else {
-      // Dialog not found in archived list - might need to reload
-      console.log('[MTChat] dialog.unarchived - dialog not in archived list, reloading...')
+      // Dialog not found in archived list - reload to sync state
       loadParticipatingDialogs().catch(() => {})
       loadArchivedDialogs().catch(() => {})
     }
@@ -1177,27 +1165,23 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  function handleMessageRead(event: { dialog_id?: string; user_id?: string; last_read_message_id?: string; payload?: { dialog_id?: string; user_id?: string; last_read_message_id?: string } }): void {
+  function handleMessageRead(event: WsEvent): void {
     // Support both flat and payload formats
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     const readByUserId = event.user_id || event.payload?.user_id
     const lastReadMessageId = event.last_read_message_id || event.payload?.last_read_message_id
-
-    console.log('[MTChat] message.read event:', { dialog_id, readByUserId, lastReadMessageId, currentDialogId: currentDialog.value?.id })
 
     if (!dialog_id || !readByUserId) return
 
     // Update participant's last_read_message_id in local state (for read receipts)
     if (currentDialog.value?.id === dialog_id && lastReadMessageId) {
       const participantIdx = participants.value.findIndex((p) => p.user_id === readByUserId)
-      console.log('[MTChat] Found participant at index:', participantIdx, 'participants count:', participants.value.length)
       if (participantIdx !== -1) {
         participants.value = [
           ...participants.value.slice(0, participantIdx),
           { ...participants.value[participantIdx], last_read_message_id: lastReadMessageId },
           ...participants.value.slice(participantIdx + 1),
         ]
-        console.log('[MTChat] Updated participant last_read_message_id')
       }
     }
 
@@ -1233,7 +1217,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  function handlePresenceUpdate(event: { user_id?: string; is_online?: boolean; payload?: { user_id?: string; is_online?: boolean } }): void {
+  function handlePresenceUpdate(event: WsEvent): void {
     // Support both flat and payload formats
     const userId = event.user_id || event.payload?.user_id
     const isOnline = event.is_online ?? event.payload?.is_online
@@ -1259,8 +1243,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  function handleMessageEdited(event: { id?: string; dialog_id?: string; content?: string; last_edited_at?: string }): void {
-    const { id, dialog_id, content, last_edited_at } = event
+  function handleMessageEdited(event: WsEvent): void {
+    const id = (event.id || event.payload?.id) as string | undefined
+    const dialog_id = event.dialog_id || event.payload?.dialog_id
+    const content = (event.content || event.payload?.content) as string | undefined
+    const last_edited_at = (event.last_edited_at || event.payload?.last_edited_at) as string | undefined
     if (!id || !dialog_id || !content) return
 
     // Only update if it's for the current dialog
@@ -1276,8 +1263,9 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  function handleMessageDeleted(event: { id?: string; dialog_id?: string }): void {
-    const { id, dialog_id } = event
+  function handleMessageDeleted(event: WsEvent): void {
+    const id = (event.id || event.payload?.id) as string | undefined
+    const dialog_id = event.dialog_id || event.payload?.dialog_id
     if (!id || !dialog_id) return
 
     // Only update if it's for the current dialog
@@ -1319,24 +1307,24 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       hasConnectedBefore = true
     })
 
-    client.on('disconnected' as any, () => {
+    client.on('disconnected', () => {
       isConnected.value = false
       // Clear online users - we don't know their status when disconnected
       onlineUsers.value = new Set()
     })
 
     // Real-time presence updates from server
-    client.on('presence.update', handlePresenceUpdate as any)
+    client.on('presence.update', handlePresenceUpdate)
 
     // Other events
-    client.on('message.new', handleMessageNew as any)
-    client.on('message.read', handleMessageRead as any)
-    client.on('message.edited', handleMessageEdited as any)
-    client.on('message.deleted', handleMessageDeleted as any)
-    client.on('participant.joined', handleParticipantJoined as any)
-    client.on('participant.left', handleParticipantLeft as any)
-    client.on('dialog.archived', handleDialogArchived as any)
-    client.on('dialog.unarchived', handleDialogUnarchived as any)
+    client.on('message.new', handleMessageNew)
+    client.on('message.read', handleMessageRead)
+    client.on('message.edited', handleMessageEdited)
+    client.on('message.deleted', handleMessageDeleted)
+    client.on('participant.joined', handleParticipantJoined)
+    client.on('participant.left', handleParticipantLeft)
+    client.on('dialog.archived', handleDialogArchived)
+    client.on('dialog.unarchived', handleDialogUnarchived)
 
     // Auto-connect
     if (autoConnect) {

@@ -1,19 +1,29 @@
-# Build stage
-FROM rust:latest AS builder
-
+# Stage 1: Install cargo-chef on pinned Rust image
+FROM rust:1.82-bookworm AS chef
+RUN cargo install cargo-chef
 WORKDIR /app
 
-# Install dependencies for building
+# Stage 2: Analyze dependencies
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# Stage 3: Build dependencies (cached unless Cargo.toml/Cargo.lock change)
+FROM chef AS builder
+
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy entire project and build
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Stage 4: Build application (only this layer rebuilds on source changes)
 COPY . .
 RUN cargo build --release
 
-# Runtime stage
+# Stage 5: Runtime (minimal image)
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y \
@@ -24,11 +34,9 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy binary and migrations
 COPY --from=builder /app/target/release/multitenancy-chat-api .
 COPY --from=builder /app/migrations ./migrations
 
-# Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 

@@ -25,7 +25,7 @@ defineProps<{
 }>()
 
 defineEmits<{
-  (e: 'click'): void
+  click: []
 }>()
 
 function handleImageError(event: Event) {

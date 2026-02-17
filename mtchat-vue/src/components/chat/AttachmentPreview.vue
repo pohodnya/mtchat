@@ -66,8 +66,8 @@ defineProps<{
 }>()
 
 defineEmits<{
-  (e: 'remove', id: string): void
-  (e: 'retry', id: string): void
+  remove: [id: string]
+  retry: [id: string]
 }>()
 
 function truncateFilename(name: string, maxLength = 20): string {

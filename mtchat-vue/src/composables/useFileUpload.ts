@@ -96,7 +96,7 @@ export function useFileUpload(options: UseFileUploadOptions): UseFileUploadRetur
         previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
       }
 
-      pendingAttachments.value.push(pending)
+      pendingAttachments.value = [...pendingAttachments.value, pending]
 
       // Start upload
       uploadFile(pending)
@@ -104,43 +104,46 @@ export function useFileUpload(options: UseFileUploadOptions): UseFileUploadRetur
   }
 
   /**
+   * Immutable update helper: update a single item by ID
+   */
+  function updateItem(id: string, updates: Partial<PendingAttachment>): void {
+    pendingAttachments.value = pendingAttachments.value.map((a) =>
+      a.id === id ? { ...a, ...updates } : a
+    )
+  }
+
+  /**
    * Upload a single file
    */
   async function uploadFile(pending: PendingAttachment): Promise<void> {
-    // Find the item in the array (for reactivity)
-    const item = pendingAttachments.value.find((a) => a.id === pending.id)
-    if (!item) return
+    if (!pendingAttachments.value.some((a) => a.id === pending.id)) return
 
     if (!dialogId.value) {
-      item.status = 'error'
-      item.error = 'No dialog selected'
+      updateItem(pending.id, { status: 'error', error: 'No dialog selected' })
       return
     }
 
     try {
-      item.status = 'uploading'
-      item.progress = 0
+      updateItem(pending.id, { status: 'uploading', progress: 0 })
 
       // Get presigned URL
       const { upload_url, s3_key } = await api.getPresignedUploadUrl(
         dialogId.value,
-        item.filename,
-        item.contentType,
-        item.size
+        pending.filename,
+        pending.contentType,
+        pending.size
       )
 
       // Upload to S3
-      await api.uploadFile(upload_url, item.file, (progress) => {
-        item.progress = progress
+      await api.uploadFile(upload_url, pending.file, (progress) => {
+        updateItem(pending.id, { progress })
       })
 
-      item.s3Key = s3_key
-      item.status = 'uploaded'
-      item.progress = 100
-    } catch (error) {
-      item.status = 'error'
-      item.error = error instanceof Error ? error.message : 'Upload failed'
-      onError?.(item.error)
+      updateItem(pending.id, { s3Key: s3_key, status: 'uploaded', progress: 100 })
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Upload failed'
+      updateItem(pending.id, { status: 'error', error: errorMsg })
+      onError?.(errorMsg)
     }
   }
 
@@ -148,14 +151,13 @@ export function useFileUpload(options: UseFileUploadOptions): UseFileUploadRetur
    * Remove a pending attachment
    */
   function removeAttachment(id: string): void {
-    const index = pendingAttachments.value.findIndex((a) => a.id === id)
-    if (index !== -1) {
-      const attachment = pendingAttachments.value[index]
+    const attachment = pendingAttachments.value.find((a) => a.id === id)
+    if (attachment) {
       // Revoke blob URL if exists
       if (attachment.previewUrl) {
         URL.revokeObjectURL(attachment.previewUrl)
       }
-      pendingAttachments.value.splice(index, 1)
+      pendingAttachments.value = pendingAttachments.value.filter((a) => a.id !== id)
     }
   }
 
@@ -192,7 +194,7 @@ export function useFileUpload(options: UseFileUploadOptions): UseFileUploadRetur
   async function retryUpload(id: string): Promise<void> {
     const pending = pendingAttachments.value.find((a) => a.id === id)
     if (pending && pending.status === 'error') {
-      pending.error = undefined
+      updateItem(id, { error: undefined, status: 'pending' })
       await uploadFile(pending)
     }
   }

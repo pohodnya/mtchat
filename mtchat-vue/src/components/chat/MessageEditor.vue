@@ -924,7 +924,7 @@ defineExpose({
 
 .mtchat-editor__input :deep(.mtchat-mention) {
   color: var(--mtchat-primary);
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--mtchat-primary-bg, rgba(59, 130, 246, 0.1));
   padding: 2px 4px;
   border-radius: 4px;
   font-weight: 500;

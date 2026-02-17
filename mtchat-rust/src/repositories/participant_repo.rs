@@ -143,6 +143,27 @@ impl ParticipantRepository {
         .await
     }
 
+    /// Find participant records for a user across multiple dialogs in one query
+    pub async fn find_by_dialogs_and_user(
+        &self,
+        dialog_ids: &[Uuid],
+        user_id: Uuid,
+    ) -> Result<std::collections::HashMap<Uuid, DialogParticipant>, sqlx::Error> {
+        if dialog_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let rows: Vec<DialogParticipant> = sqlx::query_as::<_, DialogParticipant>(
+            "SELECT * FROM dialog_participants WHERE dialog_id = ANY($1) AND user_id = $2",
+        )
+        .bind(dialog_ids)
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|p| (p.dialog_id, p)).collect())
+    }
+
     /// List all participants of a dialog
     pub async fn list_by_dialog(
         &self,

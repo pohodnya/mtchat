@@ -82,21 +82,40 @@ impl AccessScopeRepository {
         Ok(result.rows_affected())
     }
 
-    /// Replace all scopes for a dialog (delete + insert)
+    /// Replace all scopes for a dialog (delete + insert) atomically
     pub async fn replace_for_dialog(
         &self,
         dialog_id: Uuid,
         scopes: Vec<DialogAccessScope>,
     ) -> Result<Vec<DialogAccessScope>, sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+
         // Delete existing
-        self.delete_by_dialog(dialog_id).await?;
+        sqlx::query("DELETE FROM dialog_access_scopes WHERE dialog_id = $1")
+            .bind(dialog_id)
+            .execute(&mut *tx)
+            .await?;
 
         // Insert new
         let mut result = Vec::new();
         for scope in scopes {
-            let created = self.create(&scope).await?;
+            let created = sqlx::query_as::<_, DialogAccessScope>(
+                r#"INSERT INTO dialog_access_scopes (id, dialog_id, tenant_uid, scope_level1, scope_level2, created_at)
+                   VALUES ($1, $2, $3, $4, $5, $6)
+                   RETURNING *"#,
+            )
+            .bind(scope.id)
+            .bind(scope.dialog_id)
+            .bind(scope.tenant_uid)
+            .bind(&scope.scope_level1)
+            .bind(&scope.scope_level2)
+            .bind(scope.created_at)
+            .fetch_one(&mut *tx)
+            .await?;
             result.push(created);
         }
+
+        tx.commit().await?;
         Ok(result)
     }
 

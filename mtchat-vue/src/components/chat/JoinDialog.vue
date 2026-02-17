@@ -25,8 +25,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'cancel'): void
-  (e: 'join', data: JoinDialogRequest): void
+  cancel: []
+  join: [data: JoinDialogRequest]
 }>()
 
 const nameMode = ref<'profile' | 'anonymous'>('profile')
@@ -146,7 +146,7 @@ function handleClose() {
   </component>
 </template>
 
-<style>
+<style scoped>
 .join-dialog__body {
   display: flex;
   flex-direction: column;

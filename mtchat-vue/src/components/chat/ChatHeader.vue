@@ -109,6 +109,7 @@ function toggleMenu(event: Event) {
       v-if="showBackButton"
       class="chat-header__back"
       :title="t.tooltips.back"
+      :aria-label="t.tooltips.back"
       @click="emit('back')"
     >
       <Icon name="chevron-left" :size="20" />
@@ -118,6 +119,7 @@ function toggleMenu(event: Event) {
     <button
       class="chat-header__info"
       :title="t.tooltips.chatInfo"
+      :aria-label="t.tooltips.chatInfo"
       @click="emit('showInfo')"
     >
       <div class="chat-header__title-row">
@@ -141,7 +143,10 @@ function toggleMenu(event: Event) {
         <span class="chat-header__participants">
           {{ tt('chat.participants', { count: dialog.participants_count || 0 }) }}
         </span>
-        <span :class="['chat-header__status', { 'chat-header__status--connected': isConnected }]">
+        <span
+          role="status"
+          :class="['chat-header__status', { 'chat-header__status--connected': isConnected }]"
+        >
           {{ isConnected ? t.status.connected : t.status.disconnected }}
         </span>
       </div>
@@ -154,6 +159,8 @@ function toggleMenu(event: Event) {
         <button
           class="chat-header__menu-btn"
           :title="t.tooltips.menu"
+          :aria-label="t.tooltips.menu"
+          aria-haspopup="true"
           @click="toggleMenu"
         >
           <Icon name="more-vertical" :size="20" />
@@ -270,12 +277,12 @@ function toggleMenu(event: Event) {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--mtchat-danger, #ef4444);
   margin-right: 4px;
 }
 
 .chat-header__status--connected::before {
-  background: #22c55e;
+  background: var(--mtchat-success, #22c55e);
 }
 
 .chat-header__actions {

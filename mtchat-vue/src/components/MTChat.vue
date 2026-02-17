@@ -270,10 +270,8 @@ function handleMarkAsRead() {
 
 async function handleJumpToMessage(messageId: string) {
   const found = await chat.jumpToMessage(messageId)
-  console.log('[MTChat] jumpToMessage result:', { found, messageId })
   if (found) {
     await nextTick()
-    console.log('[MTChat] calling scrollToMessage, ref exists:', !!messagesRef.value)
     messagesRef.value?.scrollToMessage(messageId)
   }
 }
