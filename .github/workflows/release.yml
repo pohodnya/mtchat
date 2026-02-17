@@ -7,6 +7,7 @@
 #   2. Publish @mtchat/vue to npm
 #   3. Publish @mtchat/vue-primevue to npm
 #   4. Generate changelog & create GitHub Release
+#   5. Build & deploy documentation to GitHub Pages
 #
 # Trigger: push tag matching v* (e.g. v0.1.0, v1.0.0)
 #
@@ -26,6 +27,8 @@ on:
 permissions:
   contents: write
   packages: write
+  pages: write
+  id-token: write
 
 env:
   DOCKER_IMAGE: pohodnya/mtchat
@@ -281,3 +284,35 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ===========================================================================
+  # Documentation: build and deploy to GitHub Pages
+  # ===========================================================================
+  docs:
+    name: Deploy Documentation
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MkDocs
+        run: pip install mkdocs mkdocs-material mkdocs-static-i18n
+
+      - name: Build documentation
+        run: mkdocs build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
