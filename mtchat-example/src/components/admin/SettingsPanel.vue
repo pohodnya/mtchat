@@ -267,24 +267,24 @@ function generateSampleData() {
 
   // Create objects
   createObject({
-    type: 'tender',
-    title: 'Tender #T-2024-001',
-    description: 'Freight from Moscow to St. Petersburg, 20 tons',
+    type: 'project',
+    title: 'Project Alpha',
+    description: 'Website redesign Q1 2024',
   })
   createObject({
-    type: 'tender',
-    title: 'Tender #T-2024-002',
-    description: 'Express delivery, Kazan to Samara',
+    type: 'project',
+    title: 'Project Beta',
+    description: 'Mobile app development',
   })
   createObject({
-    type: 'order',
-    title: 'Order #O-5678',
-    description: 'Confirmed shipment, container freight',
+    type: 'task',
+    title: 'Task #1234',
+    description: 'Implement user authentication',
   })
   createObject({
-    type: 'route',
-    title: 'Route R-001',
-    description: 'Weekly route: Moscow - Nizhny Novgorod - Kazan',
+    type: 'ticket',
+    title: 'Ticket #5678',
+    description: 'Bug fix: login page not loading',
   })
 
   toast.add({

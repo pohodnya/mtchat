@@ -1,5 +1,5 @@
 <template>
-  <TMSLayout :show-banner="false">
+  <DemoLayout :show-banner="false">
     <!-- No User Selected -->
     <div v-if="!currentUser" class="no-user-overlay">
       <div class="no-user-content">
@@ -91,7 +91,7 @@
         Заглушка
       </p>
     </Dialog>
-  </TMSLayout>
+  </DemoLayout>
   <Toast />
 </template>
 
@@ -101,7 +101,7 @@ import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
 import Dialog from 'primevue/dialog'
 import { MTChatPrime, MTChatConfig, Message } from '@mtchat/vue-primevue'
-import TMSLayout from '../components/TMSLayout.vue'
+import DemoLayout from '../components/DemoLayout.vue'
 import { useUsers, useSettings, useTenants } from '../composables'
 
 const toast = useToast()
@@ -201,12 +201,12 @@ function onHeaderMenuAction(dialog: any) {
 
 .no-user-content {
   text-align: center;
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
 }
 
 .no-user-content i {
   font-size: 64px;
-  color: var(--tms-text-muted, #444);
+  color: var(--demo-text-muted, #444);
   margin-bottom: 16px;
   display: block;
 }
@@ -214,22 +214,22 @@ function onHeaderMenuAction(dialog: any) {
 .no-user-content h2 {
   font-size: 24px;
   font-weight: 600;
-  color: var(--tms-text, #e0e0e0);
+  color: var(--demo-text, #e0e0e0);
   margin-bottom: 8px;
 }
 
 .no-user-content p {
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
   margin-bottom: 8px;
 }
 
 .no-user-content .hint {
   font-size: 14px;
-  color: var(--tms-text-muted, #666);
+  color: var(--demo-text-muted, #666);
 }
 
 .no-user-content a {
-  color: var(--tms-primary, #4fc3f7);
+  color: var(--demo-primary, #4fc3f7);
   text-decoration: none;
 }
 

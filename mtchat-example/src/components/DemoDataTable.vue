@@ -1,5 +1,5 @@
 <template>
-  <div class="tms-data-table">
+  <div class="demo-data-table">
     <!-- Page Header -->
     <div class="page-header">
       <div class="page-title">
@@ -22,15 +22,6 @@
         @click="activeTab = 'all'"
       >
         Все ({{ objects.length }})
-      </button>
-      <button
-        v-for="type in objectTypes"
-        :key="type"
-        class="tab-btn"
-        :class="{ active: activeTab === type }"
-        @click="activeTab = type"
-      >
-        {{ typeLabels[type] || type }} ({{ getCountByType(type) }})
       </button>
     </div>
 
@@ -79,7 +70,7 @@
               <span class="cell-title">{{ obj.title }}</span>
             </td>
             <td>
-              <span class="cell-type" :class="obj.type">{{ typeLabels[obj.type] || obj.type }}</span>
+              <span class="cell-type">{{ obj.type }}</span>
             </td>
             <td>
               <span class="cell-desc">{{ obj.description || '—' }}</span>
@@ -116,12 +107,6 @@ defineEmits<{
 
 const activeTab = ref('all')
 const searchQuery = ref('')
-
-const typeLabels: Record<string, string> = {
-  tender: 'Тендер',
-  order: 'Заказ',
-  route: 'Рейс',
-}
 
 const objectTypes = computed(() => {
   const types = new Set(props.objects.map(o => o.type))
@@ -164,11 +149,11 @@ function formatDate(isoDate: string): string {
 </script>
 
 <style scoped>
-.tms-data-table {
+.demo-data-table {
   display: flex;
   flex-direction: column;
   height: 100%;
-  color: var(--tms-text, #e0e0e0);
+  color: var(--demo-text, #e0e0e0);
 }
 
 /* Page Header */
@@ -177,7 +162,7 @@ function formatDate(isoDate: string): string {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--demo-border, rgba(255, 255, 255, 0.1));
 }
 
 .page-title {
@@ -188,7 +173,7 @@ function formatDate(isoDate: string): string {
 }
 
 .page-title i {
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
 }
 
 .info-icon {
@@ -214,13 +199,13 @@ function formatDate(isoDate: string): string {
 
 .action-btn.secondary {
   background: transparent;
-  border: 1px solid var(--tms-border, #444);
-  color: var(--tms-text, #e0e0e0);
+  border: 1px solid var(--demo-border, #444);
+  color: var(--demo-text, #e0e0e0);
 }
 
 .action-btn.secondary:hover {
-  border-color: var(--tms-primary, #4fc3f7);
-  color: var(--tms-primary, #4fc3f7);
+  border-color: var(--demo-primary, #4fc3f7);
+  color: var(--demo-primary, #4fc3f7);
 }
 
 /* Tabs */
@@ -228,14 +213,14 @@ function formatDate(isoDate: string): string {
   display: flex;
   gap: 0;
   padding: 0 20px;
-  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--demo-border, rgba(255, 255, 255, 0.1));
 }
 
 .tab-btn {
   padding: 12px 16px;
   background: none;
   border: none;
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
   font-size: 14px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -243,8 +228,8 @@ function formatDate(isoDate: string): string {
 }
 
 .tab-btn.active {
-  color: var(--tms-primary, #4fc3f7);
-  border-bottom-color: var(--tms-primary, #4fc3f7);
+  color: var(--demo-primary, #4fc3f7);
+  border-bottom-color: var(--demo-primary, #4fc3f7);
 }
 
 /* Toolbar */
@@ -253,7 +238,7 @@ function formatDate(isoDate: string): string {
   align-items: center;
   gap: 12px;
   padding: 12px 20px;
-  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--demo-border, rgba(255, 255, 255, 0.1));
 }
 
 .toolbar-spacer {
@@ -266,25 +251,25 @@ function formatDate(isoDate: string): string {
   gap: 8px;
   padding: 6px 12px;
   border-radius: 4px;
-  border: 1px solid var(--tms-border, #444);
-  background: var(--tms-bg-hover, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--demo-border, #444);
+  background: var(--demo-bg-hover, rgba(255, 255, 255, 0.05));
 }
 
 .search-box i {
-  color: var(--tms-text-muted, #666);
+  color: var(--demo-text-muted, #666);
 }
 
 .search-box input {
   border: none;
   background: none;
-  color: var(--tms-text, #e0e0e0);
+  color: var(--demo-text, #e0e0e0);
   font-size: 13px;
   outline: none;
   width: 200px;
 }
 
 .search-box input::placeholder {
-  color: var(--tms-text-muted, #666);
+  color: var(--demo-text-muted, #666);
 }
 
 /* Empty State */
@@ -294,13 +279,13 @@ function formatDate(isoDate: string): string {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--tms-text-muted, #666);
+  color: var(--demo-text-muted, #666);
   gap: 12px;
 }
 
 .empty-state i {
   font-size: 48px;
-  color: var(--tms-text-muted, #444);
+  color: var(--demo-text-muted, #444);
 }
 
 .empty-state p {
@@ -309,7 +294,7 @@ function formatDate(isoDate: string): string {
 }
 
 .create-link {
-  color: var(--tms-primary, #4fc3f7);
+  color: var(--demo-primary, #4fc3f7);
   text-decoration: none;
   font-size: 14px;
 }
@@ -334,18 +319,18 @@ function formatDate(isoDate: string): string {
   padding: 12px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
-  background: var(--tms-bg-hover, rgba(255, 255, 255, 0.02));
+  border-bottom: 1px solid var(--demo-border, rgba(255, 255, 255, 0.1));
+  background: var(--demo-bg-hover, rgba(255, 255, 255, 0.02));
   white-space: nowrap;
 }
 
 .data-table td {
   padding: 12px 16px;
   font-size: 14px;
-  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.05));
+  border-bottom: 1px solid var(--demo-border, rgba(255, 255, 255, 0.05));
 }
 
 .data-table tbody tr {
@@ -354,27 +339,27 @@ function formatDate(isoDate: string): string {
 }
 
 .data-table tbody tr:hover {
-  background: var(--tms-bg-hover, rgba(255, 255, 255, 0.03));
+  background: var(--demo-bg-hover, rgba(255, 255, 255, 0.03));
 }
 
 .data-table tbody tr.selected {
-  background: var(--tms-primary-bg, rgba(79, 195, 247, 0.1));
+  background: var(--demo-primary-bg, rgba(79, 195, 247, 0.1));
 }
 
 .data-table tbody tr.selected:hover {
-  background: var(--tms-primary-bg-hover, rgba(79, 195, 247, 0.15));
+  background: var(--demo-primary-bg-hover, rgba(79, 195, 247, 0.15));
 }
 
 /* Cell styles */
 .cell-id {
   font-family: monospace;
   font-size: 12px;
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
 }
 
 .cell-title {
   font-weight: 500;
-  color: var(--tms-text, #e0e0e0);
+  color: var(--demo-text, #e0e0e0);
 }
 
 .cell-type {
@@ -383,25 +368,12 @@ function formatDate(isoDate: string): string {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
-}
-
-.cell-type.tender {
-  background: rgba(79, 195, 247, 0.2);
-  color: #4fc3f7;
-}
-
-.cell-type.order {
-  background: rgba(129, 199, 132, 0.2);
-  color: #81c784;
-}
-
-.cell-type.route {
-  background: rgba(255, 183, 77, 0.2);
-  color: #ffb74d;
+  background: var(--demo-primary-bg, rgba(79, 195, 247, 0.2));
+  color: var(--demo-primary, #4fc3f7);
 }
 
 .cell-desc {
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -410,7 +382,7 @@ function formatDate(isoDate: string): string {
 }
 
 .cell-date {
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
   font-size: 13px;
 }
 
@@ -420,9 +392,9 @@ function formatDate(isoDate: string): string {
   align-items: center;
   gap: 16px;
   padding: 12px 20px;
-  border-top: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
+  border-top: 1px solid var(--demo-border, rgba(255, 255, 255, 0.1));
   font-size: 13px;
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
 }
 
 .pagination-stats {

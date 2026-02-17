@@ -1,5 +1,5 @@
 <template>
-  <TMSLayout :show-banner="false">
+  <DemoLayout :show-banner="false">
     <div class="admin-content">
       <!-- Page Header -->
       <div class="page-header">
@@ -33,14 +33,14 @@
         <SettingsPanel v-else-if="activeTab === 'settings'" />
       </div>
     </div>
-  </TMSLayout>
+  </DemoLayout>
   <Toast />
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import Toast from 'primevue/toast'
-import TMSLayout from '../components/TMSLayout.vue'
+import DemoLayout from '../components/DemoLayout.vue'
 import TenantsPanel from '../components/admin/TenantsPanel.vue'
 import UsersPanel from '../components/admin/UsersPanel.vue'
 import ObjectsPanel from '../components/admin/ObjectsPanel.vue'
@@ -69,7 +69,7 @@ const tabs = [
 /* Page Header */
 .page-header {
   padding: 20px 24px;
-  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--demo-border, rgba(255, 255, 255, 0.1));
 }
 
 .page-title {
@@ -78,17 +78,17 @@ const tabs = [
   gap: 10px;
   font-size: 18px;
   font-weight: 600;
-  color: var(--tms-text, #fff);
+  color: var(--demo-text, #fff);
 }
 
 .page-title i {
-  color: var(--tms-primary, #4fc3f7);
+  color: var(--demo-primary, #4fc3f7);
 }
 
 .page-subtitle {
   margin-top: 4px;
   font-size: 14px;
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
 }
 
 /* Tabs */
@@ -96,8 +96,8 @@ const tabs = [
   display: flex;
   gap: 0;
   padding: 0 24px;
-  border-bottom: 1px solid var(--tms-border, rgba(255, 255, 255, 0.1));
-  background: var(--tms-bg-hover, rgba(255, 255, 255, 0.02));
+  border-bottom: 1px solid var(--demo-border, rgba(255, 255, 255, 0.1));
+  background: var(--demo-bg-hover, rgba(255, 255, 255, 0.02));
 }
 
 .tab-btn {
@@ -107,7 +107,7 @@ const tabs = [
   padding: 14px 20px;
   background: none;
   border: none;
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
   font-size: 14px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -116,13 +116,13 @@ const tabs = [
 }
 
 .tab-btn:hover {
-  color: var(--tms-text, #e0e0e0);
-  background: var(--tms-bg-hover, rgba(255, 255, 255, 0.03));
+  color: var(--demo-text, #e0e0e0);
+  background: var(--demo-bg-hover, rgba(255, 255, 255, 0.03));
 }
 
 .tab-btn.active {
-  color: var(--tms-primary, #4fc3f7);
-  border-bottom-color: var(--tms-primary, #4fc3f7);
+  color: var(--demo-primary, #4fc3f7);
+  border-bottom-color: var(--demo-primary, #4fc3f7);
 }
 
 .tab-btn i {

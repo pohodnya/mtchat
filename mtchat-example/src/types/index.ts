@@ -31,12 +31,13 @@ export interface User {
 }
 
 /**
- * Mock business object (tender, order, route, etc.)
- * Used for inline mode demonstration
+ * Mock business object (project, task, ticket, etc.)
+ * Used for inline mode demonstration.
+ * Type can be any string - MTChat does not restrict object types.
  */
 export interface MockObject {
   id: string
-  type: 'tender' | 'order' | 'route' | string
+  type: string
   title: string
   description: string
   createdAt: string

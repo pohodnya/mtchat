@@ -1,8 +1,8 @@
 <template>
-  <TMSLayout :show-banner="false">
+  <DemoLayout :show-banner="false">
     <!-- Main Content: Data Table -->
     <template v-if="currentUser">
-      <TMSDataTable
+      <DemoDataTable
         :objects="sortedObjects"
         :selected-id="selectedObjectId"
         @row-click="handleRowClick"
@@ -24,9 +24,9 @@
 
     <!-- Right Panel: Chat -->
     <template #rightPanel v-if="currentUser && selectedObject">
-      <TMSChatPanel
+      <DemoChatPanel
         :title="selectedObject.title"
-        :subtitle="typeLabels[selectedObject.type] || selectedObject.type"
+        :subtitle="selectedObject.type"
         :tabs="['Информация', 'Маршрут', 'Чат']"
         @close="selectedObjectId = null"
       >
@@ -43,9 +43,9 @@
           @disconnected="onDisconnected"
           @error="onError"
         />
-      </TMSChatPanel>
+      </DemoChatPanel>
     </template>
-  </TMSLayout>
+  </DemoLayout>
   <Toast />
 </template>
 
@@ -54,10 +54,10 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import Toast from 'primevue/toast'
-import { MTChatPrime, MTChatConfig, Message } from '@mtchat/vue-primevue'
-import TMSLayout from '../components/TMSLayout.vue'
-import TMSDataTable from '../components/TMSDataTable.vue'
-import TMSChatPanel from '../components/TMSChatPanel.vue'
+import { MTChatPrime, MTChatConfig } from '@mtchat/vue-primevue'
+import DemoLayout from '../components/DemoLayout.vue'
+import DemoDataTable from '../components/DemoDataTable.vue'
+import DemoChatPanel from '../components/DemoChatPanel.vue'
 import { useUsers, useObjects, useSettings, useTenants } from '../composables'
 import type { MockObject } from '../types'
 
@@ -70,11 +70,6 @@ const { sortedObjects, getObject } = useObjects()
 const { settings } = useSettings()
 const { getTenant } = useTenants()
 
-const typeLabels: Record<string, string> = {
-  tender: 'Тендер',
-  order: 'Заказ',
-  route: 'Рейс',
-}
 
 // Selected object
 const selectedObjectId = ref<string | null>(null)
@@ -191,12 +186,12 @@ function onError(error: Error) {
 
 .no-user-content {
   text-align: center;
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
 }
 
 .no-user-content i {
   font-size: 64px;
-  color: var(--tms-text-muted, #444);
+  color: var(--demo-text-muted, #444);
   margin-bottom: 16px;
   display: block;
 }
@@ -204,22 +199,22 @@ function onError(error: Error) {
 .no-user-content h2 {
   font-size: 24px;
   font-weight: 600;
-  color: var(--tms-text, #e0e0e0);
+  color: var(--demo-text, #e0e0e0);
   margin-bottom: 8px;
 }
 
 .no-user-content p {
-  color: var(--tms-text-secondary, #888);
+  color: var(--demo-text-secondary, #888);
   margin-bottom: 8px;
 }
 
 .no-user-content .hint {
   font-size: 14px;
-  color: var(--tms-text-muted, #666);
+  color: var(--demo-text-muted, #666);
 }
 
 .no-user-content a {
-  color: var(--tms-primary, #4fc3f7);
+  color: var(--demo-primary, #4fc3f7);
   text-decoration: none;
 }
 

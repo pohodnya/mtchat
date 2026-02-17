@@ -2,11 +2,6 @@ import { computed } from 'vue'
 import { useStorage, generateUUID } from './useStorage'
 import { STORAGE_KEYS, type MockObject } from '../types'
 
-/**
- * Default object types for demo
- */
-export const OBJECT_TYPES = ['tender', 'order', 'route'] as const
-
 // Singleton state
 const objects = useStorage<MockObject[]>(STORAGE_KEYS.OBJECTS, [])
 
@@ -94,6 +89,5 @@ export function useObjects() {
     getObject,
     getObjectsByType,
     clearObjects,
-    OBJECT_TYPES,
   }
 }

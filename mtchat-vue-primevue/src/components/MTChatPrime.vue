@@ -17,7 +17,7 @@
  */
 
 import { computed } from 'vue'
-import { MTChat, provideRegistry, type MTChatProps } from '@mtchat/vue'
+import { MTChat, provideRegistry, type MTChatProps, type Message, type DialogListItem } from '@mtchat/vue'
 import { primevueRegistry } from '../registry/primevueRegistry'
 import '../theme/aura.css'
 
@@ -43,8 +43,10 @@ defineEmits<{
   (e: 'connected'): void
   (e: 'disconnected'): void
   (e: 'error', error: Error): void
-  (e: 'message-sent', message: unknown): void
-  (e: 'header-menu-action', dialog: unknown): void
+  (e: 'message-sent', message: Message): void
+  (e: 'dialog-selected', dialog: DialogListItem): void
+  (e: 'dialog-joined', dialogId: string): void
+  (e: 'dialog-left', dialogId: string): void
 }>()
 
 // Provide PrimeVue registry to all child components
@@ -66,7 +68,9 @@ provideRegistry(primevueRegistry)
       @disconnected="$emit('disconnected')"
       @error="$emit('error', $event)"
       @message-sent="$emit('message-sent', $event)"
-      @header-menu-action="$emit('header-menu-action', $event)"
+      @dialog-selected="$emit('dialog-selected', $event)"
+      @dialog-joined="$emit('dialog-joined', $event)"
+      @dialog-left="$emit('dialog-left', $event)"
     >
       <!-- Pass through named slots -->
       <template v-if="$slots['sidebar-action']" #sidebar-action>

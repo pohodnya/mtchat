@@ -6,12 +6,9 @@
       <div class="form-grid">
         <div class="form-field">
           <label>Type</label>
-          <Select
+          <InputText
             v-model="form.type"
-            :options="typeOptions"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Select type"
+            placeholder="e.g. project, task, ticket"
             class="w-full"
           />
         </div>
@@ -42,48 +39,50 @@
       />
     </div>
 
-    <!-- List by Type -->
+    <!-- Objects List -->
     <div class="list-section">
       <h3>Objects ({{ objects.length }})</h3>
 
-      <TabView v-if="objects.length > 0">
-        <TabPanel v-for="(type, index) in usedTypes" :key="type" :value="String(index)" :header="`${type} (${objectsByType[type]?.length || 0})`">
-          <DataTable
-            :value="objectsByType[type] || []"
-            stripedRows
-            emptyMessage="No objects"
-          >
-            <Column field="title" header="Title" sortable />
-            <Column field="description" header="Description">
-              <template #body="{ data }">
-                <span class="description">{{ data.description || '-' }}</span>
-              </template>
-            </Column>
-            <Column field="id" header="ID">
-              <template #body="{ data }">
-                <code class="uuid">{{ data.id.slice(0, 8) }}...</code>
-              </template>
-            </Column>
-            <Column field="createdAt" header="Created">
-              <template #body="{ data }">
-                {{ formatDate(data.createdAt) }}
-              </template>
-            </Column>
-            <Column header="Actions" style="width: 100px">
-              <template #body="{ data }">
-                <Button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  rounded
-                  @click="handleDelete(data)"
-                  v-tooltip="'Delete'"
-                />
-              </template>
-            </Column>
-          </DataTable>
-        </TabPanel>
-      </TabView>
+      <DataTable
+        v-if="objects.length > 0"
+        :value="objects"
+        stripedRows
+        emptyMessage="No objects"
+      >
+        <Column field="type" header="Type" sortable>
+          <template #body="{ data }">
+            <span class="type-badge">{{ data.type }}</span>
+          </template>
+        </Column>
+        <Column field="title" header="Title" sortable />
+        <Column field="description" header="Description">
+          <template #body="{ data }">
+            <span class="description">{{ data.description || '-' }}</span>
+          </template>
+        </Column>
+        <Column field="id" header="ID">
+          <template #body="{ data }">
+            <code class="uuid">{{ data.id.slice(0, 8) }}...</code>
+          </template>
+        </Column>
+        <Column field="createdAt" header="Created">
+          <template #body="{ data }">
+            {{ formatDate(data.createdAt) }}
+          </template>
+        </Column>
+        <Column header="Actions" style="width: 100px">
+          <template #body="{ data }">
+            <Button
+              icon="pi pi-trash"
+              severity="danger"
+              text
+              rounded
+              @click="handleDelete(data)"
+              v-tooltip="'Delete'"
+            />
+          </template>
+        </Column>
+      </DataTable>
 
       <div v-else class="empty-state">
         <i class="pi pi-inbox" />
@@ -94,28 +93,18 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed } from 'vue'
+import { reactive } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
-import Select from 'primevue/select'
 import Button from 'primevue/button'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import TabView from 'primevue/tabview'
-import TabPanel from 'primevue/tabpanel'
-import { useObjects, OBJECT_TYPES } from '../../composables'
+import { useObjects } from '../../composables'
 import type { MockObject } from '../../types'
 
 const toast = useToast()
-const { objects, objectsByType, createObject, deleteObject } = useObjects()
-
-const typeOptions = OBJECT_TYPES.map((t) => ({ label: t, value: t }))
-
-const usedTypes = computed(() => {
-  const types = new Set(objects.value.map((o) => o.type))
-  return Array.from(types).sort()
-})
+const { objects, createObject, deleteObject } = useObjects()
 
 const form = reactive({
   type: '',
@@ -220,6 +209,16 @@ h3 {
   color: #334155;
   padding: 2px 6px;
   border-radius: 4px;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
 }
 
 .description {
