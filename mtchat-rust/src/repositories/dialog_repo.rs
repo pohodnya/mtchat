@@ -145,12 +145,11 @@ impl DialogRepository {
 
     /// Count participants in a dialog
     pub async fn count_participants(&self, dialog_id: Uuid) -> Result<i64, sqlx::Error> {
-        let (count,): (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM dialog_participants WHERE dialog_id = $1",
-        )
-        .bind(dialog_id)
-        .fetch_one(&self.pool)
-        .await?;
+        let (count,): (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM dialog_participants WHERE dialog_id = $1")
+                .bind(dialog_id)
+                .fetch_one(&self.pool)
+                .await?;
         Ok(count)
     }
 

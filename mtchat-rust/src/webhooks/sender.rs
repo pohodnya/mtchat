@@ -159,8 +159,8 @@ async fn send_with_retry(
     config: &WebhookConfig,
     event: &WebhookEvent,
 ) -> Result<(), String> {
-    let payload = serde_json::to_string(event)
-        .map_err(|e| format!("Failed to serialize event: {}", e))?;
+    let payload =
+        serde_json::to_string(event).map_err(|e| format!("Failed to serialize event: {}", e))?;
 
     let signature = compute_signature(&config.secret, &payload);
 
@@ -213,8 +213,8 @@ async fn send_with_retry(
 
 /// Compute HMAC-SHA256 signature
 fn compute_signature(secret: &str, payload: &str) -> String {
-    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-        .expect("HMAC can take key of any size");
+    let mut mac =
+        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
     mac.update(payload.as_bytes());
     let result = mac.finalize();
     format!("sha256={}", hex::encode(result.into_bytes()))
@@ -234,7 +234,10 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }
-    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+    a.iter()
+        .zip(b.iter())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
 }
 
 #[cfg(test)]

@@ -11,4 +11,4 @@ mod events;
 mod sender;
 
 pub use events::{WebhookEvent, WebhookEventType, WebhookPayload};
-pub use sender::{WebhookSender, WebhookConfig};
+pub use sender::{WebhookConfig, WebhookSender};

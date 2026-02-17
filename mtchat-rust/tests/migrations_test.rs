@@ -46,7 +46,7 @@ async fn test_dialogs_table_has_new_columns() {
     let result = sqlx::query(
         r#"INSERT INTO dialogs (id, object_id, object_type, title, created_by, created_at)
            VALUES ($1, $2, $3, $4, $5, NOW())
-           RETURNING id, object_id, object_type, title, created_by"#
+           RETURNING id, object_id, object_type, title, created_by"#,
     )
     .bind(id)
     .bind(object_id)
@@ -62,7 +62,10 @@ async fn test_dialogs_table_has_new_columns() {
     assert_eq!(row.get::<Uuid, _>("id"), id);
     assert_eq!(row.get::<Uuid, _>("object_id"), object_id);
     assert_eq!(row.get::<String, _>("object_type"), "tender");
-    assert_eq!(row.get::<Option<String>, _>("title"), Some("Test Dialog".to_string()));
+    assert_eq!(
+        row.get::<Option<String>, _>("title"),
+        Some("Test Dialog".to_string())
+    );
     assert_eq!(row.get::<Option<Uuid>, _>("created_by"), Some(created_by));
 
     tx.rollback().await.unwrap();
@@ -80,7 +83,7 @@ async fn test_dialogs_multiple_per_object() {
     // First insert should succeed
     let mut tx1 = pool.begin().await.unwrap();
     let result1 = sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog1_id)
     .bind(object_id)
@@ -93,27 +96,33 @@ async fn test_dialogs_multiple_per_object() {
     // Second insert with same object_id + object_type should also succeed (multiple dialogs per object allowed)
     let mut tx2 = pool.begin().await.unwrap();
     let result2 = sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog2_id)
     .bind(object_id)
     .bind("tender")
     .execute(&mut *tx2)
     .await;
-    assert!(result2.is_ok(), "Multiple dialogs per object should be allowed");
+    assert!(
+        result2.is_ok(),
+        "Multiple dialogs per object should be allowed"
+    );
     tx2.commit().await.unwrap();
 
     // Same object_id but different object_type should also succeed
     let mut tx3 = pool.begin().await.unwrap();
     let result3 = sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog3_id)
     .bind(object_id)
     .bind("order") // Different type
     .execute(&mut *tx3)
     .await;
-    assert!(result3.is_ok(), "Same object_id with different type should succeed");
+    assert!(
+        result3.is_ok(),
+        "Same object_id with different type should succeed"
+    );
     tx3.commit().await.unwrap();
 
     // Cleanup
@@ -132,7 +141,7 @@ async fn test_dialog_participants_table_structure() {
     // Create a dialog first
     let dialog_id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
     .bind(Uuid::new_v4())
@@ -147,7 +156,7 @@ async fn test_dialog_participants_table_structure() {
         r#"INSERT INTO dialog_participants
            (dialog_id, user_id, joined_as, notifications_enabled, joined_at)
            VALUES ($1, $2, $3, $4, NOW())
-           RETURNING dialog_id, user_id, joined_as, notifications_enabled"#
+           RETURNING dialog_id, user_id, joined_as, notifications_enabled"#,
     )
     .bind(dialog_id)
     .bind(user_id)
@@ -156,7 +165,10 @@ async fn test_dialog_participants_table_structure() {
     .fetch_one(&mut *tx)
     .await;
 
-    assert!(result.is_ok(), "Failed to insert participant with new columns");
+    assert!(
+        result.is_ok(),
+        "Failed to insert participant with new columns"
+    );
 
     let row = result.unwrap();
     assert_eq!(row.get::<Uuid, _>("dialog_id"), dialog_id);
@@ -174,7 +186,7 @@ async fn test_dialog_participants_default_values() {
 
     let dialog_id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
     .bind(Uuid::new_v4())
@@ -188,7 +200,7 @@ async fn test_dialog_participants_default_values() {
     let row = sqlx::query(
         r#"INSERT INTO dialog_participants (dialog_id, user_id, joined_at)
            VALUES ($1, $2, NOW())
-           RETURNING joined_as, notifications_enabled"#
+           RETURNING joined_as, notifications_enabled"#,
     )
     .bind(dialog_id)
     .bind(user_id)
@@ -209,7 +221,7 @@ async fn test_dialog_access_scopes_table() {
 
     let dialog_id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
     .bind(Uuid::new_v4())
@@ -226,7 +238,7 @@ async fn test_dialog_access_scopes_table() {
         r#"INSERT INTO dialog_access_scopes
            (dialog_id, tenant_uid, scope_level1, scope_level2)
            VALUES ($1, $2, $3, $4)
-           RETURNING id, dialog_id, tenant_uid, scope_level1, scope_level2"#
+           RETURNING id, dialog_id, tenant_uid, scope_level1, scope_level2"#,
     )
     .bind(dialog_id)
     .bind(tenant_uid)
@@ -238,8 +250,14 @@ async fn test_dialog_access_scopes_table() {
 
     assert_eq!(row.get::<Uuid, _>("dialog_id"), dialog_id);
     assert_eq!(row.get::<Uuid, _>("tenant_uid"), tenant_uid);
-    assert_eq!(row.get::<Vec<String>, _>("scope_level1"), vec!["dept_logistics", "dept_sales"]);
-    assert_eq!(row.get::<Vec<String>, _>("scope_level2"), vec!["tender:manager", "tender:admin"]);
+    assert_eq!(
+        row.get::<Vec<String>, _>("scope_level1"),
+        vec!["dept_logistics", "dept_sales"]
+    );
+    assert_eq!(
+        row.get::<Vec<String>, _>("scope_level2"),
+        vec!["tender:manager", "tender:admin"]
+    );
 
     tx.rollback().await.unwrap();
 }
@@ -256,7 +274,7 @@ async fn test_scope_matching_with_array_overlap() {
     let tenant_uid = Uuid::new_v4();
 
     sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
     .bind(Uuid::new_v4())
@@ -268,7 +286,7 @@ async fn test_scope_matching_with_array_overlap() {
     // Scope: tenant X, departments [A, B], permissions [mgr, admin]
     sqlx::query(
         r#"INSERT INTO dialog_access_scopes (dialog_id, tenant_uid, scope_level1, scope_level2)
-           VALUES ($1, $2, $3, $4)"#
+           VALUES ($1, $2, $3, $4)"#,
     )
     .bind(dialog_id)
     .bind(tenant_uid)
@@ -279,7 +297,7 @@ async fn test_scope_matching_with_array_overlap() {
     .unwrap();
 
     // Test 1: User with matching scope should find the dialog
-    let user_scope1 = vec!["A"];          // matches [A, B]
+    let user_scope1 = vec!["A"]; // matches [A, B]
     let user_scope2 = vec!["mgr", "viewer"]; // matches [mgr, admin]
 
     let result = sqlx::query(
@@ -287,7 +305,7 @@ async fn test_scope_matching_with_array_overlap() {
            INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
            WHERE s.tenant_uid = $1
              AND s.scope_level1 && $2
-             AND s.scope_level2 && $3"#
+             AND s.scope_level2 && $3"#,
     )
     .bind(tenant_uid)
     .bind(&user_scope1)
@@ -296,7 +314,10 @@ async fn test_scope_matching_with_array_overlap() {
     .await
     .unwrap();
 
-    assert!(result.is_some(), "User with matching scope should find dialog");
+    assert!(
+        result.is_some(),
+        "User with matching scope should find dialog"
+    );
 
     // Test 2: User with non-matching scope_level1 should NOT find the dialog
     let non_matching_scope1 = vec!["C", "D"]; // doesn't match [A, B]
@@ -305,7 +326,7 @@ async fn test_scope_matching_with_array_overlap() {
            INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
            WHERE s.tenant_uid = $1
              AND s.scope_level1 && $2
-             AND s.scope_level2 && $3"#
+             AND s.scope_level2 && $3"#,
     )
     .bind(tenant_uid)
     .bind(&non_matching_scope1)
@@ -314,7 +335,10 @@ async fn test_scope_matching_with_array_overlap() {
     .await
     .unwrap();
 
-    assert!(result.is_none(), "User with non-matching scope_level1 should NOT find dialog");
+    assert!(
+        result.is_none(),
+        "User with non-matching scope_level1 should NOT find dialog"
+    );
 
     // Test 3: User with non-matching scope_level2 should NOT find the dialog
     let non_matching_scope2 = vec!["viewer", "guest"]; // doesn't match [mgr, admin]
@@ -323,7 +347,7 @@ async fn test_scope_matching_with_array_overlap() {
            INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
            WHERE s.tenant_uid = $1
              AND s.scope_level1 && $2
-             AND s.scope_level2 && $3"#
+             AND s.scope_level2 && $3"#,
     )
     .bind(tenant_uid)
     .bind(&user_scope1)
@@ -332,7 +356,10 @@ async fn test_scope_matching_with_array_overlap() {
     .await
     .unwrap();
 
-    assert!(result.is_none(), "User with non-matching scope_level2 should NOT find dialog");
+    assert!(
+        result.is_none(),
+        "User with non-matching scope_level2 should NOT find dialog"
+    );
 
     // Test 4: Wrong tenant should NOT find the dialog
     let wrong_tenant = Uuid::new_v4();
@@ -341,7 +368,7 @@ async fn test_scope_matching_with_array_overlap() {
            INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
            WHERE s.tenant_uid = $1
              AND s.scope_level1 && $2
-             AND s.scope_level2 && $3"#
+             AND s.scope_level2 && $3"#,
     )
     .bind(wrong_tenant)
     .bind(&user_scope1)
@@ -350,7 +377,10 @@ async fn test_scope_matching_with_array_overlap() {
     .await
     .unwrap();
 
-    assert!(result.is_none(), "User with wrong tenant should NOT find dialog");
+    assert!(
+        result.is_none(),
+        "User with wrong tenant should NOT find dialog"
+    );
 
     tx.rollback().await.unwrap();
 }
@@ -366,7 +396,7 @@ async fn test_available_dialogs_excludes_participants() {
 
     // Create dialog
     sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
     .bind(Uuid::new_v4())
@@ -378,7 +408,7 @@ async fn test_available_dialogs_excludes_participants() {
     // Create access scope
     sqlx::query(
         r#"INSERT INTO dialog_access_scopes (dialog_id, tenant_uid, scope_level1, scope_level2)
-           VALUES ($1, $2, $3, $4)"#
+           VALUES ($1, $2, $3, $4)"#,
     )
     .bind(dialog_id)
     .bind(tenant_uid)
@@ -398,7 +428,7 @@ async fn test_available_dialogs_excludes_participants() {
              AND NOT EXISTS (
                SELECT 1 FROM dialog_participants dp
                WHERE dp.dialog_id = d.id AND dp.user_id = $4
-             )"#
+             )"#,
     )
     .bind(tenant_uid)
     .bind(&vec!["dept"])
@@ -408,11 +438,14 @@ async fn test_available_dialogs_excludes_participants() {
     .await
     .unwrap();
 
-    assert!(result.is_some(), "Non-participant should see dialog as available");
+    assert!(
+        result.is_some(),
+        "Non-participant should see dialog as available"
+    );
 
     // Add user as participant
     sqlx::query(
-        "INSERT INTO dialog_participants (dialog_id, user_id, joined_at) VALUES ($1, $2, NOW())"
+        "INSERT INTO dialog_participants (dialog_id, user_id, joined_at) VALUES ($1, $2, NOW())",
     )
     .bind(dialog_id)
     .bind(user_id)
@@ -430,7 +463,7 @@ async fn test_available_dialogs_excludes_participants() {
              AND NOT EXISTS (
                SELECT 1 FROM dialog_participants dp
                WHERE dp.dialog_id = d.id AND dp.user_id = $4
-             )"#
+             )"#,
     )
     .bind(tenant_uid)
     .bind(&vec!["dept"])
@@ -440,7 +473,10 @@ async fn test_available_dialogs_excludes_participants() {
     .await
     .unwrap();
 
-    assert!(result.is_none(), "Participant should NOT see dialog as available");
+    assert!(
+        result.is_none(),
+        "Participant should NOT see dialog as available"
+    );
 
     tx.rollback().await.unwrap();
 }
@@ -454,7 +490,7 @@ async fn test_messages_reply_to_column() {
 
     let dialog_id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
     .bind(Uuid::new_v4())
@@ -469,7 +505,7 @@ async fn test_messages_reply_to_column() {
     let msg1_id = Uuid::new_v4();
     sqlx::query(
         r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at)
-           VALUES ($1, $2, $3, $4, NOW())"#
+           VALUES ($1, $2, $3, $4, NOW())"#,
     )
     .bind(msg1_id)
     .bind(dialog_id)
@@ -484,7 +520,7 @@ async fn test_messages_reply_to_column() {
     let row = sqlx::query(
         r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, reply_to_id)
            VALUES ($1, $2, $3, $4, NOW(), $5)
-           RETURNING id, reply_to_id"#
+           RETURNING id, reply_to_id"#,
     )
     .bind(msg2_id)
     .bind(dialog_id)
@@ -499,13 +535,11 @@ async fn test_messages_reply_to_column() {
     assert_eq!(row.get::<Option<Uuid>, _>("reply_to_id"), Some(msg1_id));
 
     // Verify we can query replies
-    let replies = sqlx::query(
-        "SELECT id FROM messages WHERE reply_to_id = $1"
-    )
-    .bind(msg1_id)
-    .fetch_all(&mut *tx)
-    .await
-    .unwrap();
+    let replies = sqlx::query("SELECT id FROM messages WHERE reply_to_id = $1")
+        .bind(msg1_id)
+        .fetch_all(&mut *tx)
+        .await
+        .unwrap();
 
     assert_eq!(replies.len(), 1);
     assert_eq!(replies[0].get::<Uuid, _>("id"), msg2_id);
@@ -526,7 +560,7 @@ async fn test_cascade_delete_dialog() {
 
     // Create dialog
     sqlx::query(
-        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())"
+        "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
     .bind(Uuid::new_v4())
@@ -537,7 +571,7 @@ async fn test_cascade_delete_dialog() {
 
     // Add participant
     sqlx::query(
-        "INSERT INTO dialog_participants (dialog_id, user_id, joined_at) VALUES ($1, $2, NOW())"
+        "INSERT INTO dialog_participants (dialog_id, user_id, joined_at) VALUES ($1, $2, NOW())",
     )
     .bind(dialog_id)
     .bind(user_id)
@@ -548,7 +582,7 @@ async fn test_cascade_delete_dialog() {
     // Add access scope
     sqlx::query(
         r#"INSERT INTO dialog_access_scopes (dialog_id, tenant_uid, scope_level1, scope_level2)
-           VALUES ($1, $2, $3, $4)"#
+           VALUES ($1, $2, $3, $4)"#,
     )
     .bind(dialog_id)
     .bind(tenant_uid)
@@ -561,7 +595,7 @@ async fn test_cascade_delete_dialog() {
     // Add message
     sqlx::query(
         r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at)
-           VALUES ($1, $2, $3, $4, NOW())"#
+           VALUES ($1, $2, $3, $4, NOW())"#,
     )
     .bind(Uuid::new_v4())
     .bind(dialog_id)
@@ -579,31 +613,27 @@ async fn test_cascade_delete_dialog() {
         .unwrap();
 
     // Verify all related data is deleted
-    let participants: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM dialog_participants WHERE dialog_id = $1"
-    )
-    .bind(dialog_id)
-    .fetch_one(&mut *tx)
-    .await
-    .unwrap();
+    let participants: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM dialog_participants WHERE dialog_id = $1")
+            .bind(dialog_id)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
     assert_eq!(participants.0, 0, "Participants should be cascade deleted");
 
-    let scopes: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM dialog_access_scopes WHERE dialog_id = $1"
-    )
-    .bind(dialog_id)
-    .fetch_one(&mut *tx)
-    .await
-    .unwrap();
+    let scopes: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM dialog_access_scopes WHERE dialog_id = $1")
+            .bind(dialog_id)
+            .fetch_one(&mut *tx)
+            .await
+            .unwrap();
     assert_eq!(scopes.0, 0, "Access scopes should be cascade deleted");
 
-    let messages: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM messages WHERE dialog_id = $1"
-    )
-    .bind(dialog_id)
-    .fetch_one(&mut *tx)
-    .await
-    .unwrap();
+    let messages: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM messages WHERE dialog_id = $1")
+        .bind(dialog_id)
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
     assert_eq!(messages.0, 0, "Messages should be cascade deleted");
 
     tx.rollback().await.unwrap();
@@ -619,15 +649,13 @@ async fn test_gin_indexes_exist() {
     let result = sqlx::query(
         r#"SELECT indexname FROM pg_indexes
            WHERE tablename = 'dialog_access_scopes'
-           AND indexdef LIKE '%gin%'"#
+           AND indexdef LIKE '%gin%'"#,
     )
     .fetch_all(&pool)
     .await
     .unwrap();
 
-    let index_names: Vec<String> = result.iter()
-        .map(|r| r.get("indexname"))
-        .collect();
+    let index_names: Vec<String> = result.iter().map(|r| r.get("indexname")).collect();
 
     assert!(
         index_names.iter().any(|n| n.contains("level1")),
@@ -647,7 +675,7 @@ async fn test_index_on_object() {
     let result = sqlx::query(
         r#"SELECT indexname, indexdef FROM pg_indexes
            WHERE tablename = 'dialogs'
-           AND indexname = 'idx_dialogs_object'"#
+           AND indexname = 'idx_dialogs_object'"#,
     )
     .fetch_all(&pool)
     .await
@@ -677,7 +705,7 @@ async fn test_legacy_tables_removed() {
         r#"SELECT EXISTS (
             SELECT 1 FROM information_schema.tables
             WHERE table_schema = 'public' AND table_name = 'tenants'
-        ) as exists"#
+        ) as exists"#,
     )
     .fetch_one(&pool)
     .await
@@ -693,7 +721,7 @@ async fn test_legacy_tables_removed() {
         r#"SELECT EXISTS (
             SELECT 1 FROM information_schema.tables
             WHERE table_schema = 'public' AND table_name = 'employees'
-        ) as exists"#
+        ) as exists"#,
     )
     .fetch_one(&pool)
     .await
@@ -717,7 +745,7 @@ async fn test_no_fk_to_legacy_tables() {
            JOIN information_schema.constraint_column_usage ccu
              ON rc.unique_constraint_name = ccu.constraint_name
            WHERE ccu.table_name IN ('employees', 'tenants')
-             AND tc.constraint_type = 'FOREIGN KEY'"#
+             AND tc.constraint_type = 'FOREIGN KEY'"#,
     )
     .fetch_one(&pool)
     .await
@@ -738,7 +766,7 @@ async fn test_system_messages_support() {
     let dialog_id = Uuid::new_v4();
     sqlx::query(
         r#"INSERT INTO dialogs (id, object_id, object_type, created_at)
-           VALUES ($1, $2, $3, NOW())"#
+           VALUES ($1, $2, $3, NOW())"#,
     )
     .bind(dialog_id)
     .bind(Uuid::new_v4())
@@ -752,7 +780,7 @@ async fn test_system_messages_support() {
     let sender_id = Uuid::new_v4();
     sqlx::query(
         r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at)
-           VALUES ($1, $2, $3, $4, NOW())"#
+           VALUES ($1, $2, $3, $4, NOW())"#,
     )
     .bind(user_msg_id)
     .bind(dialog_id)
@@ -775,7 +803,7 @@ async fn test_system_messages_support() {
     let sys_msg_id = Uuid::new_v4();
     sqlx::query(
         r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, message_type)
-           VALUES ($1, $2, NULL, $3, NOW(), 'system')"#
+           VALUES ($1, $2, NULL, $3, NOW(), 'system')"#,
     )
     .bind(sys_msg_id)
     .bind(dialog_id)
@@ -792,13 +820,19 @@ async fn test_system_messages_support() {
 
     let sys_sender_id: Option<Uuid> = row.get("sender_id");
     let sys_msg_type: String = row.get("message_type");
-    assert!(sys_sender_id.is_none(), "System message should have NULL sender_id");
-    assert_eq!(sys_msg_type, "system", "System message should have type 'system'");
+    assert!(
+        sys_sender_id.is_none(),
+        "System message should have NULL sender_id"
+    );
+    assert_eq!(
+        sys_msg_type, "system",
+        "System message should have type 'system'"
+    );
 
     // Test 3: Verify constraint - user message must have sender_id
     let result = sqlx::query(
         r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, message_type)
-           VALUES ($1, $2, NULL, $3, NOW(), 'user')"#
+           VALUES ($1, $2, NULL, $3, NOW(), 'user')"#,
     )
     .bind(Uuid::new_v4())
     .bind(dialog_id)
@@ -806,12 +840,15 @@ async fn test_system_messages_support() {
     .execute(&mut *tx)
     .await;
 
-    assert!(result.is_err(), "User message with NULL sender_id should fail constraint");
+    assert!(
+        result.is_err(),
+        "User message with NULL sender_id should fail constraint"
+    );
 
     // Test 4: Verify constraint - system message must have NULL sender_id
     let result = sqlx::query(
         r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, message_type)
-           VALUES ($1, $2, $3, $4, NOW(), 'system')"#
+           VALUES ($1, $2, $3, $4, NOW(), 'system')"#,
     )
     .bind(Uuid::new_v4())
     .bind(dialog_id)
@@ -820,12 +857,15 @@ async fn test_system_messages_support() {
     .execute(&mut *tx)
     .await;
 
-    assert!(result.is_err(), "System message with sender_id should fail constraint");
+    assert!(
+        result.is_err(),
+        "System message with sender_id should fail constraint"
+    );
 
     // Test 5: Verify invalid message_type is rejected
     let result = sqlx::query(
         r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, message_type)
-           VALUES ($1, $2, $3, $4, NOW(), 'invalid')"#
+           VALUES ($1, $2, $3, $4, NOW(), 'invalid')"#,
     )
     .bind(Uuid::new_v4())
     .bind(dialog_id)
@@ -834,7 +874,10 @@ async fn test_system_messages_support() {
     .execute(&mut *tx)
     .await;
 
-    assert!(result.is_err(), "Invalid message_type should fail constraint");
+    assert!(
+        result.is_err(),
+        "Invalid message_type should fail constraint"
+    );
 
     tx.rollback().await.unwrap();
 }

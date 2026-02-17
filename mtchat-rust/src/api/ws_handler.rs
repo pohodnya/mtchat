@@ -18,7 +18,8 @@ pub async fn ws_handler(
             return (
                 StatusCode::BAD_REQUEST,
                 "Missing or invalid user_id query parameter",
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -30,5 +31,6 @@ pub async fn ws_handler(
             state.presence,
             state.participants,
         )
-    }).into_response()
+    })
+    .into_response()
 }

@@ -106,13 +106,12 @@ impl ParticipantRepository {
 
     /// Remove a participant from a dialog
     pub async fn remove(&self, dialog_id: Uuid, user_id: Uuid) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            "DELETE FROM dialog_participants WHERE dialog_id = $1 AND user_id = $2",
-        )
-        .bind(dialog_id)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await?;
+        let result =
+            sqlx::query("DELETE FROM dialog_participants WHERE dialog_id = $1 AND user_id = $2")
+                .bind(dialog_id)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await?;
         Ok(result.rows_affected() > 0)
     }
 

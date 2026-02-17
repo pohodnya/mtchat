@@ -53,7 +53,12 @@ impl Attachment {
     }
 
     /// Add image metadata
-    pub fn with_image_metadata(mut self, width: i32, height: i32, thumbnail_key: Option<String>) -> Self {
+    pub fn with_image_metadata(
+        mut self,
+        width: i32,
+        height: i32,
+        thumbnail_key: Option<String>,
+    ) -> Self {
         self.width = Some(width);
         self.height = Some(height);
         self.thumbnail_s3_key = thumbnail_key;
@@ -111,7 +116,11 @@ pub struct AttachmentResponse {
 
 impl AttachmentResponse {
     /// Create response from attachment with presigned URLs
-    pub fn from_attachment(attachment: &Attachment, url: String, thumbnail_url: Option<String>) -> Self {
+    pub fn from_attachment(
+        attachment: &Attachment,
+        url: String,
+        thumbnail_url: Option<String>,
+    ) -> Self {
         Self {
             id: attachment.id,
             filename: attachment.filename.clone(),

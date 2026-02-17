@@ -3,8 +3,8 @@
 //! Uses Redis to store online status with TTL-based expiration.
 
 use fred::clients::Pool;
-use fred::interfaces::KeysInterface;
 use fred::error::Error as RedisError;
+use fred::interfaces::KeysInterface;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -84,10 +84,7 @@ impl PresenceService {
             return Ok(vec![]);
         }
 
-        let keys: Vec<String> = user_ids
-            .iter()
-            .map(|id| format!("online:{}", id))
-            .collect();
+        let keys: Vec<String> = user_ids.iter().map(|id| format!("online:{}", id)).collect();
 
         let results: Vec<Option<String>> = redis.mget(keys).await?;
 

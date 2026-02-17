@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::domain;
 use crate::middleware::UserId;
 
-use super::{AppState, ApiResponse, ApiError};
+use super::{ApiError, ApiResponse, AppState};
 
 // ============ DTOs ============
 
@@ -55,20 +55,23 @@ pub async fn presign_upload(
     }
 
     // Verify dialog exists
-    state.dialogs.find_by_id(req.dialog_id).await?
+    state
+        .dialogs
+        .find_by_id(req.dialog_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
 
     // Generate S3 key
     // Format: dialogs/{dialog_id}/pending/{uuid}.{ext}
-    let ext = req.filename
-        .rsplit('.')
-        .next()
-        .unwrap_or("bin");
+    let ext = req.filename.rsplit('.').next().unwrap_or("bin");
     let file_uuid = Uuid::now_v7();
     let s3_key = format!("dialogs/{}/pending/{}.{}", req.dialog_id, file_uuid, ext);
 
     // Generate presigned URL
-    let upload_url = state.s3.generate_upload_url(&s3_key, &req.content_type).await
+    let upload_url = state
+        .s3
+        .generate_upload_url(&s3_key, &req.content_type)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     Ok(Json(ApiResponse {
@@ -76,7 +79,7 @@ pub async fn presign_upload(
             upload_url,
             s3_key,
             expires_in: 300, // 5 minutes
-        }
+        },
     }))
 }
 
@@ -90,17 +93,28 @@ pub async fn get_attachment_url(
     }
 
     // Find attachment
-    let attachment = state.attachments.find_by_id(attachment_id).await?
+    let attachment = state
+        .attachments
+        .find_by_id(attachment_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Attachment not found".into()))?;
 
     // Generate presigned download URL
-    let url = state.s3.generate_download_url(&attachment.s3_key).await
+    let url = state
+        .s3
+        .generate_download_url(&attachment.s3_key)
+        .await
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
     // Also get thumbnail URL if available
     let thumbnail_url = if let Some(ref thumb_key) = attachment.thumbnail_s3_key {
-        Some(state.s3.generate_download_url(thumb_key).await
-            .map_err(|e| ApiError::Internal(e.to_string()))?)
+        Some(
+            state
+                .s3
+                .generate_download_url(thumb_key)
+                .await
+                .map_err(|e| ApiError::Internal(e.to_string()))?,
+        )
     } else {
         None
     };
@@ -110,6 +124,6 @@ pub async fn get_attachment_url(
             "url": url,
             "thumbnail_url": thumbnail_url,
             "expires_in": 3600
-        })
+        }),
     }))
 }

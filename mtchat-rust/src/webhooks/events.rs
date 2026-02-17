@@ -214,8 +214,14 @@ mod tests {
     #[test]
     fn test_event_type_serialization() {
         assert_eq!(WebhookEventType::MessageNew.as_str(), "message.new");
-        assert_eq!(WebhookEventType::ParticipantJoined.as_str(), "participant.joined");
-        assert_eq!(WebhookEventType::ParticipantLeft.as_str(), "participant.left");
+        assert_eq!(
+            WebhookEventType::ParticipantJoined.as_str(),
+            "participant.joined"
+        );
+        assert_eq!(
+            WebhookEventType::ParticipantLeft.as_str(),
+            "participant.left"
+        );
     }
 
     #[test]

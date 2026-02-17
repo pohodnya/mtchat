@@ -46,13 +46,11 @@ impl MessageRepository {
         id: Uuid,
         dialog_id: Uuid,
     ) -> Result<Option<Message>, sqlx::Error> {
-        sqlx::query_as::<_, Message>(
-            "SELECT * FROM messages WHERE id = $1 AND dialog_id = $2",
-        )
-        .bind(id)
-        .bind(dialog_id)
-        .fetch_optional(&self.pool)
-        .await
+        sqlx::query_as::<_, Message>("SELECT * FROM messages WHERE id = $1 AND dialog_id = $2")
+            .bind(id)
+            .bind(dialog_id)
+            .fetch_optional(&self.pool)
+            .await
     }
 
     /// List messages in a dialog with pagination
@@ -161,11 +159,10 @@ impl MessageRepository {
 
     /// Count messages in a dialog
     pub async fn count_by_dialog(&self, dialog_id: Uuid) -> Result<i64, sqlx::Error> {
-        let (count,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM messages WHERE dialog_id = $1")
-                .bind(dialog_id)
-                .fetch_one(&self.pool)
-                .await?;
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM messages WHERE dialog_id = $1")
+            .bind(dialog_id)
+            .fetch_one(&self.pool)
+            .await?;
         Ok(count)
     }
 
@@ -176,13 +173,11 @@ impl MessageRepository {
         last_read_message_id: Option<Uuid>,
     ) -> Result<i64, sqlx::Error> {
         let (count,): (i64,) = if let Some(last_read) = last_read_message_id {
-            sqlx::query_as(
-                "SELECT COUNT(*) FROM messages WHERE dialog_id = $1 AND id > $2",
-            )
-            .bind(dialog_id)
-            .bind(last_read)
-            .fetch_one(&self.pool)
-            .await?
+            sqlx::query_as("SELECT COUNT(*) FROM messages WHERE dialog_id = $1 AND id > $2")
+                .bind(dialog_id)
+                .bind(last_read)
+                .fetch_one(&self.pool)
+                .await?
         } else {
             sqlx::query_as("SELECT COUNT(*) FROM messages WHERE dialog_id = $1")
                 .bind(dialog_id)

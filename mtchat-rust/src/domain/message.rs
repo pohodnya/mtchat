@@ -33,7 +33,6 @@ impl Default for MessageType {
     fn default() -> Self {
         MessageType::User
     }
-
 }
 
 // Custom sqlx decode for MessageType from VARCHAR

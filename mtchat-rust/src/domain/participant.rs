@@ -105,7 +105,12 @@ impl DialogParticipant {
         }
     }
 
-    pub fn with_profile(dialog_id: Uuid, user_id: Uuid, joined_as: JoinedAs, profile: ParticipantProfile) -> Self {
+    pub fn with_profile(
+        dialog_id: Uuid,
+        user_id: Uuid,
+        joined_as: JoinedAs,
+        profile: ParticipantProfile,
+    ) -> Self {
         Self {
             dialog_id,
             user_id,

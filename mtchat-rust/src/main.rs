@@ -4,30 +4,34 @@
 
 use axum::{
     middleware as axum_middleware,
-    routing::{get, post, delete, put},
+    routing::{delete, get, post, put},
     Router,
 };
-use std::{env, sync::Arc};
 use sqlx::postgres::PgPoolOptions;
+use std::{env, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use multitenancy_chat_api::api::{self, AppState};
-use multitenancy_chat_api::middleware;
-use multitenancy_chat_api::webhooks::{WebhookSender, WebhookConfig};
-use multitenancy_chat_api::services::{S3Service, S3Config, PresenceService};
-use multitenancy_chat_api::jobs::{JobProducer, JobContext, WorkerConfig, start_workers, NotificationJob};
+use apalis_redis::RedisStorage;
 use fred::prelude::*;
 use fred::types::Builder;
-use apalis_redis::RedisStorage;
+use multitenancy_chat_api::api::{self, AppState};
+use multitenancy_chat_api::jobs::{
+    start_workers, JobContext, JobProducer, NotificationJob, WorkerConfig,
+};
+use multitenancy_chat_api::middleware;
+use multitenancy_chat_api::services::{PresenceService, S3Config, S3Service};
+use multitenancy_chat_api::webhooks::{WebhookConfig, WebhookSender};
 
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().ok();
 
     tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| "multitenancy_chat_api=debug,tower_http=debug".into()))
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "multitenancy_chat_api=debug,tower_http=debug".into()),
+        )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
@@ -78,8 +82,7 @@ async fn main() {
     let (presence, jobs, redis_pool) = match env::var("REDIS_URL") {
         Ok(url) => {
             tracing::info!("Connecting to Redis...");
-            let config = Config::from_url(&url)
-                .expect("Failed to parse REDIS_URL");
+            let config = Config::from_url(&url).expect("Failed to parse REDIS_URL");
             let pool = Builder::from_config(config)
                 .build_pool(5)
                 .expect("Failed to create Redis pool");
@@ -93,12 +96,11 @@ async fn main() {
             let apalis_conn = apalis_redis::connect(url.clone())
                 .await
                 .expect("Failed to connect to Redis for job queue");
-            let notification_storage: RedisStorage<NotificationJob> =
-                RedisStorage::new_with_config(
-                    apalis_conn,
-                    apalis_redis::Config::default()
-                        .set_poll_interval(std::time::Duration::from_millis(200)),
-                );
+            let notification_storage: RedisStorage<NotificationJob> = RedisStorage::new_with_config(
+                apalis_conn,
+                apalis_redis::Config::default()
+                    .set_poll_interval(std::time::Duration::from_millis(200)),
+            );
 
             let jobs = JobProducer::new(notification_storage.clone());
 
@@ -111,7 +113,9 @@ async fn main() {
             )
         }
         Err(_) => {
-            tracing::info!("Redis disabled (REDIS_URL not set), presence tracking and job queue disabled");
+            tracing::info!(
+                "Redis disabled (REDIS_URL not set), presence tracking and job queue disabled"
+            );
             (PresenceService::noop(), JobProducer::noop(), None)
         }
     };
@@ -126,45 +130,87 @@ async fn main() {
     // Management API routes (with admin auth middleware)
     let management_routes = Router::new()
         .route("/dialogs", post(api::management::management_create_dialog))
-        .route("/dialogs/{id}", get(api::management::management_get_dialog).delete(api::management::management_delete_dialog))
-        .route("/dialogs/{id}/participants", post(api::management::management_add_participant))
-        .route("/dialogs/{id}/participants/{user_id}", delete(api::management::management_remove_participant))
-        .route("/dialogs/{id}/access-scopes", put(api::management::management_update_access_scopes))
+        .route(
+            "/dialogs/{id}",
+            get(api::management::management_get_dialog)
+                .delete(api::management::management_delete_dialog),
+        )
+        .route(
+            "/dialogs/{id}/participants",
+            post(api::management::management_add_participant),
+        )
+        .route(
+            "/dialogs/{id}/participants/{user_id}",
+            delete(api::management::management_remove_participant),
+        )
+        .route(
+            "/dialogs/{id}/access-scopes",
+            put(api::management::management_update_access_scopes),
+        )
         .layer(axum_middleware::from_fn(middleware::admin_auth::admin_auth));
 
     let app = Router::new()
         // Health
         .route("/health", get(api::health::health))
         .route("/health/ready", get(api::health::health_ready))
-
         // Management API (protected)
         .nest("/api/v1/management", management_routes)
-
         // Chat API - Dialogs
         .route("/api/v1/dialogs", get(api::dialogs::list_dialogs))
         .route("/api/v1/dialogs/{id}", get(api::dialogs::get_dialog))
-        .route("/api/v1/dialogs/by-object/{object_type}/{object_id}", get(api::dialogs::get_dialog_by_object))
+        .route(
+            "/api/v1/dialogs/by-object/{object_type}/{object_id}",
+            get(api::dialogs::get_dialog_by_object),
+        )
         .route("/api/v1/dialogs/{id}/join", post(api::dialogs::join_dialog))
-        .route("/api/v1/dialogs/{id}/leave", post(api::dialogs::leave_dialog))
-        .route("/api/v1/dialogs/{id}/archive", post(api::dialogs::archive_dialog))
-        .route("/api/v1/dialogs/{id}/unarchive", post(api::dialogs::unarchive_dialog))
+        .route(
+            "/api/v1/dialogs/{id}/leave",
+            post(api::dialogs::leave_dialog),
+        )
+        .route(
+            "/api/v1/dialogs/{id}/archive",
+            post(api::dialogs::archive_dialog),
+        )
+        .route(
+            "/api/v1/dialogs/{id}/unarchive",
+            post(api::dialogs::unarchive_dialog),
+        )
         .route("/api/v1/dialogs/{id}/pin", post(api::dialogs::pin_dialog))
-        .route("/api/v1/dialogs/{id}/unpin", post(api::dialogs::unpin_dialog))
-        .route("/api/v1/dialogs/{id}/notifications", post(api::dialogs::set_dialog_notifications))
-        .route("/api/v1/dialogs/{id}/read", post(api::participants::mark_as_read))
-        .route("/api/v1/dialogs/{id}/participants", get(api::participants::list_participants))
-
+        .route(
+            "/api/v1/dialogs/{id}/unpin",
+            post(api::dialogs::unpin_dialog),
+        )
+        .route(
+            "/api/v1/dialogs/{id}/notifications",
+            post(api::dialogs::set_dialog_notifications),
+        )
+        .route(
+            "/api/v1/dialogs/{id}/read",
+            post(api::participants::mark_as_read),
+        )
+        .route(
+            "/api/v1/dialogs/{id}/participants",
+            get(api::participants::list_participants),
+        )
         // Chat API - Messages
-        .route("/api/v1/dialogs/{dialog_id}/messages", get(api::messages::list_messages).post(api::messages::send_message))
-        .route("/api/v1/dialogs/{dialog_id}/messages/{id}", get(api::messages::get_message).put(api::messages::edit_message).delete(api::messages::delete_message))
-
+        .route(
+            "/api/v1/dialogs/{dialog_id}/messages",
+            get(api::messages::list_messages).post(api::messages::send_message),
+        )
+        .route(
+            "/api/v1/dialogs/{dialog_id}/messages/{id}",
+            get(api::messages::get_message)
+                .put(api::messages::edit_message)
+                .delete(api::messages::delete_message),
+        )
         // Upload API
         .route("/api/v1/upload/presign", post(api::upload::presign_upload))
-        .route("/api/v1/attachments/{id}/url", get(api::upload::get_attachment_url))
-
+        .route(
+            "/api/v1/attachments/{id}/url",
+            get(api::upload::get_attachment_url),
+        )
         // WebSocket
         .route("/api/v1/ws", get(api::ws_handler::ws_handler))
-
         .layer(cors)
         .with_state(state.clone());
 
@@ -193,7 +239,10 @@ async fn main() {
         });
     }
 
-    let port: u16 = env::var("PORT").unwrap_or_else(|_| "8080".into()).parse().unwrap();
+    let port: u16 = env::var("PORT")
+        .unwrap_or_else(|_| "8080".into())
+        .parse()
+        .unwrap();
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
 
     tracing::info!("Starting server on {}", addr);

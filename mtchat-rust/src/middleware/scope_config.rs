@@ -83,7 +83,9 @@ where
                     .map_err(|_| {
                         (
                             StatusCode::BAD_REQUEST,
-                            Json(ScopeError::bad_request("Invalid X-Scope-Config: not valid base64")),
+                            Json(ScopeError::bad_request(
+                                "Invalid X-Scope-Config: not valid base64",
+                            )),
                         )
                             .into_response()
                     })?;
@@ -91,7 +93,9 @@ where
                 serde_json::from_slice(&decoded).map_err(|_| {
                     (
                         StatusCode::BAD_REQUEST,
-                        Json(ScopeError::bad_request("Invalid X-Scope-Config: not valid JSON")),
+                        Json(ScopeError::bad_request(
+                            "Invalid X-Scope-Config: not valid JSON",
+                        )),
                     )
                         .into_response()
                 })
@@ -129,7 +133,9 @@ where
                     .map_err(|_| {
                         (
                             StatusCode::BAD_REQUEST,
-                            Json(ScopeError::bad_request("Invalid X-Scope-Config: not valid base64")),
+                            Json(ScopeError::bad_request(
+                                "Invalid X-Scope-Config: not valid base64",
+                            )),
                         )
                             .into_response()
                     })?;
@@ -137,7 +143,9 @@ where
                 let config: ScopeConfig = serde_json::from_slice(&decoded).map_err(|_| {
                     (
                         StatusCode::BAD_REQUEST,
-                        Json(ScopeError::bad_request("Invalid X-Scope-Config: not valid JSON")),
+                        Json(ScopeError::bad_request(
+                            "Invalid X-Scope-Config: not valid JSON",
+                        )),
                     )
                         .into_response()
                 })?;

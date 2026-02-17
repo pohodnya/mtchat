@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::{
-    Dialog, DialogParticipant, DialogAccessScope, JoinedAs, ParticipantProfile,
-    system_messages, Message,
+    system_messages, Dialog, DialogAccessScope, DialogParticipant, JoinedAs, Message,
+    ParticipantProfile,
 };
 use crate::ws;
 
-use super::{AppState, ApiResponse, ApiError};
+use super::{ApiError, ApiResponse, AppState};
 
 // ============ DTOs ============
 
@@ -145,7 +145,8 @@ pub async fn management_create_dialog(
 
     // Create system message "chat created"
     if !req.participants.is_empty() {
-        let participant_infos: Vec<system_messages::ParticipantInfo> = req.participants
+        let participant_infos: Vec<system_messages::ParticipantInfo> = req
+            .participants
             .iter()
             .map(|p| system_messages::ParticipantInfo {
                 name: p.display_name.clone(),
@@ -187,7 +188,10 @@ pub async fn management_add_participant(
     Json(req): Json<AddParticipantRequest>,
 ) -> Result<StatusCode, ApiError> {
     // Check dialog exists
-    state.dialogs.find_by_id(dialog_id).await?
+    state
+        .dialogs
+        .find_by_id(dialog_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
 
     let profile = ParticipantProfile {
@@ -196,7 +200,10 @@ pub async fn management_add_participant(
         email: req.email,
         phone: req.phone,
     };
-    state.participants.add_with_profile_if_not_exists(dialog_id, req.user_id, JoinedAs::Participant, &profile).await?;
+    state
+        .participants
+        .add_with_profile_if_not_exists(dialog_id, req.user_id, JoinedAs::Participant, &profile)
+        .await?;
 
     // Broadcast participant joined event (for dialog list updates)
     ws::broadcast_participant_joined(&state.connections, dialog_id, req.user_id).await;
@@ -230,16 +237,23 @@ pub async fn management_update_access_scopes(
     Json(req): Json<UpdateAccessScopesRequest>,
 ) -> Result<Json<ApiResponse<Vec<DialogAccessScope>>>, ApiError> {
     // Check dialog exists
-    state.dialogs.find_by_id(dialog_id).await?
+    state
+        .dialogs
+        .find_by_id(dialog_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
 
     // Delete existing scopes and create new ones
-    let new_scopes: Vec<DialogAccessScope> = req.access_scopes
+    let new_scopes: Vec<DialogAccessScope> = req
+        .access_scopes
         .into_iter()
         .map(|s| DialogAccessScope::new(dialog_id, s.tenant_uid, s.scope_level1, s.scope_level2))
         .collect();
 
-    let created = state.scopes.replace_for_dialog(dialog_id, new_scopes).await?;
+    let created = state
+        .scopes
+        .replace_for_dialog(dialog_id, new_scopes)
+        .await?;
 
     Ok(Json(ApiResponse { data: created }))
 }
@@ -248,7 +262,10 @@ pub async fn management_get_dialog(
     State(state): State<AppState>,
     Path(dialog_id): Path<Uuid>,
 ) -> Result<Json<ApiResponse<ManagementDialogResponse>>, ApiError> {
-    let dialog = state.dialogs.find_by_id(dialog_id).await?
+    let dialog = state
+        .dialogs
+        .find_by_id(dialog_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
 
     let participants = state.participants.list_by_dialog(dialog_id).await?;
@@ -259,6 +276,6 @@ pub async fn management_get_dialog(
             dialog,
             participants,
             access_scopes,
-        }
+        },
     }))
 }

@@ -12,16 +12,23 @@ fn create_sanitizer() -> Builder<'static> {
 
     // Allowed HTML tags for message formatting
     let allowed_tags: HashSet<&str> = [
-        "p", "br",           // Paragraphs and line breaks
-        "strong", "b",       // Bold
-        "em", "i",           // Italic
-        "u",                 // Underline
-        "s", "strike",       // Strikethrough
-        "a",                 // Links
-        "ul", "ol", "li",    // Lists
-        "blockquote",        // Quotes
-        "code", "pre",       // Code
-        "span",              // For mentions
+        "p",
+        "br", // Paragraphs and line breaks
+        "strong",
+        "b", // Bold
+        "em",
+        "i", // Italic
+        "u", // Underline
+        "s",
+        "strike", // Strikethrough
+        "a",      // Links
+        "ul",
+        "ol",
+        "li",         // Lists
+        "blockquote", // Quotes
+        "code",
+        "pre",  // Code
+        "span", // For mentions
     ]
     .into_iter()
     .collect();
@@ -34,7 +41,18 @@ fn create_sanitizer() -> Builder<'static> {
     let mut tag_attributes: HashMap<&str, HashSet<&str>> = HashMap::new();
     tag_attributes.insert("a", ["href", "target"].into_iter().collect());
     // Allow Tiptap mention attributes: data-type, data-id, data-label
-    tag_attributes.insert("span", ["data-type", "data-id", "data-label", "data-mention", "class"].into_iter().collect());
+    tag_attributes.insert(
+        "span",
+        [
+            "data-type",
+            "data-id",
+            "data-label",
+            "data-mention",
+            "class",
+        ]
+        .into_iter()
+        .collect(),
+    );
     tag_attributes.insert("code", ["class"].into_iter().collect());
     tag_attributes.insert("pre", ["class"].into_iter().collect());
 

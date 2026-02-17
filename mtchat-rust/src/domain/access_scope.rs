@@ -44,7 +44,12 @@ impl DialogAccessScope {
     }
 
     /// Check if user scope matches this access scope
-    pub fn matches(&self, user_tenant: Uuid, user_scope1: &[String], user_scope2: &[String]) -> bool {
+    pub fn matches(
+        &self,
+        user_tenant: Uuid,
+        user_scope1: &[String],
+        user_scope2: &[String],
+    ) -> bool {
         if self.tenant_uid != user_tenant {
             return false;
         }

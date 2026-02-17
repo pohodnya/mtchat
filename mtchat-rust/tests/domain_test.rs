@@ -4,9 +4,8 @@
 //! using the library crate exports.
 
 use multitenancy_chat_api::domain::{
-    Attachment, AttachmentType, Dialog, DialogAccessScope, DialogParticipant, JoinedAs, Message,
-    MessageType, ParticipantProfile,
-    attachment_limits,
+    attachment_limits, Attachment, AttachmentType, Dialog, DialogAccessScope, DialogParticipant,
+    JoinedAs, Message, MessageType, ParticipantProfile,
 };
 use uuid::Uuid;
 
@@ -34,7 +33,10 @@ fn test_dialog_new_preserves_fields() {
     assert_eq!(dialog.object_id, object_id);
     assert_eq!(dialog.object_type, "order");
     assert_eq!(dialog.title.as_deref(), Some("Important Chat"));
-    assert_eq!(dialog.object_url.as_deref(), Some("https://example.com/order/1"));
+    assert_eq!(
+        dialog.object_url.as_deref(),
+        Some("https://example.com/order/1")
+    );
     assert_eq!(dialog.created_by, Some(creator));
 }
 
@@ -56,7 +58,13 @@ fn test_dialog_ids_are_unique() {
 
 #[test]
 fn test_dialog_accepts_string_object_type() {
-    let dialog = Dialog::new(Uuid::new_v4(), String::from("delivery_note"), None, None, None);
+    let dialog = Dialog::new(
+        Uuid::new_v4(),
+        String::from("delivery_note"),
+        None,
+        None,
+        None,
+    );
     assert_eq!(dialog.object_type, "delivery_note");
 }
 
@@ -72,7 +80,10 @@ fn test_joined_as_as_str() {
 #[test]
 fn test_joined_as_from_string() {
     assert_eq!(JoinedAs::from("creator".to_string()), JoinedAs::Creator);
-    assert_eq!(JoinedAs::from("participant".to_string()), JoinedAs::Participant);
+    assert_eq!(
+        JoinedAs::from("participant".to_string()),
+        JoinedAs::Participant
+    );
     assert_eq!(JoinedAs::from("joined".to_string()), JoinedAs::Joined);
 }
 
@@ -148,7 +159,8 @@ fn test_participant_with_profile_partial() {
         email: None,
         phone: None,
     };
-    let p = DialogParticipant::with_profile(Uuid::new_v4(), Uuid::new_v4(), JoinedAs::Joined, profile);
+    let p =
+        DialogParticipant::with_profile(Uuid::new_v4(), Uuid::new_v4(), JoinedAs::Joined, profile);
 
     assert_eq!(p.display_name.as_deref(), Some("Anonymous"));
     assert!(p.company.is_none());
@@ -264,7 +276,13 @@ fn test_message_ids_are_unique_and_ordered() {
 #[test]
 fn test_attachment_new() {
     let message_id = Uuid::new_v4();
-    let att = Attachment::new(message_id, "photo.jpg", "image/jpeg", 1024, "dialogs/x/photo.jpg");
+    let att = Attachment::new(
+        message_id,
+        "photo.jpg",
+        "image/jpeg",
+        1024,
+        "dialogs/x/photo.jpg",
+    );
 
     assert_eq!(att.id.get_version_num(), 7);
     assert_eq!(att.message_id, message_id);
@@ -352,7 +370,9 @@ fn test_attachment_limits_allowed_types() {
 
 #[test]
 fn test_attachment_limits_disallowed_types() {
-    assert!(!attachment_limits::is_allowed_type("application/x-executable"));
+    assert!(!attachment_limits::is_allowed_type(
+        "application/x-executable"
+    ));
     assert!(!attachment_limits::is_allowed_type("application/x-sh"));
     assert!(!attachment_limits::is_allowed_type("text/javascript"));
 }
@@ -478,12 +498,7 @@ fn test_scope_empty_dialog_scope_matches_any() {
 #[test]
 fn test_scope_empty_dialog_scope_matches_empty_user() {
     let tenant = Uuid::new_v4();
-    let scope = DialogAccessScope::new(
-        Uuid::new_v4(),
-        tenant,
-        vec![],
-        vec![],
-    );
+    let scope = DialogAccessScope::new(Uuid::new_v4(), tenant, vec![], vec![]);
 
     let empty: Vec<String> = vec![];
     assert!(scope.matches(tenant, &empty, &empty));
@@ -509,22 +524,12 @@ fn test_scope_mixed_empty_levels() {
     let tenant = Uuid::new_v4();
 
     // level1 is empty (matches any), level2 is not
-    let scope1 = DialogAccessScope::new(
-        Uuid::new_v4(),
-        tenant,
-        vec![],
-        vec!["admin".into()],
-    );
+    let scope1 = DialogAccessScope::new(Uuid::new_v4(), tenant, vec![], vec!["admin".into()]);
     assert!(scope1.matches(tenant, &vec!["anything".into()], &vec!["admin".into()]));
     assert!(!scope1.matches(tenant, &vec!["anything".into()], &vec!["viewer".into()]));
 
     // level1 is not empty, level2 is empty (matches any)
-    let scope2 = DialogAccessScope::new(
-        Uuid::new_v4(),
-        tenant,
-        vec!["dept_a".into()],
-        vec![],
-    );
+    let scope2 = DialogAccessScope::new(Uuid::new_v4(), tenant, vec!["dept_a".into()], vec![]);
     assert!(scope2.matches(tenant, &vec!["dept_a".into()], &vec![]));
     assert!(!scope2.matches(tenant, &vec!["dept_b".into()], &vec![]));
 }

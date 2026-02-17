@@ -36,7 +36,10 @@ impl AttachmentRepository {
     }
 
     /// Create multiple attachments in a single transaction
-    pub async fn create_many(&self, attachments: &[Attachment]) -> Result<Vec<Attachment>, sqlx::Error> {
+    pub async fn create_many(
+        &self,
+        attachments: &[Attachment],
+    ) -> Result<Vec<Attachment>, sqlx::Error> {
         let mut tx = self.pool.begin().await?;
         let mut created = Vec::with_capacity(attachments.len());
 
@@ -93,7 +96,10 @@ impl AttachmentRepository {
     }
 
     /// List attachments for multiple messages (batch fetch)
-    pub async fn list_by_messages(&self, message_ids: &[Uuid]) -> Result<Vec<Attachment>, sqlx::Error> {
+    pub async fn list_by_messages(
+        &self,
+        message_ids: &[Uuid],
+    ) -> Result<Vec<Attachment>, sqlx::Error> {
         if message_ids.is_empty() {
             return Ok(Vec::new());
         }

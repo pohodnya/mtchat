@@ -6,12 +6,12 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::domain::{self, Message};
-use crate::middleware::UserId;
-use crate::ws;
-use crate::webhooks::WebhookEvent;
 use crate::jobs::NotificationJob;
+use crate::middleware::UserId;
+use crate::webhooks::WebhookEvent;
+use crate::ws;
 
-use super::{AppState, ApiResponse, ApiError};
+use super::{ApiError, ApiResponse, AppState};
 
 // ============ DTOs ============
 
@@ -37,7 +37,9 @@ pub struct PaginationQuery {
     pub around: Option<Uuid>,
 }
 
-fn default_limit() -> i64 { 50 }
+fn default_limit() -> i64 {
+    50
+}
 
 #[derive(Debug, Serialize)]
 pub struct MessageWithAttachments {
@@ -68,23 +70,34 @@ pub async fn list_messages(
 ) -> Result<Json<ApiResponse<MessagesResponse>>, ApiError> {
     // Check user is participant (potential participants cannot read messages)
     if !state.participants.exists(dialog_id, user_id).await? {
-        return Err(ApiError::Forbidden("Not a participant. Join the dialog first.".into()));
+        return Err(ApiError::Forbidden(
+            "Not a participant. Join the dialog first.".into(),
+        ));
     }
 
     // Determine pagination mode: around, after, before, or latest
     let (messages, has_more_before, has_more_after) = if let Some(around_id) = pagination.around {
         // Load messages centered around a specific message (jump to message)
-        state.messages.list_around(dialog_id, around_id, pagination.limit).await?
+        state
+            .messages
+            .list_around(dialog_id, around_id, pagination.limit)
+            .await?
     } else if let Some(after_id) = pagination.after {
         // Load messages AFTER a specific message (scroll down to load newer)
-        let msgs = state.messages.list_after(dialog_id, after_id, pagination.limit).await?;
+        let msgs = state
+            .messages
+            .list_after(dialog_id, after_id, pagination.limit)
+            .await?;
         let has_more = msgs.len() as i64 >= pagination.limit;
         // has_more_before is always true when using "after" (we came from scrolling up)
         // has_more_after is true if we got a full page
         (msgs, true, has_more)
     } else {
         // Regular pagination (before or latest)
-        let msgs = state.messages.list_by_dialog(dialog_id, pagination.limit, pagination.before).await?;
+        let msgs = state
+            .messages
+            .list_by_dialog(dialog_id, pagination.limit, pagination.before)
+            .await?;
         // For regular pagination, has_more_before is true if we got a full page
         let has_more = msgs.len() as i64 >= pagination.limit;
         (msgs, has_more, false)
@@ -101,15 +114,16 @@ pub async fn list_messages(
                     Some(msg.sent_at)
                 } else {
                     // Last read message not in current page - fetch from DB
-                    state.messages.find_by_id(last_read_id).await?
+                    state
+                        .messages
+                        .find_by_id(last_read_id)
+                        .await?
                         .map(|m| m.sent_at)
                 };
 
                 if let Some(sent_at) = last_read_sent_at {
                     // Find first message sent AFTER the last read message
-                    messages.iter()
-                        .find(|m| m.sent_at > sent_at)
-                        .map(|m| m.id)
+                    messages.iter().find(|m| m.sent_at > sent_at).map(|m| m.id)
                 } else {
                     // Last read message doesn't exist - treat as never read
                     messages.first().map(|m| m.id)
@@ -145,7 +159,10 @@ pub async fn list_messages(
         let mut attachment_responses = Vec::new();
         for att in &attachments {
             let url = if state.s3.is_configured() {
-                state.s3.generate_download_url(&att.s3_key).await
+                state
+                    .s3
+                    .generate_download_url(&att.s3_key)
+                    .await
                     .unwrap_or_else(|_| String::new())
             } else {
                 String::new()
@@ -161,7 +178,11 @@ pub async fn list_messages(
                 None
             };
 
-            attachment_responses.push(domain::AttachmentResponse::from_attachment(att, url, thumbnail_url));
+            attachment_responses.push(domain::AttachmentResponse::from_attachment(
+                att,
+                url,
+                thumbnail_url,
+            ));
         }
 
         messages_with_attachments.push(MessageWithAttachments {
@@ -176,7 +197,7 @@ pub async fn list_messages(
             first_unread_message_id,
             has_more_before: Some(has_more_before),
             has_more_after: Some(has_more_after),
-        }
+        },
     }))
 }
 
@@ -187,12 +208,17 @@ pub async fn send_message(
     Json(req): Json<SendMessageRequest>,
 ) -> Result<Json<ApiResponse<MessageWithAttachments>>, ApiError> {
     // Verify dialog exists
-    let dialog = state.dialogs.find_by_id(dialog_id).await?
+    let dialog = state
+        .dialogs
+        .find_by_id(dialog_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
 
     // Check user is participant (potential participants cannot send messages)
     if !state.participants.exists(dialog_id, sender_id).await? {
-        return Err(ApiError::Forbidden("Not a participant. Join the dialog first.".into()));
+        return Err(ApiError::Forbidden(
+            "Not a participant. Join the dialog first.".into(),
+        ));
     }
 
     // Validate attachment count
@@ -220,7 +246,10 @@ pub async fn send_message(
 
         // Verify file exists in S3 (only if S3 is configured)
         if state.s3.is_configured() {
-            let exists = state.s3.object_exists(&att_input.s3_key).await
+            let exists = state
+                .s3
+                .object_exists(&att_input.s3_key)
+                .await
                 .map_err(|e| ApiError::Internal(e.to_string()))?;
             if !exists {
                 return Err(ApiError::BadRequest(format!(
@@ -327,7 +356,10 @@ pub async fn send_message(
     let mut attachment_responses = Vec::new();
     for att in &created_attachments {
         let url = if state.s3.is_configured() {
-            state.s3.generate_download_url(&att.s3_key).await
+            state
+                .s3
+                .generate_download_url(&att.s3_key)
+                .await
                 .unwrap_or_else(|_| String::new())
         } else {
             String::new()
@@ -343,13 +375,20 @@ pub async fn send_message(
             None
         };
 
-        attachment_responses.push(domain::AttachmentResponse::from_attachment(att, url, thumbnail_url));
+        attachment_responses.push(domain::AttachmentResponse::from_attachment(
+            att,
+            url,
+            thumbnail_url,
+        ));
     }
 
     // Broadcast and webhook after transaction is committed
     if unarchived > 0 {
         tracing::debug!(dialog_id = %dialog_id, count = unarchived, "Auto-unarchived dialog for participants");
-        let participant_ids: Vec<Uuid> = state.participants.list_by_dialog(dialog_id).await?
+        let participant_ids: Vec<Uuid> = state
+            .participants
+            .list_by_dialog(dialog_id)
+            .await?
             .iter()
             .map(|p| p.user_id)
             .collect();
@@ -357,19 +396,18 @@ pub async fn send_message(
     }
 
     ws::broadcast_message(&state.connections, dialog_id, &message).await;
-    state.webhooks.send(WebhookEvent::message_new(&dialog, &message)).await;
+    state
+        .webhooks
+        .send(WebhookEvent::message_new(&dialog, &message))
+        .await;
 
     // Schedule smart notifications for all participants except sender
     if state.jobs.is_enabled() {
         let participants = state.participants.list_by_dialog(dialog_id).await?;
         for participant in participants {
             if participant.user_id != sender_id {
-                let job = NotificationJob::new(
-                    dialog_id,
-                    participant.user_id,
-                    message.id,
-                    sender_id,
-                );
+                let job =
+                    NotificationJob::new(dialog_id, participant.user_id, message.id, sender_id);
                 if let Err(e) = state.jobs.enqueue_notification(job).await {
                     tracing::warn!(
                         recipient_id = %participant.user_id,
@@ -385,7 +423,7 @@ pub async fn send_message(
         data: MessageWithAttachments {
             message,
             attachments: attachment_responses,
-        }
+        },
     }))
 }
 
@@ -393,7 +431,10 @@ pub async fn get_message(
     State(state): State<AppState>,
     Path((dialog_id, message_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Json<ApiResponse<Message>>, ApiError> {
-    let message = state.messages.find_by_id_and_dialog(message_id, dialog_id).await?
+    let message = state
+        .messages
+        .find_by_id_and_dialog(message_id, dialog_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Message not found".into()))?;
 
     Ok(Json(ApiResponse { data: message }))
@@ -406,7 +447,10 @@ pub async fn edit_message(
     Json(req): Json<EditMessageRequest>,
 ) -> Result<Json<ApiResponse<Message>>, ApiError> {
     // Find message
-    let message = state.messages.find_by_id_and_dialog(message_id, dialog_id).await?
+    let message = state
+        .messages
+        .find_by_id_and_dialog(message_id, dialog_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Message not found".into()))?;
 
     // Check ownership (only author can edit)
@@ -420,11 +464,17 @@ pub async fn edit_message(
     }
 
     // Save old content to history
-    state.messages.save_edit_history(message_id, &message.content).await?;
+    state
+        .messages
+        .save_edit_history(message_id, &message.content)
+        .await?;
 
     // Sanitize and update content
     let sanitized = domain::sanitize_html(&req.content);
-    let updated = state.messages.update_content(message_id, &sanitized).await?
+    let updated = state
+        .messages
+        .update_content(message_id, &sanitized)
+        .await?
         .ok_or_else(|| ApiError::Internal("Failed to update message".into()))?;
 
     // Broadcast via WebSocket
@@ -439,7 +489,10 @@ pub async fn delete_message(
     Path((dialog_id, message_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     // Find message
-    let message = state.messages.find_by_id_and_dialog(message_id, dialog_id).await?
+    let message = state
+        .messages
+        .find_by_id_and_dialog(message_id, dialog_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Message not found".into()))?;
 
     // Check ownership

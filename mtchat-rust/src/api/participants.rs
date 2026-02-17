@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::DialogParticipant;
-use crate::middleware::{UserId, OptionalScopeConfig};
+use crate::middleware::{OptionalScopeConfig, UserId};
 use crate::ws;
 
-use super::{AppState, ApiResponse, ApiError};
+use super::{ApiError, ApiResponse, AppState};
 
 // ============ DTOs ============
 
@@ -37,12 +37,15 @@ pub async fn list_participants(
     // If not participant, check scope access (potential participant)
     if !is_participant {
         let has_scope_access = if let Some(scope) = &scope_config {
-            state.scopes.check_access(
-                dialog_id,
-                scope.tenant_uid.clone(),
-                &scope.scope_level1,
-                &scope.scope_level2,
-            ).await?
+            state
+                .scopes
+                .check_access(
+                    dialog_id,
+                    scope.tenant_uid.clone(),
+                    &scope.scope_level1,
+                    &scope.scope_level2,
+                )
+                .await?
         } else {
             false
         };
@@ -56,7 +59,11 @@ pub async fn list_participants(
 
     // Get online status for all participants
     let user_ids: Vec<Uuid> = participants.iter().map(|p| p.user_id).collect();
-    let online_users = state.presence.get_online_users(&user_ids).await.unwrap_or_default();
+    let online_users = state
+        .presence
+        .get_online_users(&user_ids)
+        .await
+        .unwrap_or_default();
 
     // Build response with online status
     // For non-participants, hide contact details (email, phone)
@@ -90,7 +97,10 @@ pub async fn mark_as_read(
     Json(req): Json<MarkAsReadRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check dialog exists
-    state.dialogs.find_by_id(dialog_id).await?
+    state
+        .dialogs
+        .find_by_id(dialog_id)
+        .await?
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
 
     // Check user is participant
@@ -99,10 +109,19 @@ pub async fn mark_as_read(
     }
 
     // Mark as read
-    state.participants.mark_as_read(dialog_id, user_id, req.last_read_message_id).await?;
+    state
+        .participants
+        .mark_as_read(dialog_id, user_id, req.last_read_message_id)
+        .await?;
 
     // Broadcast WebSocket event
-    ws::broadcast_read(&state.connections, dialog_id, user_id, req.last_read_message_id).await;
+    ws::broadcast_read(
+        &state.connections,
+        dialog_id,
+        user_id,
+        req.last_read_message_id,
+    )
+    .await;
 
     Ok(Json(serde_json::json!({
         "success": true

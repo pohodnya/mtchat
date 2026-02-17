@@ -14,6 +14,9 @@ pub async fn health() -> impl IntoResponse {
 pub async fn health_ready(State(state): State<AppState>) -> impl IntoResponse {
     match sqlx::query("SELECT 1").execute(&state.db).await {
         Ok(_) => (StatusCode::OK, Json(serde_json::json!({"status": "ready"}))),
-        Err(_) => (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({"status": "not_ready"}))),
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"status": "not_ready"})),
+        ),
     }
 }

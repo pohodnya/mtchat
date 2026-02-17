@@ -152,7 +152,10 @@ async fn test_create_dialog_with_participants() {
 
     // Cleanup
     client
-        .delete(&format!("{}/api/v1/management/dialogs/{}", base_url, dialog_id))
+        .delete(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -196,7 +199,10 @@ async fn test_get_dialog_with_details() {
 
     // Get dialog with details
     let get_resp = client
-        .get(&format!("{}/api/v1/management/dialogs/{}", base_url, dialog_id))
+        .get(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -211,7 +217,10 @@ async fn test_get_dialog_with_details() {
 
     // Cleanup
     client
-        .delete(&format!("{}/api/v1/management/dialogs/{}", base_url, dialog_id))
+        .delete(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -245,7 +254,10 @@ async fn test_delete_dialog() {
 
     // Delete dialog
     let delete_resp = client
-        .delete(&format!("{}/api/v1/management/dialogs/{}", base_url, dialog_id))
+        .delete(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -255,7 +267,10 @@ async fn test_delete_dialog() {
 
     // Verify deleted
     let get_resp = client
-        .get(&format!("{}/api/v1/management/dialogs/{}", base_url, dialog_id))
+        .get(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -294,7 +309,10 @@ async fn test_add_and_remove_participant() {
 
     // Add participant
     let add_resp = client
-        .post(&format!("{}/api/v1/management/dialogs/{}/participants", base_url, dialog_id))
+        .post(&format!(
+            "{}/api/v1/management/dialogs/{}/participants",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .json(&json!({ "user_id": new_user }))
         .send()
@@ -305,7 +323,10 @@ async fn test_add_and_remove_participant() {
 
     // Verify added
     let get_resp = client
-        .get(&format!("{}/api/v1/management/dialogs/{}", base_url, dialog_id))
+        .get(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -313,11 +334,16 @@ async fn test_add_and_remove_participant() {
 
     let body: Value = get_resp.json().await.unwrap();
     let participants = body["data"]["participants"].as_array().unwrap();
-    assert!(participants.iter().any(|p| p["user_id"] == new_user.to_string()));
+    assert!(participants
+        .iter()
+        .any(|p| p["user_id"] == new_user.to_string()));
 
     // Remove participant
     let remove_resp = client
-        .delete(&format!("{}/api/v1/management/dialogs/{}/participants/{}", base_url, dialog_id, new_user))
+        .delete(&format!(
+            "{}/api/v1/management/dialogs/{}/participants/{}",
+            base_url, dialog_id, new_user
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -327,7 +353,10 @@ async fn test_add_and_remove_participant() {
 
     // Cleanup
     client
-        .delete(&format!("{}/api/v1/management/dialogs/{}", base_url, dialog_id))
+        .delete(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -371,7 +400,10 @@ async fn test_update_access_scopes() {
 
     // Update access scopes (replace all)
     let update_resp = client
-        .put(&format!("{}/api/v1/management/dialogs/{}/access-scopes", base_url, dialog_id))
+        .put(&format!(
+            "{}/api/v1/management/dialogs/{}/access-scopes",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .json(&json!({
             "access_scopes": [
@@ -395,7 +427,10 @@ async fn test_update_access_scopes() {
 
     // Verify via GET
     let get_resp = client
-        .get(&format!("{}/api/v1/management/dialogs/{}", base_url, dialog_id))
+        .get(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -407,11 +442,16 @@ async fn test_update_access_scopes() {
     assert_eq!(access_scopes[0]["tenant_uid"], tenant2.to_string());
 
     // Old scope should be gone
-    assert!(!access_scopes.iter().any(|s| s["tenant_uid"] == tenant1.to_string()));
+    assert!(!access_scopes
+        .iter()
+        .any(|s| s["tenant_uid"] == tenant1.to_string()));
 
     // Cleanup
     client
-        .delete(&format!("{}/api/v1/management/dialogs/{}", base_url, dialog_id))
+        .delete(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -432,7 +472,10 @@ async fn test_get_nonexistent_dialog_returns_404() {
     let fake_id = Uuid::new_v4();
 
     let resp = client
-        .get(&format!("{}/api/v1/management/dialogs/{}", base_url, fake_id))
+        .get(&format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, fake_id
+        ))
         .header("Authorization", &auth_header)
         .send()
         .await
@@ -454,7 +497,10 @@ async fn test_add_participant_to_nonexistent_dialog() {
     let user_id = Uuid::new_v4();
 
     let resp = client
-        .post(&format!("{}/api/v1/management/dialogs/{}/participants", base_url, fake_dialog_id))
+        .post(&format!(
+            "{}/api/v1/management/dialogs/{}/participants",
+            base_url, fake_dialog_id
+        ))
         .header("Authorization", &auth_header)
         .json(&json!({ "user_id": user_id }))
         .send()

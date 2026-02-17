@@ -1,8 +1,8 @@
 //! Tests for API types: error responses, response wrappers, and DTO serialization
 
-use multitenancy_chat_api::api::{ApiError, ApiResponse, ErrorResponse, ErrorBody};
-use axum::response::IntoResponse;
 use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use multitenancy_chat_api::api::{ApiError, ApiResponse, ErrorBody, ErrorResponse};
 
 // ============ ApiError ============
 
@@ -12,7 +12,9 @@ async fn test_api_error_not_found() {
     let response = error.into_response();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["error"]["code"], "NOT_FOUND");
     assert_eq!(json["error"]["message"], "Dialog not found");
@@ -24,7 +26,9 @@ async fn test_api_error_bad_request() {
     let response = error.into_response();
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["error"]["code"], "BAD_REQUEST");
     assert_eq!(json["error"]["message"], "Invalid input");
@@ -36,7 +40,9 @@ async fn test_api_error_forbidden() {
     let response = error.into_response();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["error"]["code"], "FORBIDDEN");
     assert_eq!(json["error"]["message"], "Not a participant");
@@ -48,12 +54,17 @@ async fn test_api_error_internal_hides_details() {
     let response = error.into_response();
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["error"]["code"], "INTERNAL_ERROR");
     // Should NOT expose internal details
     assert_eq!(json["error"]["message"], "Internal server error");
-    assert!(!json["error"]["message"].as_str().unwrap().contains("connection refused"));
+    assert!(!json["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("connection refused"));
 }
 
 #[tokio::test]
@@ -83,7 +94,10 @@ fn test_api_response_with_struct() {
     }
 
     let response = ApiResponse {
-        data: Item { id: 1, name: "test".into() },
+        data: Item {
+            id: 1,
+            name: "test".into(),
+        },
     };
     let json = serde_json::to_value(&response).unwrap();
     assert_eq!(json["data"]["id"], 1);
@@ -92,7 +106,9 @@ fn test_api_response_with_struct() {
 
 #[test]
 fn test_api_response_with_vec() {
-    let response = ApiResponse { data: vec![1, 2, 3] };
+    let response = ApiResponse {
+        data: vec![1, 2, 3],
+    };
     let json = serde_json::to_value(&response).unwrap();
     assert_eq!(json["data"], serde_json::json!([1, 2, 3]));
 }

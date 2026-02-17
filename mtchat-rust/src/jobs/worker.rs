@@ -26,7 +26,7 @@ impl Default for WorkerConfig {
     fn default() -> Self {
         Self {
             archive_cron: "0 */5 * * * *".to_string(), // every 5 minutes
-            archive_after_secs: 259200, // 3 days
+            archive_after_secs: 259200,                // 3 days
             notification_concurrency: 4,
         }
     }

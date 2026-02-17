@@ -15,7 +15,10 @@ impl AccessScopeRepository {
     }
 
     /// Create a new access scope
-    pub async fn create(&self, scope: &DialogAccessScope) -> Result<DialogAccessScope, sqlx::Error> {
+    pub async fn create(
+        &self,
+        scope: &DialogAccessScope,
+    ) -> Result<DialogAccessScope, sqlx::Error> {
         sqlx::query_as::<_, DialogAccessScope>(
             r#"INSERT INTO dialog_access_scopes (id, dialog_id, tenant_uid, scope_level1, scope_level2, created_at)
                VALUES ($1, $2, $3, $4, $5, $6)

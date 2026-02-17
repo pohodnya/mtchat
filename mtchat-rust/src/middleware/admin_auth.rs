@@ -15,7 +15,7 @@ use axum::{
     Json,
 };
 use serde::Serialize;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::sync::OnceLock;
 
 /// Cached admin token digest, computed once at startup.
@@ -25,16 +25,14 @@ static ADMIN_TOKEN_DIGEST: OnceLock<Option<[u8; 32]>> = OnceLock::new();
 /// Initialize the admin token from environment.
 /// Must be called once during server startup.
 pub fn init_admin_token() {
-    ADMIN_TOKEN_DIGEST.get_or_init(|| {
-        match std::env::var("ADMIN_API_TOKEN") {
-            Ok(token) if !token.is_empty() => {
-                tracing::info!("Admin API token configured");
-                Some(sha256_digest(token.as_bytes()))
-            }
-            _ => {
-                tracing::warn!("ADMIN_API_TOKEN not set — Management API is unprotected (dev mode)");
-                None
-            }
+    ADMIN_TOKEN_DIGEST.get_or_init(|| match std::env::var("ADMIN_API_TOKEN") {
+        Ok(token) if !token.is_empty() => {
+            tracing::info!("Admin API token configured");
+            Some(sha256_digest(token.as_bytes()))
+        }
+        _ => {
+            tracing::warn!("ADMIN_API_TOKEN not set — Management API is unprotected (dev mode)");
+            None
         }
     });
 }
@@ -98,10 +96,7 @@ impl AuthError {
 ///
 /// If no token is configured, all requests are allowed (development mode).
 pub async fn admin_auth(request: Request, next: Next) -> Response {
-    let token_configured = matches!(
-        ADMIN_TOKEN_DIGEST.get(),
-        Some(Some(_))
-    );
+    let token_configured = matches!(ADMIN_TOKEN_DIGEST.get(), Some(Some(_)));
 
     // If no admin token configured, allow all (dev mode)
     if !token_configured {
@@ -115,19 +110,19 @@ pub async fn admin_auth(request: Request, next: Next) -> Response {
         .and_then(|v| v.to_str().ok());
 
     match auth_header {
-        None => {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(AuthError::unauthorized("Authorization header required")),
-            )
-                .into_response()
-        }
+        None => (
+            StatusCode::UNAUTHORIZED,
+            Json(AuthError::unauthorized("Authorization header required")),
+        )
+            .into_response(),
         Some(header) => {
             // Expect "Bearer <token>" format
             if !header.starts_with("Bearer ") {
                 return (
                     StatusCode::UNAUTHORIZED,
-                    Json(AuthError::unauthorized("Invalid authorization format. Use: Bearer <token>")),
+                    Json(AuthError::unauthorized(
+                        "Invalid authorization format. Use: Bearer <token>",
+                    )),
                 )
                     .into_response();
             }
@@ -147,4 +142,3 @@ pub async fn admin_auth(request: Request, next: Next) -> Response {
         }
     }
 }
-

@@ -2,12 +2,12 @@
 //!
 //! Organized by domain: health, management, dialogs, messages, upload, participants, websocket.
 
+pub mod dialogs;
 pub mod health;
 pub mod management;
-pub mod dialogs;
 pub mod messages;
-pub mod upload;
 pub mod participants;
+pub mod upload;
 pub mod ws_handler;
 
 use axum::http::StatusCode;
@@ -19,14 +19,14 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::ws;
-use crate::repositories::{
-    DialogRepository, ParticipantRepository, AccessScopeRepository,
-    MessageRepository, AttachmentRepository,
-};
-use crate::services::{S3Service, PresenceService};
-use crate::webhooks::WebhookSender;
 use crate::jobs::JobProducer;
+use crate::repositories::{
+    AccessScopeRepository, AttachmentRepository, DialogRepository, MessageRepository,
+    ParticipantRepository,
+};
+use crate::services::{PresenceService, S3Service};
+use crate::webhooks::WebhookSender;
+use crate::ws;
 
 // ============ App State ============
 
@@ -50,7 +50,13 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(db: PgPool, webhooks: WebhookSender, s3: S3Service, presence: PresenceService, jobs: JobProducer) -> Self {
+    pub fn new(
+        db: PgPool,
+        webhooks: WebhookSender,
+        s3: S3Service,
+        presence: PresenceService,
+        jobs: JobProducer,
+    ) -> Self {
         Self {
             dialogs: Arc::new(DialogRepository::new(db.clone())),
             participants: Arc::new(ParticipantRepository::new(db.clone())),
@@ -100,16 +106,24 @@ impl IntoResponse for ApiError {
             ApiError::Forbidden(msg) => (StatusCode::FORBIDDEN, "FORBIDDEN", msg),
             ApiError::Internal(msg) => {
                 tracing::error!("Internal error: {}", msg);
-                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Internal server error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "INTERNAL_ERROR",
+                    "Internal server error".to_string(),
+                )
             }
         };
 
-        (status, Json(ErrorResponse {
-            error: ErrorBody {
-                code: code.to_string(),
-                message,
-            }
-        })).into_response()
+        (
+            status,
+            Json(ErrorResponse {
+                error: ErrorBody {
+                    code: code.to_string(),
+                    message,
+                },
+            }),
+        )
+            .into_response()
     }
 }
 

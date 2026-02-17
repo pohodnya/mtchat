@@ -152,7 +152,16 @@ fn test_event_serialization_roundtrip() {
 #[test]
 fn test_event_type_display() {
     assert_eq!(WebhookEventType::MessageNew.to_string(), "message.new");
-    assert_eq!(WebhookEventType::ParticipantJoined.to_string(), "participant.joined");
-    assert_eq!(WebhookEventType::ParticipantLeft.to_string(), "participant.left");
-    assert_eq!(WebhookEventType::NotificationPending.to_string(), "notification.pending");
+    assert_eq!(
+        WebhookEventType::ParticipantJoined.to_string(),
+        "participant.joined"
+    );
+    assert_eq!(
+        WebhookEventType::ParticipantLeft.to_string(),
+        "participant.left"
+    );
+    assert_eq!(
+        WebhookEventType::NotificationPending.to_string(),
+        "notification.pending"
+    );
 }
