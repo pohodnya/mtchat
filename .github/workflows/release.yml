@@ -28,7 +28,7 @@ permissions:
   packages: write
 
 env:
-  DOCKER_IMAGE: mtchat/backend
+  DOCKER_IMAGE: pohodnya/mtchat
   CARGO_TERM_COLOR: always
 
 jobs:

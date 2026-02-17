@@ -92,7 +92,7 @@ services:
     restart: "no"
 
   api:
-    image: ghcr.io/pohodnya/mtchat-api:latest
+    image: pohodnya/mtchat:latest
     # Or build from source:
     # build:
     #   context: ../mtchat-rust

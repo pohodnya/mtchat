@@ -23,7 +23,7 @@ docker compose up -d
 
 ### Using a Pre-built Image
 
-By default, the compose file uses `ghcr.io/pohodnya/mtchat-api:latest`. To build from source instead, uncomment the `build` section in `docker-compose.yml`.
+By default, the compose file uses `pohodnya/mtchat:latest`. To build from source instead, uncomment the `build` section in `docker-compose.yml`.
 
 ### Development Mode
 

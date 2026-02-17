@@ -7,7 +7,7 @@ api:
   replicaCount: 2
 
   image:
-    repository: ghcr.io/pohodnya/mtchat-api
+    repository: pohodnya/mtchat
     tag: ""  # Defaults to Chart.appVersion
     pullPolicy: IfNotPresent
 
