@@ -303,6 +303,7 @@ defineExpose({
       :is="MtContextMenu"
       ref="contextMenuRef"
       :items="contextMenuItems"
+      :theme="theme"
     >
       <template #item-icon="{ item }">
         <Icon :name="item.icon" :size="16" />

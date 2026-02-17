@@ -32,6 +32,12 @@ const primeItems = computed(() => {
   })
 })
 
+const menuPt = computed(() => ({
+  root: {
+    class: props.theme ? `mtchat-contextmenu--${props.theme}` : null,
+  },
+}))
+
 function show(event: MouseEvent) {
   menuRef.value?.show(event)
 }
@@ -51,6 +57,8 @@ defineExpose<MtContextMenuExpose>({
   <ContextMenu
     ref="menuRef"
     :model="primeItems"
+    :pt="menuPt"
+    append-to="self"
     @hide="emit('hide')"
   >
     <template #item="{ item, props: itemProps }">
@@ -63,3 +71,25 @@ defineExpose<MtContextMenuExpose>({
     </template>
   </ContextMenu>
 </template>
+
+<style>
+/* Light theme */
+.mtchat-contextmenu--light {
+  --p-contextmenu-background: var(--p-surface-0, #ffffff);
+  --p-contextmenu-color: var(--p-text-color, #3f3f46);
+  --p-contextmenu-border-color: var(--p-surface-200, #e4e4e7);
+  --p-contextmenu-item-color: var(--p-text-color, #3f3f46);
+  --p-contextmenu-item-focus-background: var(--p-surface-100, #f4f4f5);
+  --p-contextmenu-item-focus-color: var(--p-text-color, #3f3f46);
+}
+
+/* Dark theme */
+.mtchat-contextmenu--dark {
+  --p-contextmenu-background: var(--p-surface-800, #27272a);
+  --p-contextmenu-color: var(--p-surface-0, #fafafa);
+  --p-contextmenu-border-color: var(--p-surface-700, #3f3f46);
+  --p-contextmenu-item-color: var(--p-surface-0, #fafafa);
+  --p-contextmenu-item-focus-background: var(--p-surface-700, #3f3f46);
+  --p-contextmenu-item-focus-color: var(--p-surface-0, #fafafa);
+}
+</style>

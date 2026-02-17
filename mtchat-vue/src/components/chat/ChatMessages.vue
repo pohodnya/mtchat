@@ -39,6 +39,7 @@ const props = defineProps<{
   jumpCooldown: boolean
   /** Cache for reply messages not in current list */
   replyMessagesCache: Map<string, Message | null>
+  theme?: string
 }>()
 
 const emit = defineEmits<{
@@ -861,6 +862,7 @@ defineExpose({
       ref="messageMenuRef"
       :items="messageMenuItems"
       :popup="true"
+      :theme="theme"
     >
       <template #item-icon="{ item }">
         <Icon :name="item.icon" :size="14" />

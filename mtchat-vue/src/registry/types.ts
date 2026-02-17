@@ -75,6 +75,8 @@ export interface MtMenuProps {
   items: MtMenuItem[]
   /** Popup mode (positioned near trigger) */
   popup?: boolean
+  /** Theme name */
+  theme?: string
 }
 
 export interface MtMenuEmits {
@@ -96,6 +98,8 @@ export interface MtMenuExpose {
 export interface MtContextMenuProps {
   /** Menu items */
   items: MtMenuItem[]
+  /** Theme name */
+  theme?: string
 }
 
 export interface MtContextMenuEmits {

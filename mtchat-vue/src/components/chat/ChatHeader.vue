@@ -19,6 +19,7 @@ const props = defineProps<{
   isLoading: boolean
   showBackButton?: boolean
   isInlineMode?: boolean
+  theme?: string
 }>()
 
 const emit = defineEmits<{
@@ -163,6 +164,7 @@ function toggleMenu(event: Event) {
           ref="menuRef"
           :items="menuItems"
           :popup="true"
+          :theme="theme"
         >
           <template #item-icon="{ item }">
             <Icon :name="item.icon" :size="16" />
