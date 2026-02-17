@@ -559,7 +559,7 @@ const sidebarCollapsed = ref(false)
 
 /* Right Panel */
 .right-panel {
-  width: 380px;
+  width: 480px;
   background: var(--tms-bg-panel);
   border-left: 1px solid var(--tms-border);
   display: flex;
@@ -570,10 +570,10 @@ const sidebarCollapsed = ref(false)
 
 /* Grid adjustments for right panel */
 .tms-layout:has(.right-panel) {
-  grid-template-columns: 220px 1fr 380px;
+  grid-template-columns: 220px 1fr 480px;
 }
 
 .tms-layout.sidebar-collapsed:has(.right-panel) {
-  grid-template-columns: 60px 1fr 380px;
+  grid-template-columns: 60px 1fr 480px;
 }
 </style>
