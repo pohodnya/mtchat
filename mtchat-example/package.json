@@ -11,8 +11,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@mtchat/vue": "file:../mtchat-vue",
-    "@mtchat/vue-primevue": "file:../mtchat-vue-primevue",
     "@primeuix/themes": "^1.0.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
