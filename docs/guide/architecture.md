@@ -6,30 +6,31 @@ MTChat is a microservice-based chat system designed to be embedded into existing
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                  Host Application                         │
+│                  Host Application                        │
 │  ┌────────────┐              ┌──────────────────────┐    │
-│  │  Frontend   │              │  Backend             │    │
-│  │ ┌────────┐  │              │  - Creates dialogs   │    │
-│  │ │ MTChat │  │              │  - Manages members   │    │
-│  │ │Vue SDK │  │              │  - Handles webhooks  │    │
-│  │ └───┬────┘  │              └──────────┬───────────┘    │
-└───────┼────────┘                         │                │
-        │                                  │
-        │ Chat API                         │ Management API
-        │ (user context)                   │ (Admin Token)
-        ▼                                  ▼
+│  │  Frontend  │              │  Backend             │    │
+│  │ ┌────────┐ │              │  - Creates dialogs   │    │
+│  │ │ MTChat │ │              │  - Manages members   │    │
+│  │ │Vue SDK │ │              │  - Handles webhooks  │    │
+│  │ └───┬────┘ │              └──────────┬───────────┘    │
+│  └─────┼──────┘                         │                │
+└────────┼────────────────────────────────┼────────────────┘
+         │                                │
+         │ Chat API                       │ Management API
+         │ (user context)                 │ (Admin Token)
+         ▼                                ▼
 ┌──────────────────────────────────────────────────────────┐
-│                    MTChat Backend                          │
-│  ┌──────────────┐  ┌────────────────┐  ┌────────────┐   │
-│  │   Chat API   │  │ Management API │  │  Webhooks  │   │
-│  │  (end users) │  │   (system)     │  │ (outgoing) │   │
-│  └──────────────┘  └────────────────┘  └────────────┘   │
-│                                                           │
-│  ┌──────────┐  ┌────────────┐  ┌────────────────────┐   │
-│  │PostgreSQL│  │   Redis    │  │  S3 / MinIO        │   │
-│  │  (data)  │  │(presence,  │  │  (file storage)    │   │
-│  │          │  │ jobs)      │  │                     │   │
-│  └──────────┘  └────────────┘  └────────────────────┘   │
+│                    MTChat Backend                        │
+│  ┌──────────────┐  ┌────────────────┐  ┌────────────┐    │
+│  │   Chat API   │  │ Management API │  │  Webhooks  │    │
+│  │  (end users) │  │   (system)     │  │ (outgoing) │    │
+│  └──────────────┘  └────────────────┘  └────────────┘    │
+│                                                          │
+│  ┌──────────┐  ┌────────────┐  ┌────────────────────┐    │
+│  │PostgreSQL│  │   Redis    │  │  S3 / MinIO        │    │
+│  │  (data)  │  │(presence,  │  │  (file storage)    │    │
+│  │          │  │ jobs)      │  │                    │    │
+│  └──────────┘  └────────────┘  └────────────────────┘    │
 └──────────────────────────────────────────────────────────┘
 ```
 

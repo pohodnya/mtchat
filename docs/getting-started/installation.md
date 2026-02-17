@@ -96,11 +96,8 @@ npm install vue@^3.4
 ### Importing
 
 ```ts
-// Component
+// Component (styles are bundled automatically)
 import { MTChat } from '@mtchat/vue'
-
-// Styles (required)
-import '@mtchat/vue/style.css'
 
 // Optional: composables for headless usage
 import { useChat, useFileUpload } from '@mtchat/vue'
@@ -114,7 +111,6 @@ import type { MTChatConfig, MTChatProps, Dialog, Message } from '@mtchat/vue'
 For non-bundler environments:
 
 ```html
-<link rel="stylesheet" href="https://unpkg.com/@mtchat/vue/dist/style.css">
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://unpkg.com/@mtchat/vue/dist/mtchat-vue.umd.cjs"></script>
 

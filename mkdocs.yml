@@ -1,49 +1,68 @@
-site_name: MTChat Documentation
+site_name: MTChat
 site_description: Embeddable chat service for B2B/B2C platforms
-site_url: https://docs.mtchat.dev
-repo_url: https://github.com/nicenemo/mtchat
-repo_name: nicenemo/mtchat
+site_url: https://pohodnya.github.io/mtchat
+repo_url: https://github.com/pohodnya/mtchat
+repo_name: pohodnya/mtchat
 
 theme:
   name: material
   palette:
-    - scheme: default
-      primary: blue
-      accent: blue
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    - scheme: slate
-      primary: blue
-      accent: blue
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
   features:
     - navigation.instant
+    - navigation.instant.prefetch
     - navigation.tracking
-    - navigation.tabs
     - navigation.sections
     - navigation.expand
     - navigation.top
+    - navigation.footer
     - search.suggest
     - search.highlight
     - content.code.copy
+    - content.code.annotate
     - content.tabs.link
+    - toc.follow
+    - toc.integrate
   icon:
     repo: fontawesome/brands/github
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/pohodnya/mtchat
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/pohodnya/mtchat
+    - icon: fontawesome/brands/npm
+      link: https://www.npmjs.com/package/@mtchat/vue
 
 plugins:
   - search
   - i18n:
-      default_language: en
+      docs_structure: folder
+      fallback_to_default: true
       languages:
         - locale: en
           name: English
           default: true
           build: true
         - locale: ru
-          name: Russian
+          name: Русский
           build: true
           nav_translations:
             Home: Главная
@@ -86,6 +105,9 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - attr_list
   - md_in_html
   - tables

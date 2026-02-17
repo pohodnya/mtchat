@@ -6,19 +6,15 @@
 
 A dialog is a conversation bound to a business object in your system.
 
-```
-┌─────────────────────────────────────────────┐
-│                   Dialog                     │
-├─────────────────────────────────────────────┤
-│  id              UUID (v7, time-ordered)     │
-│  object_id       UUID         (required)     │
-│  object_type     STRING       (required)     │
-│  title           STRING                      │
-│  object_url      STRING       (optional)     │
-│  created_by      UUID                        │
-│  created_at      TIMESTAMP                   │
-└─────────────────────────────────────────────┘
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| id | UUID (v7) | Time-ordered unique identifier |
+| object_id | UUID | Reference to business object (required) |
+| object_type | STRING | Type of business object (required) |
+| title | STRING | Dialog title |
+| object_url | STRING | Link to object in host app (optional) |
+| created_by | UUID | User who created the dialog |
+| created_at | TIMESTAMP | Creation timestamp |
 
 - **object_id** + **object_type** link the dialog to an entity in your system (e.g., an order, tender, or route)
 - Multiple dialogs can be created for the same object
@@ -28,25 +24,21 @@ A dialog is a conversation bound to a business object in your system.
 
 A direct member of a dialog. Participants receive notifications and see the dialog in their "My Chats" list.
 
-```
-┌─────────────────────────────────────────────┐
-│               Participant                    │
-├─────────────────────────────────────────────┤
-│  dialog_id             UUID                  │
-│  user_id               UUID                  │
-│  display_name          STRING                │
-│  company               STRING                │
-│  email                 STRING (optional)      │
-│  phone                 STRING (optional)      │
-│  joined_at             TIMESTAMP              │
-│  joined_as             "creator" | "member"   │
-│  notifications_enabled BOOLEAN                │
-│  last_read_msg_id      UUID (nullable)        │
-│  unread_count          INTEGER                │
-│  is_archived           BOOLEAN                │
-│  is_pinned             BOOLEAN                │
-└─────────────────────────────────────────────┘
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| dialog_id | UUID | Reference to dialog |
+| user_id | UUID | External user identifier |
+| display_name | STRING | User's display name |
+| company | STRING | User's company |
+| email | STRING | Contact email (optional) |
+| phone | STRING | Contact phone (optional) |
+| joined_at | TIMESTAMP | When user joined |
+| joined_as | ENUM | "creator" or "member" |
+| notifications_enabled | BOOLEAN | Whether notifications are on |
+| last_read_msg_id | UUID | Last read message (nullable) |
+| unread_count | INTEGER | Number of unread messages |
+| is_archived | BOOLEAN | Archived by this user |
+| is_pinned | BOOLEAN | Pinned by this user |
 
 - **user_id** is an external identifier from your system (not managed by MTChat)
 - **display_name** and **company** are set when the user joins
@@ -57,37 +49,29 @@ A direct member of a dialog. Participants receive notifications and see the dial
 
 Defines rules for potential participants -- users who can discover and join the dialog.
 
-```
-┌─────────────────────────────────────────────┐
-│              Access Scope                    │
-├─────────────────────────────────────────────┤
-│  dialog_id       UUID                        │
-│  tenant_uid      STRING                      │
-│  scope_level1    STRING[]    (departments)   │
-│  scope_level2    STRING[]    (permissions)   │
-└─────────────────────────────────────────────┘
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| dialog_id | UUID | Reference to dialog |
+| tenant_uid | STRING | Tenant identifier |
+| scope_level1 | STRING[] | Departments |
+| scope_level2 | STRING[] | Permissions/roles |
 
 A dialog can have multiple access scopes. See [Scope Matching](scope-matching.md) for details on the matching algorithm.
 
 ### Message
 
-```
-┌─────────────────────────────────────────────┐
-│                  Message                     │
-├─────────────────────────────────────────────┤
-│  id              UUID (v7, time-ordered)     │
-│  dialog_id       UUID                        │
-│  sender_id       UUID (nullable for system)  │
-│  message_type    "user" | "system"           │
-│  content         STRING (HTML)               │
-│  reply_to_id     UUID (nullable)             │
-│  is_edited       BOOLEAN                     │
-│  is_deleted      BOOLEAN                     │
-│  created_at      TIMESTAMP                   │
-│  updated_at      TIMESTAMP                   │
-└─────────────────────────────────────────────┘
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| id | UUID (v7) | Time-ordered unique identifier |
+| dialog_id | UUID | Reference to dialog |
+| sender_id | UUID | Sender (nullable for system messages) |
+| message_type | ENUM | "user" or "system" |
+| content | STRING | Message content (HTML) |
+| reply_to_id | UUID | Referenced message (nullable) |
+| is_edited | BOOLEAN | Whether message was edited |
+| is_deleted | BOOLEAN | Whether message was deleted |
+| created_at | TIMESTAMP | Creation timestamp |
+| updated_at | TIMESTAMP | Last update timestamp |
 
 - User messages contain sanitized HTML (allowed tags: `p`, `br`, `strong`, `em`, `u`, `s`, `a`, `ul`, `ol`, `li`, `blockquote`, `code`, `pre`, `span`)
 - System messages (joins, leaves, creation) have `message_type = "system"` and `sender_id = NULL`
@@ -96,19 +80,15 @@ A dialog can have multiple access scopes. See [Scope Matching](scope-matching.md
 
 ### Attachment
 
-```
-┌─────────────────────────────────────────────┐
-│                Attachment                    │
-├─────────────────────────────────────────────┤
-│  id              UUID (v7)                   │
-│  message_id      UUID                        │
-│  s3_key          STRING                      │
-│  filename        STRING                      │
-│  content_type    STRING (MIME)                │
-│  size            BIGINT (bytes)              │
-│  created_at      TIMESTAMP                   │
-└─────────────────────────────────────────────┘
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| id | UUID (v7) | Unique identifier |
+| message_id | UUID | Reference to message |
+| s3_key | STRING | S3 object key |
+| filename | STRING | Original filename |
+| content_type | STRING | MIME type |
+| size | BIGINT | File size in bytes |
+| created_at | TIMESTAMP | Upload timestamp |
 
 - Files are stored in S3/MinIO and accessed via presigned URLs
 - Max file size: 100 MB

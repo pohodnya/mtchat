@@ -325,8 +325,9 @@ Several places clone strings unnecessarily inside loops (e.g., `json.clone()` in
 
 **[LOW] Dockerfile does not use layer caching**
 The Dockerfile copies everything and builds:
+
 ```dockerfile
-COPY . .
+COPY .. .
 RUN cargo build --release
 ```
 Any change to any file invalidates the entire build cache. Standard practice is to copy and build `Cargo.toml`/`Cargo.lock` first (to cache dependencies), then copy source code.

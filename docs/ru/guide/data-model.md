@@ -6,19 +6,15 @@
 
 Диалог -- это разговор, привязанный к бизнес-объекту в вашей системе.
 
-```
-┌─────────────────────────────────────────────┐
-│                   Dialog                     │
-├─────────────────────────────────────────────┤
-│  id              UUID (v7, time-ordered)     │
-│  object_id       UUID         (обязательно)  │
-│  object_type     STRING       (обязательно)  │
-│  title           STRING                      │
-│  object_url      STRING       (опционально)  │
-│  created_by      UUID                        │
-│  created_at      TIMESTAMP                   │
-└─────────────────────────────────────────────┘
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | UUID (v7) | Уникальный идентификатор, упорядоченный по времени |
+| object_id | UUID | Ссылка на бизнес-объект (обязательно) |
+| object_type | STRING | Тип бизнес-объекта (обязательно) |
+| title | STRING | Заголовок диалога |
+| object_url | STRING | Ссылка на объект в приложении (опционально) |
+| created_by | UUID | Пользователь, создавший диалог |
+| created_at | TIMESTAMP | Время создания |
 
 - **object_id** + **object_type** связывают диалог с сущностью вашей системы (заказ, тендер, рейс)
 - Можно создать несколько диалогов для одного объекта
@@ -28,25 +24,21 @@
 
 Прямой участник диалога. Получает уведомления и видит диалог в списке "Участвую".
 
-```
-┌─────────────────────────────────────────────┐
-│               Participant                    │
-├─────────────────────────────────────────────┤
-│  dialog_id             UUID                  │
-│  user_id               UUID                  │
-│  display_name          STRING                │
-│  company               STRING                │
-│  email                 STRING (опционально)   │
-│  phone                 STRING (опционально)   │
-│  joined_at             TIMESTAMP              │
-│  joined_as             "creator" | "member"   │
-│  notifications_enabled BOOLEAN                │
-│  last_read_msg_id      UUID (nullable)        │
-│  unread_count          INTEGER                │
-│  is_archived           BOOLEAN                │
-│  is_pinned             BOOLEAN                │
-└─────────────────────────────────────────────┘
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| dialog_id | UUID | Ссылка на диалог |
+| user_id | UUID | Внешний идентификатор пользователя |
+| display_name | STRING | Отображаемое имя |
+| company | STRING | Компания пользователя |
+| email | STRING | Контактный email (опционально) |
+| phone | STRING | Контактный телефон (опционально) |
+| joined_at | TIMESTAMP | Время присоединения |
+| joined_as | ENUM | "creator" или "member" |
+| notifications_enabled | BOOLEAN | Включены ли уведомления |
+| last_read_msg_id | UUID | Последнее прочитанное сообщение (nullable) |
+| unread_count | INTEGER | Количество непрочитанных сообщений |
+| is_archived | BOOLEAN | Архивирован этим пользователем |
+| is_pinned | BOOLEAN | Закреплён этим пользователем |
 
 - **user_id** -- внешний идентификатор из вашей системы (не управляется MTChat)
 - **display_name** и **company** задаются при присоединении
@@ -57,37 +49,29 @@
 
 Определяет правила для потенциальных участников -- пользователей, которые могут увидеть и присоединиться к диалогу.
 
-```
-┌─────────────────────────────────────────────┐
-│              Access Scope                    │
-├─────────────────────────────────────────────┤
-│  dialog_id       UUID                        │
-│  tenant_uid      STRING                      │
-│  scope_level1    STRING[]    (департаменты)  │
-│  scope_level2    STRING[]    (права доступа) │
-└─────────────────────────────────────────────┘
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| dialog_id | UUID | Ссылка на диалог |
+| tenant_uid | STRING | Идентификатор тенанта |
+| scope_level1 | STRING[] | Департаменты |
+| scope_level2 | STRING[] | Права доступа/роли |
 
 Диалог может иметь несколько scope доступа. Подробности в разделе [Scope-сопоставление](scope-matching.md).
 
 ### Сообщение (Message)
 
-```
-┌─────────────────────────────────────────────┐
-│                  Message                     │
-├─────────────────────────────────────────────┤
-│  id              UUID (v7, time-ordered)     │
-│  dialog_id       UUID                        │
-│  sender_id       UUID (nullable для system)  │
-│  message_type    "user" | "system"           │
-│  content         STRING (HTML)               │
-│  reply_to_id     UUID (nullable)             │
-│  is_edited       BOOLEAN                     │
-│  is_deleted      BOOLEAN                     │
-│  created_at      TIMESTAMP                   │
-│  updated_at      TIMESTAMP                   │
-└─────────────────────────────────────────────┘
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | UUID (v7) | Уникальный идентификатор, упорядоченный по времени |
+| dialog_id | UUID | Ссылка на диалог |
+| sender_id | UUID | Отправитель (nullable для системных сообщений) |
+| message_type | ENUM | "user" или "system" |
+| content | STRING | Содержимое сообщения (HTML) |
+| reply_to_id | UUID | Ссылка на цитируемое сообщение (nullable) |
+| is_edited | BOOLEAN | Было ли сообщение отредактировано |
+| is_deleted | BOOLEAN | Было ли сообщение удалено |
+| created_at | TIMESTAMP | Время создания |
+| updated_at | TIMESTAMP | Время последнего обновления |
 
 - Пользовательские сообщения содержат санитизированный HTML (разрешенные теги: `p`, `br`, `strong`, `em`, `u`, `s`, `a`, `ul`, `ol`, `li`, `blockquote`, `code`, `pre`, `span`)
 - Системные сообщения (присоединение, выход, создание) имеют `message_type = "system"` и `sender_id = NULL`
@@ -96,19 +80,15 @@
 
 ### Вложение (Attachment)
 
-```
-┌─────────────────────────────────────────────┐
-│                Attachment                    │
-├─────────────────────────────────────────────┤
-│  id              UUID (v7)                   │
-│  message_id      UUID                        │
-│  s3_key          STRING                      │
-│  filename        STRING                      │
-│  content_type    STRING (MIME)                │
-│  size            BIGINT (байты)              │
-│  created_at      TIMESTAMP                   │
-└─────────────────────────────────────────────┘
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | UUID (v7) | Уникальный идентификатор |
+| message_id | UUID | Ссылка на сообщение |
+| s3_key | STRING | Ключ объекта в S3 |
+| filename | STRING | Оригинальное имя файла |
+| content_type | STRING | MIME-тип |
+| size | BIGINT | Размер файла в байтах |
+| created_at | TIMESTAMP | Время загрузки |
 
 - Файлы хранятся в S3/MinIO и доступны через presigned URLs
 - Максимальный размер: 100 МБ
