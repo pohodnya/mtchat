@@ -20,7 +20,7 @@ Add real-time chat to your application in minutes. MTChat handles messaging, del
     <td>
       <a href="https://www.npmjs.com/package/@mtchat/vue"><img src="https://img.shields.io/npm/v/@mtchat/vue?label=%40mtchat%2Fvue&color=blue" alt="npm @mtchat/vue"></a><br>
       <a href="https://www.npmjs.com/package/@mtchat/vue-primevue"><img src="https://img.shields.io/npm/v/@mtchat/vue-primevue?label=%40mtchat%2Fvue-primevue&color=blue" alt="npm @mtchat/vue-primevue"></a><br>
-      <a href="https://hub.docker.com/r/pohodnya/mtchat"><img src="https://img.shields.io/docker/v/mtchat/backend?label=docker&sort=semver&color=blue" alt="Docker"></a>
+      <a href="https://hub.docker.com/r/pohodnya/mtchat"><img src="https://img.shields.io/docker/v/pohodnya/mtchat?label=docker&sort=semver&color=blue" alt="Docker"></a>
     </td>
     <td>
       <img src="https://img.shields.io/badge/rust-1.75+-orange?logo=rust" alt="Rust 1.75+"><br>
