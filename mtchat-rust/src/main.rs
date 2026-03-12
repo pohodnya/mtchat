@@ -7,7 +7,7 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use multitenancy_chat_api::config::{CorsConfig, JwtConfig, RateLimitConfig};
+use multitenancy_chat_api::config::{CorsConfig, DatabaseConfig, JwtConfig, RateLimitConfig};
 use sqlx::postgres::PgPoolOptions;
 use std::{env, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -41,13 +41,20 @@ async fn main() {
     // Initialize JWT config for Chat API authentication
     JwtConfig::init();
 
-    let database_url = env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/multitenancy_chat".into());
-
-    tracing::info!("Connecting to database...");
+    // Initialize database connection pool
+    let db_config = DatabaseConfig::from_env();
+    tracing::info!(
+        "Connecting to database (pool: {}-{} connections)...",
+        db_config.min_connections,
+        db_config.max_connections
+    );
     let db = PgPoolOptions::new()
-        .max_connections(20)
-        .connect(&database_url)
+        .max_connections(db_config.max_connections)
+        .min_connections(db_config.min_connections)
+        .acquire_timeout(db_config.acquire_timeout)
+        .idle_timeout(Some(db_config.idle_timeout))
+        .max_lifetime(Some(db_config.max_lifetime))
+        .connect(&db_config.url)
         .await
         .expect("Failed to connect to database");
 
