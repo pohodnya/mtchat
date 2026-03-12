@@ -17,7 +17,13 @@ function handleChange() {
 </script>
 
 <template>
-  <label class="mt-radio" :class="{ 'mt-radio--disabled': disabled }">
+  <label
+    class="mt-radio"
+    :class="{ 'mt-radio--disabled': disabled }"
+    role="radio"
+    :aria-checked="modelValue === value"
+    :aria-disabled="disabled"
+  >
     <input
       type="radio"
       :checked="modelValue === value"

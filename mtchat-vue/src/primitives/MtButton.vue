@@ -26,6 +26,8 @@ const emit = defineEmits<{
     :type="type"
     :disabled="disabled || loading"
     :title="title"
+    :aria-disabled="disabled || loading"
+    :aria-busy="loading"
     :class="[
       'mt-button',
       `mt-button--${variant}`,

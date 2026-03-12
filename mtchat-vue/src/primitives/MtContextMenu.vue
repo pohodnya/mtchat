@@ -87,14 +87,16 @@ defineExpose<MtContextMenuExpose>({
         v-if="visible"
         ref="menuRef"
         class="mt-context-menu"
+        role="menu"
         :style="{ top: `${position.top}px`, left: `${position.left}px` }"
         @click.stop
       >
         <template v-for="(item, index) in items" :key="index">
-          <div v-if="item.separator" class="mt-context-menu__separator" />
+          <div v-if="item.separator" class="mt-context-menu__separator" role="separator" />
           <button
             v-else
             class="mt-context-menu__item"
+            role="menuitem"
             :class="{
               'mt-context-menu__item--disabled': item.disabled,
               'mt-context-menu__item--danger': item.danger,

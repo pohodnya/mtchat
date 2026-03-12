@@ -21,7 +21,7 @@ provide(TABS_KEY, {
 
 <template>
   <div class="mt-tabs">
-    <div class="mt-tabs__header">
+    <div class="mt-tabs__header" role="tablist">
       <slot />
     </div>
   </div>

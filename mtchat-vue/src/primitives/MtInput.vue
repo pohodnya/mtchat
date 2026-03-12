@@ -62,6 +62,7 @@ defineExpose<MtInputExpose>({
       :value="modelValue"
       :placeholder="placeholder"
       :disabled="disabled"
+      :aria-invalid="invalid"
       class="mt-input"
       @input="handleInput"
       @focus="emit('focus', $event)"

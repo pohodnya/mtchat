@@ -36,6 +36,8 @@ function handleToggle() {
       type="button"
       class="mt-accordion-panel__header"
       :disabled="disabled"
+      :aria-expanded="isExpanded"
+      :aria-controls="`accordion-content-${value}`"
       @click="handleToggle"
     >
       <svg
@@ -55,7 +57,7 @@ function handleToggle() {
     </button>
 
     <Transition name="mt-accordion-panel">
-      <div v-if="isExpanded" class="mt-accordion-panel__content">
+      <div v-if="isExpanded" :id="`accordion-content-${value}`" class="mt-accordion-panel__content">
         <slot />
       </div>
     </Transition>

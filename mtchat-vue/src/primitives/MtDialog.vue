@@ -64,10 +64,11 @@ onUnmounted(() => {
           :style="{ maxWidth }"
           role="dialog"
           aria-modal="true"
+          :aria-labelledby="header ? 'mt-dialog-title' : undefined"
         >
           <!-- Header -->
           <div v-if="header || closable" class="mt-dialog__header">
-            <h2 v-if="header" class="mt-dialog__title">{{ header }}</h2>
+            <h2 v-if="header" id="mt-dialog-title" class="mt-dialog__title">{{ header }}</h2>
             <button
               v-if="closable"
               class="mt-dialog__close"

@@ -115,14 +115,16 @@ defineExpose<MtMenuExpose>({
         v-if="visible"
         ref="menuRef"
         class="mt-menu"
+        role="menu"
         :style="{ top: `${position.top}px`, left: `${position.left}px` }"
         @click.stop
       >
         <template v-for="(item, index) in items" :key="index">
-          <div v-if="item.separator" class="mt-menu__separator" />
+          <div v-if="item.separator" class="mt-menu__separator" role="separator" />
           <button
             v-else
             class="mt-menu__item"
+            role="menuitem"
             :class="{
               'mt-menu__item--disabled': item.disabled,
               'mt-menu__item--danger': item.danger,
@@ -140,12 +142,13 @@ defineExpose<MtMenuExpose>({
     </Transition>
   </Teleport>
 
-  <div v-else ref="menuRef" class="mt-menu mt-menu--inline">
+  <div v-else ref="menuRef" class="mt-menu mt-menu--inline" role="menu">
     <template v-for="(item, index) in items" :key="index">
-      <div v-if="item.separator" class="mt-menu__separator" />
+      <div v-if="item.separator" class="mt-menu__separator" role="separator" />
       <button
         v-else
         class="mt-menu__item"
+        role="menuitem"
         :class="{
           'mt-menu__item--disabled': item.disabled,
           'mt-menu__item--danger': item.danger,

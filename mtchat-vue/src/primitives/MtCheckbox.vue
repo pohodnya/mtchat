@@ -18,7 +18,13 @@ function handleChange(e: Event) {
 </script>
 
 <template>
-  <span class="mt-checkbox" :class="{ 'mt-checkbox--disabled': disabled }">
+  <span
+    class="mt-checkbox"
+    :class="{ 'mt-checkbox--disabled': disabled }"
+    role="checkbox"
+    :aria-checked="modelValue"
+    :aria-disabled="disabled"
+  >
     <input
       type="checkbox"
       :checked="modelValue"

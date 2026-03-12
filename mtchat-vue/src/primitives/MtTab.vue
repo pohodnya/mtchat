@@ -28,6 +28,8 @@ function handleClick() {
   <button
     type="button"
     class="mt-tab"
+    role="tab"
+    :aria-selected="isActive"
     :class="{
       'mt-tab--active': isActive,
       'mt-tab--disabled': disabled,
