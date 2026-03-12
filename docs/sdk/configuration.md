@@ -12,9 +12,9 @@ const config: MTChatConfig = {
   baseUrl: 'https://chat.example.com',
   userId: 'user-uuid',
   scopeConfig: {
-    tenant_uid: 'tenant-uuid',
-    scope_level1: ['logistics'],
-    scope_level2: ['manager'],
+    tenantUid: 'tenant-uuid',
+    scopeLevel1: ['logistics'],
+    scopeLevel2: ['manager'],
   },
   userProfile: {
     displayName: 'John Doe',
@@ -54,18 +54,18 @@ const config: MTChatConfig = {
 
 ## ScopeConfig
 
-Scopes determine which "Available" dialogs a user can see and join. The matching logic is: **tenant matches AND at least one scope_level1 matches AND at least one scope_level2 matches**.
+Scopes determine which "Available" dialogs a user can see and join. The matching logic is: **tenant matches AND at least one scopeLevel1 matches AND at least one scopeLevel2 matches**.
 
 ```typescript
 interface ScopeConfig {
   /** Tenant/organization ID */
-  tenant_uid: string
+  tenantUid: string
 
   /** First scope level (e.g., departments) */
-  scope_level1: string[]
+  scopeLevel1: string[]
 
   /** Second scope level (e.g., roles or permissions) */
-  scope_level2: string[]
+  scopeLevel2: string[]
 }
 ```
 
@@ -74,14 +74,14 @@ interface ScopeConfig {
 ```typescript
 // User scopes
 const scopeConfig: ScopeConfig = {
-  tenant_uid: 'tenant-abc',
-  scope_level1: ['logistics', 'sales'],     // departments
-  scope_level2: ['manager', 'viewer'],       // roles
+  tenantUid: 'tenant-abc',
+  scopeLevel1: ['logistics', 'sales'],     // departments
+  scopeLevel2: ['manager', 'viewer'],       // roles
 }
 
 // A dialog with access scope:
-// { tenant_uid: 'tenant-abc', scope_level1: ['logistics'], scope_level2: ['manager', 'admin'] }
-// -> Match: tenant matches, 'logistics' in scope_level1, 'manager' in scope_level2
+// { tenantUid: 'tenant-abc', scopeLevel1: ['logistics'], scopeLevel2: ['manager', 'admin'] }
+// -> Match: tenant matches, 'logistics' in scopeLevel1, 'manager' in scopeLevel2
 // -> User sees this dialog in "Available" tab
 ```
 

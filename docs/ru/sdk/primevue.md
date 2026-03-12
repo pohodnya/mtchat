@@ -30,9 +30,9 @@ const config: MTChatConfig = {
   baseUrl: 'https://chat.example.com',
   userId: currentUser.id,
   scopeConfig: {
-    tenant_uid: currentUser.tenantId,
-    scope_level1: currentUser.departments,
-    scope_level2: currentUser.permissions,
+    tenantUid: currentUser.tenantId,
+    scopeLevel1: currentUser.departments,
+    scopeLevel2: currentUser.permissions,
   },
   userProfile: {
     displayName: currentUser.name,

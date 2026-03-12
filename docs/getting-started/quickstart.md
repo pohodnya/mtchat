@@ -44,9 +44,9 @@ curl -X POST http://localhost:8080/api/v1/management/dialogs \
     ],
     "access_scopes": [
       {
-        "tenant_uid": "tenant-uuid",
-        "scope_level1": ["logistics"],
-        "scope_level2": ["manager", "admin"]
+        "tenantUid": "tenant-uuid",
+        "scopeLevel1": ["logistics"],
+        "scopeLevel2": ["manager", "admin"]
       }
     ]
   }'
@@ -75,9 +75,9 @@ const chatConfig = {
   baseUrl: 'http://localhost:8080',
   userId: '11111111-1111-1111-1111-111111111111',
   scopeConfig: {
-    tenant_uid: 'tenant-uuid',
-    scope_level1: ['logistics'],
-    scope_level2: ['manager'],
+    tenantUid: 'tenant-uuid',
+    scopeLevel1: ['logistics'],
+    scopeLevel2: ['manager'],
   },
   userProfile: {
     displayName: 'Alice',

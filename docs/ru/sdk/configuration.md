@@ -40,13 +40,13 @@ interface MTChatConfig {
 ```typescript
 interface ScopeConfig {
   /** ID тенанта/организации */
-  tenant_uid: string
+  tenantUid: string
 
   /** Первый уровень scope (напр., отделы) */
-  scope_level1: string[]
+  scopeLevel1: string[]
 
   /** Второй уровень scope (напр., роли/права) */
-  scope_level2: string[]
+  scopeLevel2: string[]
 }
 ```
 
@@ -86,9 +86,9 @@ const config: MTChatConfig = {
   baseUrl: 'https://chat.example.com',
   userId: user.id,
   scopeConfig: {
-    tenant_uid: user.tenantId,
-    scope_level1: user.departments,
-    scope_level2: user.permissions,
+    tenantUid: user.tenantId,
+    scopeLevel1: user.departments,
+    scopeLevel2: user.permissions,
   },
   userProfile: {
     displayName: user.fullName,
