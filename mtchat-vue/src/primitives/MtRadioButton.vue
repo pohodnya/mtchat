@@ -73,7 +73,7 @@ function handleChange() {
 }
 
 .mt-radio__input:focus-visible + .mt-radio__circle {
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 3px var(--mtchat-focus-ring-strong, rgba(59, 130, 246, 0.2));
 }
 
 .mt-radio__dot {

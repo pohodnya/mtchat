@@ -87,11 +87,11 @@ function handleChange(e: Event) {
 }
 
 .mt-checkbox__input:focus-visible + .mt-checkbox__box {
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 3px var(--mtchat-focus-ring-strong, rgba(59, 130, 246, 0.2));
 }
 
 .mt-checkbox__check {
-  color: white;
+  color: var(--mtchat-text-on-primary, #ffffff);
 }
 
 .mt-checkbox__label {

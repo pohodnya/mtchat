@@ -89,7 +89,7 @@ function handleClick() {
 }
 
 .mt-tab--active .mt-tab__badge {
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--mtchat-focus-ring, rgba(59, 130, 246, 0.1));
   color: var(--mtchat-primary, #3b82f6);
 }
 </style>

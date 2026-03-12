@@ -124,7 +124,7 @@ defineExpose<MtInputExpose>({
 .mt-input:focus {
   outline: none;
   border-color: var(--mtchat-primary, #3b82f6);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px var(--mtchat-focus-ring, rgba(59, 130, 246, 0.1));
 }
 
 .mt-input::placeholder {
@@ -139,11 +139,11 @@ defineExpose<MtInputExpose>({
 }
 
 .mt-input-wrapper--invalid .mt-input {
-  border-color: #ef4444;
+  border-color: var(--mtchat-danger, #ef4444);
 }
 
 .mt-input-wrapper--invalid .mt-input:focus {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  box-shadow: 0 0 0 3px var(--mtchat-danger-light, rgba(239, 68, 68, 0.1));
 }
 
 /* Clear button */

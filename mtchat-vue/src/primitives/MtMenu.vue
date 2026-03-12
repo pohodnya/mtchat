@@ -168,7 +168,7 @@ defineExpose<MtMenuExpose>({
   background: var(--mtchat-bg, #ffffff);
   border: 1px solid var(--mtchat-border, #e2e8f0);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px var(--mtchat-shadow, rgba(0, 0, 0, 0.15));
   z-index: 1000;
   min-width: 160px;
   padding: 4px;
@@ -215,7 +215,7 @@ defineExpose<MtMenuExpose>({
 }
 
 .mt-menu__item--danger {
-  color: #ef4444;
+  color: var(--mtchat-danger, #ef4444);
 }
 
 .mt-menu__icon {

@@ -671,12 +671,18 @@ defineExpose({
   --mtchat-bg-hover: #f1f5f9;
   --mtchat-text: #1e293b;
   --mtchat-text-secondary: #64748b;
+  --mtchat-text-on-primary: #ffffff;
   --mtchat-border: #e2e8f0;
   --mtchat-primary: #3b82f6;
   --mtchat-primary-bg: rgba(59, 130, 246, 0.1);
   --mtchat-danger: #ef4444;
+  --mtchat-danger-hover: #dc2626;
+  --mtchat-danger-light: rgba(239, 68, 68, 0.1);
   --mtchat-success: #22c55e;
   --mtchat-warning: #f59e0b;
+  --mtchat-focus-ring: rgba(59, 130, 246, 0.1);
+  --mtchat-focus-ring-strong: rgba(59, 130, 246, 0.2);
+  --mtchat-shadow: rgba(0, 0, 0, 0.15);
 }
 
 .mtchat--dark {
@@ -685,12 +691,18 @@ defineExpose({
   --mtchat-bg-hover: #3d3d3d;
   --mtchat-text: #e4e4e7;
   --mtchat-text-secondary: #a1a1aa;
+  --mtchat-text-on-primary: #ffffff;
   --mtchat-border: #3f3f46;
   --mtchat-primary: #60a5fa;
   --mtchat-primary-bg: rgba(96, 165, 250, 0.15);
   --mtchat-danger: #f87171;
+  --mtchat-danger-hover: #ef4444;
+  --mtchat-danger-light: rgba(248, 113, 113, 0.15);
   --mtchat-success: #4ade80;
   --mtchat-warning: #fbbf24;
+  --mtchat-focus-ring: rgba(96, 165, 250, 0.1);
+  --mtchat-focus-ring-strong: rgba(96, 165, 250, 0.2);
+  --mtchat-shadow: rgba(0, 0, 0, 0.3);
 }
 
 /* Main area */

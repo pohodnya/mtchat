@@ -95,7 +95,7 @@ const emit = defineEmits<{
 /* Variants */
 .mt-button--primary {
   background: var(--mtchat-primary);
-  color: white;
+  color: var(--mtchat-text-on-primary, #ffffff);
 }
 
 .mt-button--primary:hover:not(:disabled) {
@@ -112,12 +112,12 @@ const emit = defineEmits<{
 }
 
 .mt-button--danger {
-  background: #ef4444;
-  color: white;
+  background: var(--mtchat-danger, #ef4444);
+  color: var(--mtchat-text-on-primary, #ffffff);
 }
 
 .mt-button--danger:hover:not(:disabled) {
-  background: #dc2626;
+  background: var(--mtchat-danger-hover, #dc2626);
 }
 
 .mt-button--ghost {
