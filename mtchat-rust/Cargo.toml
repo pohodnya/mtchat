@@ -10,8 +10,9 @@ description = "B2B/B2C Chat Platform Backend"
 # Web framework
 axum = { version = "0.8", features = ["ws", "macros"] }
 axum-extra = { version = "0.10", features = ["typed-header"] }
-tower = { version = "0.5", features = ["util", "timeout"] }
-tower-http = { version = "0.6", features = ["cors", "trace", "request-id", "util", "compression-gzip"] }
+tower = { version = "0.5", features = ["util", "timeout", "limit"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "request-id", "util", "compression-gzip", "limit"] }
+governor = "0.8"
 
 # Async runtime
 tokio = { version = "1.43", features = ["full"] }

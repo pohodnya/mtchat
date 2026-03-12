@@ -7,7 +7,7 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use multitenancy_chat_api::config::{CorsConfig, JwtConfig};
+use multitenancy_chat_api::config::{CorsConfig, JwtConfig, RateLimitConfig};
 use sqlx::postgres::PgPoolOptions;
 use std::{env, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -134,6 +134,19 @@ async fn main() {
     );
     let cors = cors_config.into_layer();
 
+    // Initialize rate limiting
+    let rate_limit_config = RateLimitConfig::from_env();
+    let rate_limiter = rate_limit_config.create_limiter();
+    if rate_limiter.is_some() {
+        tracing::info!(
+            "Rate limiting enabled: {} req/s, burst {}",
+            rate_limit_config.requests_per_second,
+            rate_limit_config.burst_size
+        );
+    } else {
+        tracing::info!("Rate limiting disabled");
+    }
+
     // Management API routes (with admin auth middleware)
     let management_routes = Router::new()
         .route("/dialogs", post(api::management::management_create_dialog))
@@ -213,6 +226,9 @@ async fn main() {
         .nest("/api/v1", chat_routes)
         // WebSocket (JWT validated in handler)
         .route("/api/v1/ws", get(api::ws_handler::ws_handler))
+        .layer(axum_middleware::from_fn(move |req, next| {
+            middleware::rate_limit(req, next, rate_limiter.clone())
+        }))
         .layer(cors)
         .with_state(state.clone());
 
