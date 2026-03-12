@@ -336,22 +336,43 @@ pub async fn leave_dialog(
         .and_then(|p| p.display_name.clone())
         .unwrap_or_else(|| "Участник".to_string());
 
-    state.participants.remove(dialog_id, user_id).await?;
-
-    // Create system message "participant left"
+    // Create system message
     let system_msg = Message::system(
         dialog_id,
         system_messages::participant_left_content(&display_name),
     );
-    let system_msg = state.messages.create(&system_msg).await?;
 
-    // Broadcast system message via WebSocket
+    // All DB writes in a transaction
+    let mut tx = state.db.begin().await?;
+
+    // Remove participant
+    sqlx::query("DELETE FROM dialog_participants WHERE dialog_id = $1 AND user_id = $2")
+        .bind(dialog_id)
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await?;
+
+    // Insert system message
+    let system_msg = sqlx::query_as::<_, Message>(
+        r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at, reply_to_id, message_type)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING *"#,
+    )
+    .bind(system_msg.id)
+    .bind(system_msg.dialog_id)
+    .bind(system_msg.sender_id)
+    .bind(&system_msg.content)
+    .bind(system_msg.sent_at)
+    .bind(system_msg.reply_to_id)
+    .bind(system_msg.message_type.as_str())
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+
+    // Broadcast and webhook after transaction is committed
     ws::broadcast_message(&state.connections, dialog_id, &system_msg).await;
-
-    // Broadcast participant left event (for dialog list updates)
     ws::broadcast_participant_left(&state.connections, dialog_id, user_id).await;
-
-    // Send webhook
     state
         .webhooks
         .send(WebhookEvent::participant_left(&dialog, user_id))

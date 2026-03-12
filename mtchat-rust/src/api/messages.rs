@@ -463,21 +463,39 @@ pub async fn edit_message(
         return Err(ApiError::BadRequest("Cannot edit system messages".into()));
     }
 
-    // Save old content to history
-    state
-        .messages
-        .save_edit_history(message_id, &message.content)
-        .await?;
-
-    // Sanitize and update content
+    // Sanitize content
     let sanitized = domain::sanitize_html(&req.content);
-    let updated = state
-        .messages
-        .update_content(message_id, &sanitized)
-        .await?
-        .ok_or_else(|| ApiError::Internal("Failed to update message".into()))?;
 
-    // Broadcast via WebSocket
+    // All DB writes in a transaction
+    let mut tx = state.db.begin().await?;
+
+    // Save old content to history
+    sqlx::query(
+        r#"INSERT INTO message_edit_history (id, message_id, old_content, edited_at)
+           VALUES ($1, $2, $3, NOW())"#,
+    )
+    .bind(Uuid::now_v7())
+    .bind(message_id)
+    .bind(&message.content)
+    .execute(&mut *tx)
+    .await?;
+
+    // Update message content
+    let updated = sqlx::query_as::<_, Message>(
+        r#"UPDATE messages
+           SET content = $2, last_edited_at = NOW()
+           WHERE id = $1
+           RETURNING *"#,
+    )
+    .bind(message_id)
+    .bind(&sanitized)
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or_else(|| ApiError::Internal("Failed to update message".into()))?;
+
+    tx.commit().await?;
+
+    // Broadcast via WebSocket after transaction is committed
     ws::broadcast_message_edited(&state.connections, &updated).await;
 
     Ok(Json(ApiResponse { data: updated }))
