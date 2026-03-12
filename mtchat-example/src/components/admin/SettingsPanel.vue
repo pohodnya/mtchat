@@ -31,6 +31,48 @@
       />
     </div>
 
+    <!-- JWT Settings -->
+    <div class="form-section">
+      <h3>JWT Authentication</h3>
+      <p class="section-description">
+        Enable JWT authentication for Chat API. When enabled, tokens are generated for each user.
+        <br>
+        <strong>Note:</strong> Backend must have matching JWT_SECRET configured.
+      </p>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>JWT Enabled</label>
+          <div class="checkbox-field">
+            <Checkbox
+              v-model="localSettings.jwtEnabled"
+              :binary="true"
+              input-id="jwt-enabled"
+            />
+            <label for="jwt-enabled" class="checkbox-label">
+              Enable JWT authentication
+            </label>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>JWT Secret</label>
+          <InputText
+            v-model="localSettings.jwtSecret"
+            placeholder="Must match backend JWT_SECRET"
+            class="w-full"
+            type="password"
+            :disabled="!localSettings.jwtEnabled"
+          />
+          <small>Shared secret for signing tokens (HS256)</small>
+        </div>
+      </div>
+      <Button
+        label="Save JWT Settings"
+        icon="pi pi-save"
+        class="mt-3"
+        @click="saveJwtSettings"
+      />
+    </div>
+
     <!-- Data Management -->
     <div class="form-section">
       <h3>Data Management</h3>
@@ -100,6 +142,7 @@ import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
+import Checkbox from 'primevue/checkbox'
 import ConfirmDialog from 'primevue/confirmdialog'
 import { useSettings, useTenants, useUsers, useObjects, useDialogRefs, generateUUID } from '../../composables'
 import { STORAGE_KEYS, DEFAULT_SETTINGS } from '../../types'
@@ -118,12 +161,16 @@ const importInput = ref<HTMLInputElement>()
 const localSettings = reactive({
   adminToken: settings.value.adminToken,
   apiBaseUrl: settings.value.apiBaseUrl,
+  jwtEnabled: settings.value.jwtEnabled,
+  jwtSecret: settings.value.jwtSecret,
 })
 
 // Sync when settings change externally
 watch(settings, (newVal) => {
   localSettings.adminToken = newVal.adminToken
   localSettings.apiBaseUrl = newVal.apiBaseUrl
+  localSettings.jwtEnabled = newVal.jwtEnabled
+  localSettings.jwtSecret = newVal.jwtSecret
 })
 
 function saveSettings() {
@@ -135,6 +182,29 @@ function saveSettings() {
     severity: 'success',
     summary: 'Saved',
     detail: 'Settings saved',
+    life: 3000,
+  })
+}
+
+function saveJwtSettings() {
+  if (localSettings.jwtEnabled && !localSettings.jwtSecret) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Warning',
+      detail: 'JWT Secret is required when JWT is enabled',
+      life: 5000,
+    })
+    return
+  }
+
+  updateSettings({
+    jwtEnabled: localSettings.jwtEnabled,
+    jwtSecret: localSettings.jwtSecret,
+  })
+  toast.add({
+    severity: 'success',
+    summary: 'Saved',
+    detail: 'JWT settings saved',
     life: 3000,
   })
 }
@@ -223,6 +293,8 @@ function confirmReset() {
       resetSettings()
       localSettings.adminToken = DEFAULT_SETTINGS.adminToken
       localSettings.apiBaseUrl = DEFAULT_SETTINGS.apiBaseUrl
+      localSettings.jwtEnabled = DEFAULT_SETTINGS.jwtEnabled
+      localSettings.jwtSecret = DEFAULT_SETTINGS.jwtSecret
 
       toast.add({
         severity: 'info',
@@ -383,5 +455,17 @@ h3 {
   font-size: 13px;
   color: #475569;
   margin-bottom: 12px;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.checkbox-label {
+  cursor: pointer;
+  user-select: none;
 }
 </style>

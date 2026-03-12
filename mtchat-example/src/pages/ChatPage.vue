@@ -13,6 +13,15 @@
       </div>
     </div>
 
+    <!-- Waiting for JWT token -->
+    <div v-else-if="!isJwtReady" class="no-user-overlay">
+      <div class="no-user-content">
+        <i class="pi pi-spin pi-spinner" />
+        <h2>Loading...</h2>
+        <p>Generating authentication token</p>
+      </div>
+    </div>
+
     <!-- Chat Component (Full Mode) -->
     <div v-else class="chat-full-wrapper">
       <MTChatPrime
@@ -102,12 +111,19 @@ import Toast from 'primevue/toast'
 import Dialog from 'primevue/dialog'
 import { MTChatPrime, MTChatConfig, Message } from '@mtchat/vue-primevue'
 import DemoLayout from '../components/DemoLayout.vue'
-import { useUsers, useSettings, useTenants } from '../composables'
+import { useUsers, useSettings, useTenants, useJwt } from '../composables'
 
 const toast = useToast()
 const { users, currentUser } = useUsers()
 const { settings } = useSettings()
 const { getTenant } = useTenants()
+const { token: jwtToken } = useJwt()
+
+// JWT ready check: either JWT disabled, or token generated
+const isJwtReady = computed(() => {
+  if (!settings.value.jwtEnabled) return true
+  return !!jwtToken.value
+})
 
 // Create chat dialog
 const showCreateDialog = ref(false)
@@ -122,9 +138,9 @@ const chatConfig = computed<MTChatConfig>(() => {
       baseUrl: settings.value.apiBaseUrl,
       userId: '',
       scopeConfig: {
-        tenant_uid: '',
-        scope_level1: [],
-        scope_level2: [],
+        tenantUid: '',
+        scopeLevel1: [],
+        scopeLevel2: [],
       },
       userProfile: {
         displayName: '',
@@ -138,10 +154,11 @@ const chatConfig = computed<MTChatConfig>(() => {
   return {
     baseUrl: settings.value.apiBaseUrl,
     userId: currentUser.value.id,
+    token: jwtToken.value,
     scopeConfig: {
-      tenant_uid: currentUser.value.tenantId,
-      scope_level1: currentUser.value.scopeLevel1,
-      scope_level2: currentUser.value.scopeLevel2,
+      tenantUid: currentUser.value.tenantId,
+      scopeLevel1: currentUser.value.scopeLevel1,
+      scopeLevel2: currentUser.value.scopeLevel2,
     },
     userProfile: {
       displayName: currentUser.value.name,

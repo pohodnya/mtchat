@@ -94,6 +94,7 @@ pub struct ErrorBody {
 pub enum ApiError {
     NotFound(String),
     BadRequest(String),
+    Unauthorized(String),
     Forbidden(String),
     Internal(String),
 }
@@ -103,6 +104,7 @@ impl IntoResponse for ApiError {
         let (status, code, message) = match self {
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, "NOT_FOUND", msg),
             ApiError::BadRequest(msg) => (StatusCode::BAD_REQUEST, "BAD_REQUEST", msg),
+            ApiError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", msg),
             ApiError::Forbidden(msg) => (StatusCode::FORBIDDEN, "FORBIDDEN", msg),
             ApiError::Internal(msg) => {
                 tracing::error!("Internal error: {}", msg);

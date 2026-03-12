@@ -64,6 +64,7 @@ provideRegistry(primevueRegistry)
       :show-header="showHeader"
       :show-sidebar="showSidebar"
       :theme="theme"
+      :token="token"
       @connected="$emit('connected')"
       @disconnected="$emit('disconnected')"
       @error="$emit('error', $event)"

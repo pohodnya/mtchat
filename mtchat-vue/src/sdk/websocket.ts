@@ -9,8 +9,12 @@ import type { WsEvent, WsClientMessage } from '../types'
 export type WsEventHandler = (event: WsEvent) => void
 
 export interface WsClientOptions {
-  /** WebSocket URL (with query parameters already included) */
+  /** WebSocket URL (base URL without query parameters) */
   url: string
+  /** User ID for connection */
+  userId: string
+  /** JWT token for authentication (optional) */
+  token?: string
   onConnect?: () => void
   onDisconnect?: () => void
   onError?: (error: Error) => void
@@ -25,11 +29,12 @@ export interface WsClientOptions {
 
 export class MTChatWebSocket {
   private ws: WebSocket | null = null
-  private options: Required<WsClientOptions>
+  private options: Required<Omit<WsClientOptions, 'token'>> & Pick<WsClientOptions, 'token'>
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private isManualClose = false
   private subscribedDialogs: Set<string> = new Set()
+  private wsUrl: string
 
   constructor(options: WsClientOptions) {
     this.options = {
@@ -42,6 +47,25 @@ export class MTChatWebSocket {
       onMessage: () => {},
       ...options,
     }
+
+    // Build WebSocket URL with appropriate auth params
+    this.wsUrl = this.buildWsUrl()
+  }
+
+  /**
+   * Build WebSocket URL with authentication parameters
+   * Uses token param when JWT is provided, otherwise user_id
+   */
+  private buildWsUrl(): string {
+    const { url, userId, token } = this.options
+
+    if (token) {
+      // JWT auth mode: use token parameter
+      return `${url}?token=${encodeURIComponent(token)}`
+    }
+
+    // Legacy mode: use user_id parameter
+    return `${url}?user_id=${userId}`
   }
 
   connect(): void {
@@ -52,7 +76,7 @@ export class MTChatWebSocket {
     this.isManualClose = false
 
     try {
-      this.ws = new WebSocket(this.options.url)
+      this.ws = new WebSocket(this.wsUrl)
       this.setupEventHandlers()
     } catch (error) {
       this.options.onError(error as Error)

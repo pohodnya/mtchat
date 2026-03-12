@@ -35,6 +35,8 @@ const props = withDefaults(
     showSidebar?: boolean
     /** Theme name — applied as CSS class `mtchat--${theme}` */
     theme?: string
+    /** JWT token for authentication (overrides config.token) */
+    token?: string
   }>(),
   {
     mode: 'full',
@@ -64,9 +66,15 @@ watch(() => props.config.locale, (newLocale) => {
   }
 })
 
+// Merge token prop into config (prop takes precedence)
+const effectiveConfig = computed<MTChatConfig>(() => ({
+  ...props.config,
+  token: props.token ?? props.config.token,
+}))
+
 // Chat composable
 const chat = useChat({
-  config: props.config,
+  config: effectiveConfig.value,
   dialogId: props.dialogId,
   objectId: props.objectId,
   objectType: props.objectType,
@@ -132,13 +140,18 @@ const allAttachments = computed(() => {
 
 // ============ Watchers ============
 
+// Track if we've connected before to distinguish reconnect from initial connect
+let hasConnectedBefore = false
+
 watch(() => chat.isConnected.value, (connected) => {
   if (connected) {
     emit('connected')
-    if (!isInlineMode.value) {
+    // On reconnect, reload dialogs to catch any changes while disconnected
+    if (hasConnectedBefore && !isInlineMode.value) {
       chat.loadParticipatingDialogs()
       chat.loadAvailableDialogs()
     }
+    hasConnectedBefore = true
   } else {
     emit('disconnected')
   }
@@ -407,6 +420,12 @@ function handleWindowResize() {
 
 onMounted(() => {
   window.addEventListener('resize', handleWindowResize)
+
+  // Load dialogs immediately for full mode (independent of WebSocket connection)
+  if (!isInlineMode.value) {
+    chat.loadParticipatingDialogs()
+    chat.loadAvailableDialogs()
+  }
 })
 
 onUnmounted(() => {

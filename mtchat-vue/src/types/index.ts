@@ -361,15 +361,15 @@ export function getFileIconName(contentType?: string): string {
 
 /**
  * Scope configuration for current user
- * Passed to API via X-Scope-Config header (base64 JSON)
+ * Passed to API via X-Scope-Config header (converted to snake_case)
  */
 export interface ScopeConfig {
   /** User's tenant/organization ID */
-  tenant_uid: string
+  tenantUid: string
   /** First level scope (e.g., departments) */
-  scope_level1: string[]
+  scopeLevel1: string[]
   /** Second level scope (e.g., roles/permissions) */
-  scope_level2: string[]
+  scopeLevel2: string[]
 }
 
 /**
@@ -500,6 +500,8 @@ export interface MTChatConfig {
   wsUrl?: string
   /** Current user ID */
   userId: string
+  /** JWT token for authentication (optional, enables secure auth when provided) */
+  token?: string
   /** User's scope configuration for access control */
   scopeConfig: ScopeConfig
   /** User's profile for display in chats */
@@ -549,6 +551,8 @@ export interface MTChatProps {
   showSidebar?: boolean
   /** Theme name — applied as CSS class `mtchat--${theme}` */
   theme?: string
+  /** JWT token for authentication (overrides config.token) */
+  token?: string
 }
 
 // ============ Composable Types ============

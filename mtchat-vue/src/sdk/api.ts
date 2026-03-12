@@ -26,18 +26,26 @@ export class MTChatApi {
   private baseUrl: string
   private userId: string
   private scopeConfig: ScopeConfig
+  private token?: string
 
-  constructor(baseUrl: string, userId: string, scopeConfig: ScopeConfig) {
+  constructor(baseUrl: string, userId: string, scopeConfig: ScopeConfig, token?: string) {
     this.baseUrl = baseUrl.replace(/\/$/, '')
     this.userId = userId
     this.scopeConfig = scopeConfig
+    this.token = token
   }
 
   /**
    * Encode scope config as base64 JSON for X-Scope-Config header
+   * Converts camelCase to snake_case for backend compatibility
    */
   private encodeScopeConfig(): string {
-    const json = JSON.stringify(this.scopeConfig)
+    const snakeCaseConfig = {
+      tenant_uid: this.scopeConfig.tenantUid,
+      scope_level1: this.scopeConfig.scopeLevel1,
+      scope_level2: this.scopeConfig.scopeLevel2,
+    }
+    const json = JSON.stringify(snakeCaseConfig)
     return btoa(json)
   }
 
@@ -45,10 +53,17 @@ export class MTChatApi {
    * Build common headers for requests
    */
   private getHeaders(): HeadersInit {
-    return {
+    const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'X-Scope-Config': this.encodeScopeConfig(),
     }
+
+    // Add Authorization header if token is provided
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`
+    }
+
+    return headers
   }
 
   /**

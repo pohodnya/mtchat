@@ -30,7 +30,13 @@
         :tabs="['Информация', 'Маршрут', 'Чат']"
         @close="selectedObjectId = null"
       >
+        <!-- Waiting for JWT -->
+        <div v-if="!isJwtReady" class="jwt-loading">
+          <i class="pi pi-spin pi-spinner" />
+          <span>Loading...</span>
+        </div>
         <MTChatPrime
+          v-else
           :key="chatKey"
           :config="chatConfig"
           mode="inline"
@@ -58,7 +64,7 @@ import { MTChatPrime, MTChatConfig } from '@mtchat/vue-primevue'
 import DemoLayout from '../components/DemoLayout.vue'
 import DemoDataTable from '../components/DemoDataTable.vue'
 import DemoChatPanel from '../components/DemoChatPanel.vue'
-import { useUsers, useObjects, useSettings, useTenants } from '../composables'
+import { useUsers, useObjects, useSettings, useTenants, useJwt } from '../composables'
 import type { MockObject } from '../types'
 
 const route = useRoute()
@@ -69,7 +75,13 @@ const { users, currentUser } = useUsers()
 const { sortedObjects, getObject } = useObjects()
 const { settings } = useSettings()
 const { getTenant } = useTenants()
+const { token: jwtToken } = useJwt()
 
+// JWT ready check: either JWT disabled, or token generated
+const isJwtReady = computed(() => {
+  if (!settings.value.jwtEnabled) return true
+  return !!jwtToken.value
+})
 
 // Selected object
 const selectedObjectId = ref<string | null>(null)
@@ -83,7 +95,7 @@ const selectedObject = computed(() =>
   selectedObjectId.value ? getObject(selectedObjectId.value) : null
 )
 
-// Key for remounting MTChat when object, user, or locale changes
+// Key for remounting MTChat when object or user changes
 const chatKey = computed(() => {
   const objKey = selectedObject.value ? `${selectedObject.value.type}-${selectedObject.value.id}` : 'none'
   const userKey = currentUser.value?.id || 'no-user'
@@ -97,9 +109,9 @@ const chatConfig = computed<MTChatConfig>(() => {
       baseUrl: settings.value.apiBaseUrl,
       userId: '',
       scopeConfig: {
-        tenant_uid: '',
-        scope_level1: [],
-        scope_level2: [],
+        tenantUid: '',
+        scopeLevel1: [],
+        scopeLevel2: [],
       },
       userProfile: {
         displayName: '',
@@ -113,10 +125,11 @@ const chatConfig = computed<MTChatConfig>(() => {
   return {
     baseUrl: settings.value.apiBaseUrl,
     userId: currentUser.value.id,
+    token: jwtToken.value,
     scopeConfig: {
-      tenant_uid: currentUser.value.tenantId,
-      scope_level1: currentUser.value.scopeLevel1,
-      scope_level2: currentUser.value.scopeLevel2,
+      tenantUid: currentUser.value.tenantId,
+      scopeLevel1: currentUser.value.scopeLevel1,
+      scopeLevel2: currentUser.value.scopeLevel2,
     },
     userProfile: {
       displayName: currentUser.value.name,
@@ -220,5 +233,19 @@ function onError(error: Error) {
 
 .no-user-content a:hover {
   text-decoration: underline;
+}
+
+.jwt-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--demo-text-secondary, #888);
+}
+
+.jwt-loading i {
+  font-size: 24px;
 }
 </style>

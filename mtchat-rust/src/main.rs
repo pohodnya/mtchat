@@ -7,7 +7,7 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
-use multitenancy_chat_api::config::CorsConfig;
+use multitenancy_chat_api::config::{CorsConfig, JwtConfig};
 use sqlx::postgres::PgPoolOptions;
 use std::{env, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -37,6 +37,9 @@ async fn main() {
 
     // Initialize admin token (read once, constant-time comparison)
     middleware::init_admin_token();
+
+    // Initialize JWT config for Chat API authentication
+    JwtConfig::init();
 
     let database_url = env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/multitenancy_chat".into());
@@ -153,67 +156,62 @@ async fn main() {
         )
         .layer(axum_middleware::from_fn(middleware::admin_auth::admin_auth));
 
-    let app = Router::new()
-        // Health
-        .route("/health", get(api::health::health))
-        .route("/health/ready", get(api::health::health_ready))
-        // Management API (protected)
-        .nest("/api/v1/management", management_routes)
-        // Chat API - Dialogs
-        .route("/api/v1/dialogs", get(api::dialogs::list_dialogs))
-        .route("/api/v1/dialogs/{id}", get(api::dialogs::get_dialog))
+    // Chat API routes (with optional JWT middleware)
+    let chat_routes = Router::new()
+        // Dialogs
+        .route("/dialogs", get(api::dialogs::list_dialogs))
+        .route("/dialogs/{id}", get(api::dialogs::get_dialog))
         .route(
-            "/api/v1/dialogs/by-object/{object_type}/{object_id}",
+            "/dialogs/by-object/{object_type}/{object_id}",
             get(api::dialogs::get_dialog_by_object),
         )
-        .route("/api/v1/dialogs/{id}/join", post(api::dialogs::join_dialog))
+        .route("/dialogs/{id}/join", post(api::dialogs::join_dialog))
+        .route("/dialogs/{id}/leave", post(api::dialogs::leave_dialog))
+        .route("/dialogs/{id}/archive", post(api::dialogs::archive_dialog))
         .route(
-            "/api/v1/dialogs/{id}/leave",
-            post(api::dialogs::leave_dialog),
-        )
-        .route(
-            "/api/v1/dialogs/{id}/archive",
-            post(api::dialogs::archive_dialog),
-        )
-        .route(
-            "/api/v1/dialogs/{id}/unarchive",
+            "/dialogs/{id}/unarchive",
             post(api::dialogs::unarchive_dialog),
         )
-        .route("/api/v1/dialogs/{id}/pin", post(api::dialogs::pin_dialog))
+        .route("/dialogs/{id}/pin", post(api::dialogs::pin_dialog))
+        .route("/dialogs/{id}/unpin", post(api::dialogs::unpin_dialog))
         .route(
-            "/api/v1/dialogs/{id}/unpin",
-            post(api::dialogs::unpin_dialog),
-        )
-        .route(
-            "/api/v1/dialogs/{id}/notifications",
+            "/dialogs/{id}/notifications",
             post(api::dialogs::set_dialog_notifications),
         )
         .route(
-            "/api/v1/dialogs/{id}/read",
+            "/dialogs/{id}/read",
             post(api::participants::mark_as_read),
         )
         .route(
-            "/api/v1/dialogs/{id}/participants",
+            "/dialogs/{id}/participants",
             get(api::participants::list_participants),
         )
-        // Chat API - Messages
+        // Messages
         .route(
-            "/api/v1/dialogs/{dialog_id}/messages",
+            "/dialogs/{dialog_id}/messages",
             get(api::messages::list_messages).post(api::messages::send_message),
         )
         .route(
-            "/api/v1/dialogs/{dialog_id}/messages/{id}",
+            "/dialogs/{dialog_id}/messages/{id}",
             get(api::messages::get_message)
                 .put(api::messages::edit_message)
                 .delete(api::messages::delete_message),
         )
         // Upload API
-        .route("/api/v1/upload/presign", post(api::upload::presign_upload))
-        .route(
-            "/api/v1/attachments/{id}/url",
-            get(api::upload::get_attachment_url),
-        )
-        // WebSocket
+        .route("/upload/presign", post(api::upload::presign_upload))
+        .route("/attachments/{id}/url", get(api::upload::get_attachment_url))
+        // Apply JWT middleware to all Chat API routes (when enabled)
+        .layer(axum_middleware::from_fn(middleware::jwt_auth::jwt_auth));
+
+    let app = Router::new()
+        // Health
+        .route("/health", get(api::health::health))
+        .route("/health/ready", get(api::health::health_ready))
+        // Management API (admin auth)
+        .nest("/api/v1/management", management_routes)
+        // Chat API (JWT auth when enabled)
+        .nest("/api/v1", chat_routes)
+        // WebSocket (JWT validated in handler)
         .route("/api/v1/ws", get(api::ws_handler::ws_handler))
         .layer(cors)
         .with_state(state.clone());

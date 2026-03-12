@@ -79,6 +79,10 @@ export interface AppSettings {
   apiBaseUrl: string
   theme: 'light' | 'dark'
   locale: Locale
+  /** Enable JWT authentication for Chat API (requires jwtSecret) */
+  jwtEnabled: boolean
+  /** JWT secret key (must match backend JWT_SECRET when jwtEnabled) */
+  jwtSecret: string
 }
 
 /**
@@ -89,6 +93,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   apiBaseUrl: window.location.origin,
   theme: 'light',
   locale: 'ru',
+  jwtEnabled: false,
+  jwtSecret: '',
 }
 
 /**

@@ -23,15 +23,17 @@ export class MTChatClient {
   constructor(config: MTChatConfig) {
     this.config = config
 
-    // Initialize REST API client
-    this.api = new MTChatApi(config.baseUrl, config.userId, config.scopeConfig)
+    // Initialize REST API client (with optional JWT token)
+    this.api = new MTChatApi(config.baseUrl, config.userId, config.scopeConfig, config.token)
 
     // Derive WebSocket URL from base URL if not provided
     const wsUrl = config.wsUrl || this.deriveWsUrl(config.baseUrl)
 
-    // Initialize WebSocket client
+    // Initialize WebSocket client (with optional JWT token)
     this.ws = new MTChatWebSocket({
-      url: `${wsUrl}?user_id=${config.userId}`,
+      url: wsUrl,
+      userId: config.userId,
+      token: config.token,
       onConnect: () => {
         config.onConnect?.()
         this.emit({ type: 'connected' })

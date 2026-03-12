@@ -221,6 +221,49 @@ CORS_ALLOWED_ORIGINS="https://app.example.com,https://admin.example.com"
 CORS_ALLOW_CREDENTIALS="true"
 ```
 
+### JWT Authentication (Chat API)
+
+Optional JWT authentication for Chat API. When enabled, validates token signature (HS256) without expiration check - the token is expected to be reused from the host application.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_AUTH_ENABLED` | `false` | Enable JWT authentication for Chat API |
+| `JWT_SECRET` | (required if enabled) | Secret key for HS256 signature verification |
+
+**How it works:**
+- REST API: Token passed in `Authorization: Bearer <token>` header
+- WebSocket: Token passed as `?token=<token>` query parameter
+- User ID extracted from JWT `sub` claim
+- When disabled, falls back to `?user_id=<uuid>` query parameter (legacy mode)
+
+**Token format (HS256):**
+```json
+{
+  "sub": "user-uuid-here",
+  "iat": 1234567890
+}
+```
+
+**Examples:**
+```bash
+# Development (JWT disabled - default)
+# Requests use ?user_id=<uuid> parameter
+
+# Production (JWT enabled)
+JWT_AUTH_ENABLED=true
+JWT_SECRET=your-secret-key-at-least-32-characters
+```
+
+**Frontend config with token:**
+```typescript
+const config: MTChatConfig = {
+  baseUrl: 'https://chat.example.com',
+  userId: user.id,
+  token: jwtToken,  // JWT token from host application
+  // ...
+}
+```
+
 ## Vue Component
 
 ### Full Mode (chat list)
@@ -269,9 +312,9 @@ const config: MTChatConfig = {
   userId: user.id,
   // Scope config for access matching
   scopeConfig: {
-    tenant_uid: user.tenant_id,
-    scope_level1: user.departments,
-    scope_level2: user.permissions,
+    tenantUid: user.tenantId,
+    scopeLevel1: user.departments,
+    scopeLevel2: user.permissions,
   },
   // User profile for join dialog
   userProfile: {
@@ -404,8 +447,27 @@ docker-compose up -d
 | Auto-archive inactive chats | ✅ |
 | Jump to unloaded reply | ✅ |
 | CORS configuration | ✅ |
+| JWT authentication (Chat API) | ✅ |
 
 ## Changelog
+
+### 2026-03-12 (v3.22) - JWT Authentication for Chat API
+- **Optional JWT authentication** for Chat API routes (when `JWT_AUTH_ENABLED=true`)
+- Validates token signature only (HS256), skips expiration check
+- User ID extracted from JWT `sub` claim
+- REST API: `Authorization: Bearer <token>` header
+- WebSocket: `?token=<token>` query parameter
+- Graceful fallback to `?user_id=<uuid>` when JWT disabled
+- New `JwtConfig` module in `mtchat-rust/src/config/`
+- New `jwt_auth` middleware in `mtchat-rust/src/middleware/`
+- `JwtUserId` extractor for handlers (auto-switches between JWT and query param)
+- Frontend: `token` prop added to `MTChatConfig`
+- SDK API client adds `Authorization` header when token provided
+- SDK WebSocket adds `token` query param when token provided
+- Demo app: JWT settings in Admin Panel (enable/secret)
+- Demo app: automatic token generation for demo users using `jose` library
+- Environment variables: `JWT_AUTH_ENABLED`, `JWT_SECRET`
+- Unit tests for JWT validation (valid, invalid signature, expired accepted)
 
 ### 2026-03-12 (v3.21) - CORS Configuration
 - **CORS via environment variables** - configure allowed origins, methods, headers
