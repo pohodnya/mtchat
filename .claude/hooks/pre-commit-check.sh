@@ -66,6 +66,20 @@ if [[ "$COMMAND" =~ git[[:space:]]+commit ]]; then
     fi
   fi
 
+  # All checks passed - modify command to skip git hook duplicate checks
+  MODIFIED_COMMAND="MTCHAT_PRECOMMIT_DONE=1 $COMMAND"
+
+  # Return modified command
+  jq -n --arg cmd "$MODIFIED_COMMAND" '{
+    "hookSpecificOutput": {
+      "hookEventName": "PreToolUse",
+      "permissionDecision": "allow",
+      "updatedInput": {
+        "command": $cmd
+      }
+    }
+  }'
+  exit 0
 fi
 
 exit 0

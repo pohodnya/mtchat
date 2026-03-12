@@ -1,6 +1,12 @@
 #!/bin/sh
 # Pre-commit hook for MTChat
 # Mirrors all CI checks from .github/workflows/ci.yml
+#
+# Skip if already validated by Claude Code hook (via env var)
+if [ "$MTCHAT_PRECOMMIT_DONE" = "1" ]; then
+    echo "✅ Pre-commit: already validated by Claude Code hook"
+    exit 0
+fi
 
 set -e
 
