@@ -178,10 +178,7 @@ async fn main() {
             "/dialogs/{id}/notifications",
             post(api::dialogs::set_dialog_notifications),
         )
-        .route(
-            "/dialogs/{id}/read",
-            post(api::participants::mark_as_read),
-        )
+        .route("/dialogs/{id}/read", post(api::participants::mark_as_read))
         .route(
             "/dialogs/{id}/participants",
             get(api::participants::list_participants),
@@ -199,7 +196,10 @@ async fn main() {
         )
         // Upload API
         .route("/upload/presign", post(api::upload::presign_upload))
-        .route("/attachments/{id}/url", get(api::upload::get_attachment_url))
+        .route(
+            "/attachments/{id}/url",
+            get(api::upload::get_attachment_url),
+        )
         // Apply JWT middleware to all Chat API routes (when enabled)
         .layer(axum_middleware::from_fn(middleware::jwt_auth::jwt_auth));
 

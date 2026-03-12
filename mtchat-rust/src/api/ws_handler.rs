@@ -43,8 +43,8 @@ fn extract_user_id(params: &HashMap<String, String>) -> Result<Uuid, Response> {
             (StatusCode::UNAUTHORIZED, "token query parameter required").into_response()
         })?;
 
-        let token_data =
-            decode::<JwtClaims>(token, &config.decoding_key, &config.validation).map_err(|e| {
+        let token_data = decode::<JwtClaims>(token, &config.decoding_key, &config.validation)
+            .map_err(|e| {
                 tracing::debug!("WebSocket JWT validation failed: {}", e);
                 (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
             })?;
