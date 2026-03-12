@@ -12,12 +12,10 @@ pub mod ws_handler;
 
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
+use dashmap::DashMap;
 use serde::Serialize;
 use sqlx::PgPool;
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use uuid::Uuid;
 
 use crate::jobs::JobProducer;
 use crate::repositories::{
@@ -33,7 +31,7 @@ use crate::ws;
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
-    pub connections: Arc<RwLock<HashMap<Uuid, ws::ConnectionTx>>>,
+    pub connections: ws::Connections,
     // Repositories
     pub dialogs: Arc<DialogRepository>,
     pub participants: Arc<ParticipantRepository>,
@@ -63,7 +61,7 @@ impl AppState {
             scopes: Arc::new(AccessScopeRepository::new(db.clone())),
             messages: Arc::new(MessageRepository::new(db.clone())),
             attachments: Arc::new(AttachmentRepository::new(db.clone())),
-            connections: Arc::new(RwLock::new(HashMap::new())),
+            connections: Arc::new(DashMap::new()),
             db,
             s3: Arc::new(s3),
             presence: Arc::new(presence),

@@ -1,18 +1,24 @@
 //! WebSocket handling
+//!
+//! Uses DashMap for lock-free concurrent access to connections,
+//! improving performance under high connection churn.
 
 use axum::extract::ws::{Message, WebSocket};
 use chrono::{DateTime, Utc};
+use dashmap::DashMap;
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::{mpsc, RwLock};
+use std::sync::Arc;
+use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::repositories::ParticipantRepository;
 use crate::services::PresenceService;
 
 pub type ConnectionTx = mpsc::Sender<String>;
-pub type Connections = Arc<RwLock<HashMap<Uuid, ConnectionTx>>>;
+/// Concurrent connection map using DashMap for better performance
+/// compared to RwLock<HashMap> under high contention.
+pub type Connections = Arc<DashMap<Uuid, ConnectionTx>>;
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -96,10 +102,7 @@ pub async fn handle_socket(
     let (tx, mut rx) = mpsc::channel::<String>(100);
 
     // Register connection
-    {
-        let mut conns = connections.write().await;
-        conns.insert(user_id, tx.clone());
-    }
+    connections.insert(user_id, tx.clone());
 
     tracing::info!("WebSocket connected: {}", user_id);
 
@@ -165,10 +168,7 @@ pub async fn handle_socket(
     }
 
     // Cleanup
-    {
-        let mut conns = connections.write().await;
-        conns.remove(&user_id);
-    }
+    connections.remove(&user_id);
 
     // Set user as offline
     if let Err(e) = presence.set_offline(user_id).await {
@@ -222,10 +222,9 @@ async fn broadcast_presence(
     };
 
     // Broadcast to connected recipients (except the user themselves)
-    let conns = connections.read().await;
     for recipient_id in recipient_ids {
         if recipient_id != user_id {
-            if let Some(tx) = conns.get(&recipient_id) {
+            if let Some(tx) = connections.get(&recipient_id) {
                 let _ = tx.send(json.clone()).await;
             }
         }
@@ -251,9 +250,8 @@ pub async fn broadcast_message(
         Err(_) => return,
     };
 
-    let conns = connections.read().await;
-    for (_, tx) in conns.iter() {
-        let _ = tx.send(json.clone()).await;
+    for entry in connections.iter() {
+        let _ = entry.value().send(json.clone()).await;
     }
 }
 
@@ -274,9 +272,8 @@ pub async fn broadcast_read(
         Err(_) => return,
     };
 
-    let conns = connections.read().await;
-    for (_, tx) in conns.iter() {
-        let _ = tx.send(json.clone()).await;
+    for entry in connections.iter() {
+        let _ = entry.value().send(json.clone()).await;
     }
 }
 
@@ -298,9 +295,8 @@ pub async fn broadcast_message_edited(connections: &Connections, message: &crate
         Err(_) => return,
     };
 
-    let conns = connections.read().await;
-    for (_, tx) in conns.iter() {
-        let _ = tx.send(json.clone()).await;
+    for entry in connections.iter() {
+        let _ = entry.value().send(json.clone()).await;
     }
 }
 
@@ -319,9 +315,8 @@ pub async fn broadcast_message_deleted(
         Err(_) => return,
     };
 
-    let conns = connections.read().await;
-    for (_, tx) in conns.iter() {
-        let _ = tx.send(json.clone()).await;
+    for entry in connections.iter() {
+        let _ = entry.value().send(json.clone()).await;
     }
 }
 
@@ -337,9 +332,8 @@ pub async fn broadcast_participant_joined(
         Err(_) => return,
     };
 
-    let conns = connections.read().await;
-    for (_, tx) in conns.iter() {
-        let _ = tx.send(json.clone()).await;
+    for entry in connections.iter() {
+        let _ = entry.value().send(json.clone()).await;
     }
 }
 
@@ -351,9 +345,8 @@ pub async fn broadcast_participant_left(connections: &Connections, dialog_id: Uu
         Err(_) => return,
     };
 
-    let conns = connections.read().await;
-    for (_, tx) in conns.iter() {
-        let _ = tx.send(json.clone()).await;
+    for entry in connections.iter() {
+        let _ = entry.value().send(json.clone()).await;
     }
 }
 
@@ -370,9 +363,8 @@ pub async fn broadcast_dialog_archived(
         Err(_) => return,
     };
 
-    let conns = connections.read().await;
     for user_id in user_ids {
-        if let Some(tx) = conns.get(user_id) {
+        if let Some(tx) = connections.get(user_id) {
             let _ = tx.send(json.clone()).await;
         }
     }
@@ -398,10 +390,9 @@ pub async fn broadcast_dialog_unarchived(
         "Broadcasting dialog.unarchived event"
     );
 
-    let conns = connections.read().await;
     let mut sent_count = 0;
     for user_id in user_ids {
-        if let Some(tx) = conns.get(user_id) {
+        if let Some(tx) = connections.get(user_id) {
             if tx.send(json.clone()).await.is_ok() {
                 sent_count += 1;
             }
