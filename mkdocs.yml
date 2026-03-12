@@ -25,8 +25,7 @@ theme:
     text: Roboto
     code: Roboto Mono
   features:
-    - navigation.instant
-    - navigation.instant.prefetch
+    # navigation.instant disabled - incompatible with i18n language switcher
     - navigation.tracking
     - navigation.sections
     - navigation.expand
