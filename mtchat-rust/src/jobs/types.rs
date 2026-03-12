@@ -69,10 +69,10 @@ mod tests {
 
     #[test]
     fn test_notification_job_creation() {
-        let dialog_id = Uuid::new_v4();
-        let recipient_id = Uuid::new_v4();
-        let message_id = Uuid::new_v4();
-        let sender_id = Uuid::new_v4();
+        let dialog_id = Uuid::now_v7();
+        let recipient_id = Uuid::now_v7();
+        let message_id = Uuid::now_v7();
+        let sender_id = Uuid::now_v7();
 
         let job = NotificationJob::new(dialog_id, recipient_id, message_id, sender_id);
 
@@ -85,10 +85,10 @@ mod tests {
     #[test]
     fn test_notification_job_serialization() {
         let job = NotificationJob::new(
-            Uuid::new_v4(),
-            Uuid::new_v4(),
-            Uuid::new_v4(),
-            Uuid::new_v4(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
         );
 
         let json = serde_json::to_string(&job).unwrap();
