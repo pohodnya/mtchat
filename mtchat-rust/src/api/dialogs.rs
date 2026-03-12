@@ -185,9 +185,12 @@ pub async fn get_dialog_by_object(
             return Err(ApiError::Forbidden("No access to this dialog".into()));
         }
 
-        let participants_count = state.dialogs.count_participants(dialog.id).await?;
-
-        let last_message_at = state.dialogs.get_last_message_at(dialog.id).await?;
+        // Use batch methods to avoid N+1 queries (consistent with list_dialogs)
+        let dialog_ids = &[dialog.id];
+        let participants_count_map = state.dialogs.count_participants_batch(dialog_ids).await?;
+        let last_message_map = state.dialogs.get_last_message_at_batch(dialog_ids).await?;
+        let participants_count = participants_count_map.get(&dialog.id).copied().unwrap_or(0);
+        let last_message_at = last_message_map.get(&dialog.id).copied();
 
         Ok(Json(ApiResponse {
             data: Some(DialogResponse {
