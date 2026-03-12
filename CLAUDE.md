@@ -199,6 +199,28 @@ Events: message.new, participant.joined, participant.left, notification.pending
 
 **notification.pending** - Sent after delay (default 30s) if message was not read by recipient. Supports debouncing: multiple messages to same recipient trigger only one notification.
 
+### CORS Configuration
+
+CORS settings are configurable via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CORS_ALLOWED_ORIGINS` | `*` | Comma-separated origins or `*` for all |
+| `CORS_ALLOWED_METHODS` | `GET,POST,PUT,DELETE,OPTIONS` | Allowed HTTP methods |
+| `CORS_ALLOWED_HEADERS` | `*` | Allowed headers or `*` for all |
+| `CORS_ALLOW_CREDENTIALS` | `false` | Allow credentials (`true`/`false`) |
+| `CORS_MAX_AGE` | `3600` | Preflight cache duration (seconds) |
+
+**Examples:**
+```bash
+# Development (default - fully open)
+# No configuration needed
+
+# Production (specific domains)
+CORS_ALLOWED_ORIGINS="https://app.example.com,https://admin.example.com"
+CORS_ALLOW_CREDENTIALS="true"
+```
+
 ## Vue Component
 
 ### Full Mode (chat list)
@@ -381,8 +403,17 @@ docker-compose up -d
 | Smart notifications (debounce) | ✅ |
 | Auto-archive inactive chats | ✅ |
 | Jump to unloaded reply | ✅ |
+| CORS configuration | ✅ |
 
 ## Changelog
+
+### 2026-03-12 (v3.21) - CORS Configuration
+- **CORS via environment variables** - configure allowed origins, methods, headers
+- New `CorsConfig` module in `mtchat-rust/src/config/`
+- Environment variables: `CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_METHODS`, `CORS_ALLOWED_HEADERS`, `CORS_ALLOW_CREDENTIALS`, `CORS_MAX_AGE`
+- Helm chart support via `cors.*` values
+- Defaults to permissive mode (`*`) for backward compatibility
+- Production-ready: restrict origins with comma-separated list
 
 ### 2026-02-13 (v3.20) - Jump to Message & Bidirectional Scroll
 - **Jump to message** - clicking quoted message loads it even if not in current page

@@ -184,6 +184,19 @@ secrets:
     jwtSecretKey: jwt-secret
     adminApiTokenKey: admin-api-token
 
+# -- CORS settings
+cors:
+  # Allowed origins (comma-separated or "*" for all)
+  allowedOrigins: "*"
+  # Allowed methods
+  allowedMethods: "GET,POST,PUT,DELETE,OPTIONS"
+  # Allowed headers
+  allowedHeaders: "*"
+  # Allow credentials (cookies, auth headers)
+  allowCredentials: false
+  # Preflight cache max age (seconds)
+  maxAge: 3600
+
 # -- Webhooks (optional)
 webhooks:
   url: ""

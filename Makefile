@@ -50,9 +50,9 @@ dev-sdk: ## Собирать SDK в watch mode
 	@echo "$(CYAN)Building SDK in watch mode...$(RESET)"
 	cd mtchat-vue && npm run dev
 
-dev-app: ## Запустить example app (Vite dev server)
-	@echo "$(CYAN)Starting example app...$(RESET)"
-	cd mtchat-example && npm run dev
+dev-app: ## Запустить example app (Vite + webhook server)
+	@echo "$(CYAN)Starting example app with webhook server...$(RESET)"
+	cd mtchat-example && npm run dev:all
 
 dev-sdk-build: ## Собрать SDK один раз
 	@echo "$(CYAN)Building SDK...$(RESET)"

@@ -7,9 +7,9 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
+use multitenancy_chat_api::config::CorsConfig;
 use sqlx::postgres::PgPoolOptions;
 use std::{env, sync::Arc};
-use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use apalis_redis::RedisStorage;
@@ -122,10 +122,14 @@ async fn main() {
 
     let state = AppState::new(db.clone(), webhooks.clone(), s3, presence, jobs);
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let cors_config = CorsConfig::from_env();
+    tracing::info!(
+        "CORS configured: origins={}, methods={}, credentials={}",
+        cors_config.allowed_origins,
+        cors_config.allowed_methods,
+        cors_config.allow_credentials
+    );
+    let cors = cors_config.into_layer();
 
     // Management API routes (with admin auth middleware)
     let management_routes = Router::new()

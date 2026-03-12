@@ -4,6 +4,7 @@
 //! This library crate exposes internal modules for integration testing.
 
 pub mod api;
+pub mod config;
 pub mod domain;
 pub mod jobs;
 pub mod middleware;
