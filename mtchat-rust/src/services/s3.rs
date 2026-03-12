@@ -218,6 +218,38 @@ impl S3Service {
         Ok(self.rewrite_url(presigned.uri()))
     }
 
+    /// Generate presigned URLs for downloading multiple files concurrently
+    ///
+    /// # Arguments
+    /// * `keys` - Slice of S3 object keys
+    ///
+    /// # Returns
+    /// HashMap mapping keys to their presigned URLs (missing on error)
+    pub async fn generate_download_urls_batch(
+        &self,
+        keys: &[&str],
+    ) -> std::collections::HashMap<String, String> {
+        use futures::future::join_all;
+
+        let futures: Vec<_> = keys
+            .iter()
+            .map(|key| {
+                let key = key.to_string();
+                async move {
+                    let result = self.generate_download_url(&key).await;
+                    (key, result)
+                }
+            })
+            .collect();
+
+        let results = join_all(futures).await;
+
+        results
+            .into_iter()
+            .filter_map(|(key, result)| result.ok().map(|url| (key, url)))
+            .collect()
+    }
+
     /// Check if an object exists in S3
     ///
     /// # Arguments

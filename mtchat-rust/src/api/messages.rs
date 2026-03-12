@@ -151,39 +151,39 @@ pub async fn list_messages(
         attachments_map.entry(att.message_id).or_default().push(att);
     }
 
+    // Collect all S3 keys for batch presigning (fixes N+1 query problem)
+    let all_s3_keys: Vec<&str> = attachments_map
+        .values()
+        .flat_map(|atts| {
+            atts.iter().flat_map(|att| {
+                std::iter::once(att.s3_key.as_str()).chain(att.thumbnail_s3_key.as_deref())
+            })
+        })
+        .collect();
+
+    // Generate all presigned URLs concurrently
+    let presigned_urls = if state.s3.is_configured() && !all_s3_keys.is_empty() {
+        state.s3.generate_download_urls_batch(&all_s3_keys).await
+    } else {
+        HashMap::new()
+    };
+
     // Build response with attachments and presigned URLs
     let mut messages_with_attachments = Vec::with_capacity(messages.len());
     for message in messages {
         let attachments = attachments_map.remove(&message.id).unwrap_or_default();
 
-        let mut attachment_responses = Vec::new();
-        for att in &attachments {
-            let url = if state.s3.is_configured() {
-                state
-                    .s3
-                    .generate_download_url(&att.s3_key)
-                    .await
-                    .unwrap_or_else(|_| String::new())
-            } else {
-                String::new()
-            };
-
-            let thumbnail_url = if let Some(ref thumb_key) = att.thumbnail_s3_key {
-                if state.s3.is_configured() {
-                    state.s3.generate_download_url(thumb_key).await.ok()
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-
-            attachment_responses.push(domain::AttachmentResponse::from_attachment(
-                att,
-                url,
-                thumbnail_url,
-            ));
-        }
+        let attachment_responses: Vec<_> = attachments
+            .iter()
+            .map(|att| {
+                let url = presigned_urls.get(&att.s3_key).cloned().unwrap_or_default();
+                let thumbnail_url = att
+                    .thumbnail_s3_key
+                    .as_ref()
+                    .and_then(|key| presigned_urls.get(key).cloned());
+                domain::AttachmentResponse::from_attachment(att, url, thumbnail_url)
+            })
+            .collect();
 
         messages_with_attachments.push(MessageWithAttachments {
             message,
