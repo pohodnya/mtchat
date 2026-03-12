@@ -1,0 +1,51 @@
+#!/bin/sh
+# Pre-commit hook for MTChat
+# Mirrors all CI checks from .github/workflows/ci.yml
+
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# === Rust Checks ===
+if [ -d "mtchat-rust" ]; then
+    cd mtchat-rust
+
+    echo "  Checking Rust formatting..."
+    cargo fmt --check
+
+    echo "  Running Rust clippy..."
+    cargo clippy --quiet -- -D warnings
+
+    echo "  Running Rust unit tests..."
+    cargo test --lib --quiet
+
+    cd ..
+fi
+
+# === Vue SDK Checks ===
+if [ -d "mtchat-vue" ]; then
+    cd mtchat-vue
+
+    echo "  Checking Vue SDK types..."
+    npm run typecheck
+
+    echo "  Building Vue SDK..."
+    npm run build --silent
+
+    cd ..
+fi
+
+# === Vue PrimeVue Checks ===
+if [ -d "mtchat-vue-primevue" ]; then
+    cd mtchat-vue-primevue
+
+    echo "  Checking Vue PrimeVue types..."
+    npm run typecheck
+
+    echo "  Building Vue PrimeVue..."
+    npm run build --silent
+
+    cd ..
+fi
+
+echo "✅ Pre-commit checks passed!"
