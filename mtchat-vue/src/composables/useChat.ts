@@ -6,6 +6,7 @@
 
 import { ref, computed, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
 import { MTChatClient } from '../sdk/client'
+import { logger } from '../utils/logger'
 import type {
   Message,
   DialogListItem,
@@ -525,7 +526,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
       // Don't set error for pagination failures - just stop loading more
-      console.warn('Failed to load older messages:', err)
+      logger.warn('Failed to load older messages:', err)
       hasMoreMessages.value = false
     } finally {
       isLoadingOlder.value = false
@@ -567,7 +568,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       hasMoreAfter.value = response.has_more_after ?? false
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
-      console.warn('Failed to load newer messages:', err)
+      logger.warn('Failed to load newer messages:', err)
       hasMoreAfter.value = false
     } finally {
       isLoadingNewer.value = false
@@ -721,7 +722,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       // Check if the target message was found
       return response.messages.some((m) => m.id === messageId)
     } catch (e) {
-      console.warn('[useChat] Failed to jump to message:', e)
+      logger.warn('Failed to jump to message:', e)
       return false
     } finally {
       isJumpingToMessage.value = false
@@ -781,7 +782,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       // Divider stays visible until user leaves and re-enters the chat
     } catch (e) {
       // Non-critical, just log
-      console.warn('Failed to mark as read:', e)
+      logger.warn('Failed to mark as read:', e)
     }
   }
 
@@ -803,7 +804,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         return
       }
       // Non-critical, don't set error
-      console.warn('Failed to load participants:', e)
+      logger.warn('Failed to load participants:', e)
     }
   }
 

@@ -162,6 +162,7 @@ import { ref, shallowRef, computed, watch, onMounted, onUnmounted, nextTick } fr
 import type { Attachment } from '../../types'
 import { getAttachmentType, getFileIconName } from '../../types'
 import { useI18n } from '../../i18n'
+import { logger } from '../../utils/logger'
 import Icon from '../Icon.vue'
 import * as pdfjsLib from 'pdfjs-dist'
 // @ts-ignore - Vite handles this import
@@ -352,7 +353,7 @@ async function loadPdf() {
     await nextTick()
     await renderAllPdfPages()
   } catch (e) {
-    console.error('Failed to load PDF:', e)
+    logger.error('Failed to load PDF:', e)
     pdfError.value = 'Failed to load PDF'
     pdfLoading.value = false
   }
@@ -445,7 +446,7 @@ async function renderPdfPage(pageNum: number) {
   } catch (e: any) {
     // Ignore cancellation errors
     if (e?.name !== 'RenderingCancelledException') {
-      console.error(`Failed to render page ${pageNum}:`, e)
+      logger.error(`Failed to render page ${pageNum}:`, e)
     }
   }
 }
@@ -607,7 +608,7 @@ async function downloadCurrentFile() {
 
     URL.revokeObjectURL(url)
   } catch (e) {
-    console.error('Download failed:', e)
+    logger.error('Download failed:', e)
     // Fallback: open in new tab
     window.open(currentFile.value.url, '_blank')
   }

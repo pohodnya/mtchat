@@ -7,6 +7,7 @@
 import type { MTChatConfig, WsEvent, Message, JoinDialogRequest } from '../types'
 import { MTChatApi } from './api'
 import { MTChatWebSocket } from './websocket'
+import { logger } from '../utils/logger'
 
 export type WsEventHandler = (event: WsEvent) => void
 
@@ -73,7 +74,7 @@ export class MTChatClient {
         try {
           handler(event)
         } catch (e) {
-          console.error('Error in event handler:', e)
+          logger.error('Error in event handler:', e)
         }
       })
     }
@@ -85,7 +86,7 @@ export class MTChatClient {
         try {
           handler(event)
         } catch (e) {
-          console.error('Error in wildcard handler:', e)
+          logger.error('Error in wildcard handler:', e)
         }
       })
     }

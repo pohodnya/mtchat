@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { logger } from '../utils/logger'
 
 // Import all SVG icons
 import closeIcon from '../icons/close.svg?raw'
@@ -114,7 +115,7 @@ const props = withDefaults(defineProps<{
 const svgContent = computed(() => {
   const raw = icons[props.name]
   if (!raw) {
-    console.warn(`Icon "${props.name}" not found`)
+    logger.warn(`Icon "${props.name}" not found`)
     return ''
   }
   // Replace width/height in SVG with props.size
