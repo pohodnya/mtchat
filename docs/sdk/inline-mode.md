@@ -174,9 +174,9 @@ curl -X POST https://chat.example.com/api/v1/management/dialogs \
     ],
     "access_scopes": [
       {
-        "tenantUid": "tenant-abc",
-        "scopeLevel1": ["logistics"],
-        "scopeLevel2": ["manager", "admin"]
+        "tenant_uid": "tenant-abc",
+        "scope_level1": ["logistics"],
+        "scope_level2": ["manager", "admin"]
       }
     ]
   }'
