@@ -23,7 +23,7 @@ impl MessageRepository {
         )
         .bind(message.id)
         .bind(message.dialog_id)
-        .bind(message.sender_id)
+        .bind(&message.sender_id)
         .bind(&message.content)
         .bind(message.sent_at)
         .bind(message.reply_to_id)

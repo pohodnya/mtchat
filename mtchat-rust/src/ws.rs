@@ -18,20 +18,21 @@ use crate::services::PresenceService;
 pub type ConnectionTx = mpsc::Sender<String>;
 /// Concurrent connection map using DashMap for better performance
 /// compared to RwLock<HashMap> under high contention.
-pub type Connections = Arc<DashMap<Uuid, ConnectionTx>>;
+/// Key is the external user identifier (String).
+pub type Connections = Arc<DashMap<String, ConnectionTx>>;
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WsEvent {
     Connected {
-        employee_id: Uuid,
+        employee_id: String,
     },
     #[serde(rename = "message.new")]
     MessageNew {
         id: Uuid,
         dialog_id: Uuid,
         #[serde(skip_serializing_if = "Option::is_none")]
-        sender_id: Option<Uuid>,
+        sender_id: Option<String>,
         content: String,
         sent_at: DateTime<Utc>,
         message_type: String,
@@ -51,18 +52,18 @@ pub enum WsEvent {
     #[serde(rename = "message.read")]
     MessageRead {
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: String,
         last_read_message_id: Uuid,
     },
     #[serde(rename = "participant.joined")]
     ParticipantJoined {
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: String,
     },
     #[serde(rename = "participant.left")]
     ParticipantLeft {
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: String,
     },
     #[serde(rename = "dialog.archived")]
     DialogArchived {
@@ -74,7 +75,7 @@ pub enum WsEvent {
     },
     #[serde(rename = "presence.update")]
     PresenceUpdate {
-        user_id: Uuid,
+        user_id: String,
         is_online: bool,
     },
     Pong,
@@ -92,7 +93,7 @@ pub enum WsClientMessage {
 pub async fn handle_socket(
     socket: WebSocket,
     connections: Connections,
-    user_id: Uuid,
+    user_id: String,
     presence: Arc<PresenceService>,
     participants: Arc<ParticipantRepository>,
 ) {
@@ -100,21 +101,21 @@ pub async fn handle_socket(
     let (tx, mut rx) = mpsc::channel::<String>(100);
 
     // Register connection
-    connections.insert(user_id, tx.clone());
+    connections.insert(user_id.clone(), tx.clone());
 
     tracing::info!("WebSocket connected: {}", user_id);
 
     // Set user as online
-    if let Err(e) = presence.set_online(user_id).await {
+    if let Err(e) = presence.set_online(&user_id).await {
         tracing::warn!("Failed to set user {} online: {}", user_id, e);
     }
 
     // Broadcast presence update to users in shared dialogs
-    broadcast_presence(&connections, &participants, user_id, true).await;
+    broadcast_presence(&connections, &participants, &user_id, true).await;
 
     // Send connected event
     let connected = serde_json::to_string(&WsEvent::Connected {
-        employee_id: user_id,
+        employee_id: user_id.clone(),
     })
     .unwrap();
     let _ = sender.send(Message::Text(connected.into())).await;
@@ -130,6 +131,7 @@ pub async fn handle_socket(
 
     // Handle incoming messages
     let presence_for_loop = presence.clone();
+    let user_id_for_loop = user_id.clone();
     while let Some(Ok(msg)) = receiver.next().await {
         match msg {
             Message::Text(text) => {
@@ -137,10 +139,12 @@ pub async fn handle_socket(
                     match client_msg {
                         WsClientMessage::Ping => {
                             // Refresh online status TTL
-                            if let Err(e) = presence_for_loop.refresh_online(user_id).await {
+                            if let Err(e) =
+                                presence_for_loop.refresh_online(&user_id_for_loop).await
+                            {
                                 tracing::warn!(
                                     "Failed to refresh user {} online status: {}",
-                                    user_id,
+                                    user_id_for_loop,
                                     e
                                 );
                             }
@@ -159,12 +163,12 @@ pub async fn handle_socket(
     connections.remove(&user_id);
 
     // Set user as offline
-    if let Err(e) = presence.set_offline(user_id).await {
+    if let Err(e) = presence.set_offline(&user_id).await {
         tracing::warn!("Failed to set user {} offline: {}", user_id, e);
     }
 
     // Broadcast presence update
-    broadcast_presence(&connections, &participants, user_id, false).await;
+    broadcast_presence(&connections, &participants, &user_id, false).await;
 
     send_task.abort();
     tracing::info!("WebSocket disconnected: {}", user_id);
@@ -174,7 +178,7 @@ pub async fn handle_socket(
 async fn broadcast_presence(
     connections: &Connections,
     participants: &ParticipantRepository,
-    user_id: Uuid,
+    user_id: &str,
     is_online: bool,
 ) {
     // Get all dialogs this user participates in
@@ -203,7 +207,10 @@ async fn broadcast_presence(
     };
 
     // Build event
-    let event = WsEvent::PresenceUpdate { user_id, is_online };
+    let event = WsEvent::PresenceUpdate {
+        user_id: user_id.to_string(),
+        is_online,
+    };
     let json = match serde_json::to_string(&event) {
         Ok(j) => j,
         Err(_) => return,
@@ -237,7 +244,7 @@ async fn broadcast_to_all(connections: &Connections, event: &WsEvent) {
 }
 
 /// Broadcast an event to specific users
-async fn broadcast_to_users(connections: &Connections, event: &WsEvent, user_ids: &[Uuid]) {
+async fn broadcast_to_users(connections: &Connections, event: &WsEvent, user_ids: &[String]) {
     let json = match serde_json::to_string(event) {
         Ok(j) => j,
         Err(e) => {
@@ -263,7 +270,7 @@ pub async fn broadcast_message(
     let event = WsEvent::MessageNew {
         id: message.id,
         dialog_id: message.dialog_id,
-        sender_id: message.sender_id,
+        sender_id: message.sender_id.clone(),
         content: message.content.clone(),
         sent_at: message.sent_at,
         message_type: message.message_type.as_str().to_string(),
@@ -274,12 +281,12 @@ pub async fn broadcast_message(
 pub async fn broadcast_read(
     connections: &Connections,
     dialog_id: Uuid,
-    user_id: Uuid,
+    user_id: &str,
     last_read_message_id: Uuid,
 ) {
     let event = WsEvent::MessageRead {
         dialog_id,
-        user_id,
+        user_id: user_id.to_string(),
         last_read_message_id,
     };
     broadcast_to_all(connections, &event).await;
@@ -315,14 +322,20 @@ pub async fn broadcast_message_deleted(
 pub async fn broadcast_participant_joined(
     connections: &Connections,
     dialog_id: Uuid,
-    user_id: Uuid,
+    user_id: &str,
 ) {
-    let event = WsEvent::ParticipantJoined { dialog_id, user_id };
+    let event = WsEvent::ParticipantJoined {
+        dialog_id,
+        user_id: user_id.to_string(),
+    };
     broadcast_to_all(connections, &event).await;
 }
 
-pub async fn broadcast_participant_left(connections: &Connections, dialog_id: Uuid, user_id: Uuid) {
-    let event = WsEvent::ParticipantLeft { dialog_id, user_id };
+pub async fn broadcast_participant_left(connections: &Connections, dialog_id: Uuid, user_id: &str) {
+    let event = WsEvent::ParticipantLeft {
+        dialog_id,
+        user_id: user_id.to_string(),
+    };
     broadcast_to_all(connections, &event).await;
 }
 
@@ -330,7 +343,7 @@ pub async fn broadcast_participant_left(connections: &Connections, dialog_id: Uu
 pub async fn broadcast_dialog_archived(
     connections: &Connections,
     dialog_id: Uuid,
-    user_ids: &[Uuid],
+    user_ids: &[String],
 ) {
     let event = WsEvent::DialogArchived { dialog_id };
     broadcast_to_users(connections, &event, user_ids).await;
@@ -340,7 +353,7 @@ pub async fn broadcast_dialog_archived(
 pub async fn broadcast_dialog_unarchived(
     connections: &Connections,
     dialog_id: Uuid,
-    user_ids: &[Uuid],
+    user_ids: &[String],
 ) {
     tracing::debug!(dialog_id = %dialog_id, user_ids = ?user_ids, "Broadcasting dialog.unarchived");
     let event = WsEvent::DialogUnarchived { dialog_id };

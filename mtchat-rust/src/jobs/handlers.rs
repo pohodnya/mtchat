@@ -45,7 +45,11 @@ pub async fn handle_notification(job: NotificationJob, ctx: Data<JobContext>) ->
     );
 
     // Get participant to check read status
-    let participant = match ctx.participants.find(job.dialog_id, job.recipient_id).await {
+    let participant = match ctx
+        .participants
+        .find(job.dialog_id, &job.recipient_id)
+        .await
+    {
         Ok(Some(p)) => p,
         Ok(None) => {
             tracing::debug!(
@@ -117,7 +121,7 @@ pub async fn handle_notification(job: NotificationJob, ctx: Data<JobContext>) ->
         .send(WebhookEvent::notification_pending(
             &dialog,
             &message,
-            job.recipient_id,
+            &job.recipient_id,
         ))
         .await;
 
@@ -160,11 +164,11 @@ pub async fn handle_auto_archive(job: AutoArchiveJob, ctx: Data<JobContext>) -> 
     let mut archived_count = 0;
     for dialog_id in inactive_dialogs {
         // Get participant user_ids before archiving (for WebSocket notification)
-        let user_ids: Vec<uuid::Uuid> = match ctx.participants.list_by_dialog(dialog_id).await {
+        let user_ids: Vec<String> = match ctx.participants.list_by_dialog(dialog_id).await {
             Ok(participants) => participants
                 .iter()
                 .filter(|p| !p.is_archived) // Only notify non-archived participants
-                .map(|p| p.user_id)
+                .map(|p| p.user_id.clone())
                 .collect(),
             Err(e) => {
                 tracing::warn!(dialog_id = %dialog_id, error = %e, "Failed to get participants");

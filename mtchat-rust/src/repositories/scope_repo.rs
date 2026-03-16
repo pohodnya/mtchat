@@ -26,7 +26,7 @@ impl AccessScopeRepository {
         )
         .bind(scope.id)
         .bind(scope.dialog_id)
-        .bind(scope.tenant_uid)
+        .bind(&scope.tenant_uid)
         .bind(&scope.scope_level1)
         .bind(&scope.scope_level2)
         .bind(scope.created_at)
@@ -56,7 +56,7 @@ impl AccessScopeRepository {
     pub async fn check_access(
         &self,
         dialog_id: Uuid,
-        tenant_uid: Uuid,
+        tenant_uid: &str,
         scope_level1: &[String],
         scope_level2: &[String],
     ) -> Result<bool, sqlx::Error> {

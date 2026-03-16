@@ -11,7 +11,6 @@ use axum::{
 };
 use jsonwebtoken::decode;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::config::JwtConfig;
 
@@ -19,8 +18,8 @@ use crate::config::JwtConfig;
 /// Only `sub` (subject = user_id) is used, other claims are ignored
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JwtClaims {
-    /// User ID (subject claim)
-    pub sub: Uuid,
+    /// User ID (subject claim) - external identifier string
+    pub sub: String,
 }
 
 /// Middleware for JWT authentication on Chat API routes
@@ -68,7 +67,7 @@ pub async fn jwt_auth(request: Request, next: Next) -> Response {
 ///
 /// When JWT auth is disabled:
 /// - Falls back to `user_id` or `sender_id` query parameter
-pub struct JwtUserId(pub Uuid);
+pub struct JwtUserId(pub String);
 
 #[allow(clippy::result_large_err)]
 impl<S> FromRequestParts<S> for JwtUserId
@@ -114,9 +113,14 @@ fn extract_user_id_from_query(parts: &Parts) -> Result<JwtUserId, Response> {
         let mut kv = pair.splitn(2, '=');
         if let (Some(key), Some(value)) = (kv.next(), kv.next()) {
             if key == "user_id" || key == "sender_id" {
-                return value.parse().map(JwtUserId).map_err(|_| {
-                    (StatusCode::BAD_REQUEST, "Invalid user_id format").into_response()
-                });
+                // URL decode the value
+                let decoded = urlencoding::decode(value).unwrap_or_else(|_| value.into());
+                if decoded.is_empty() {
+                    return Err(
+                        (StatusCode::BAD_REQUEST, "user_id cannot be empty").into_response()
+                    );
+                }
+                return Ok(JwtUserId(decoded.into_owned()));
             }
         }
     }
@@ -129,8 +133,10 @@ mod tests {
     use super::*;
     use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header};
 
-    fn create_test_token(user_id: Uuid, secret: &str) -> String {
-        let claims = JwtClaims { sub: user_id };
+    fn create_test_token(user_id: &str, secret: &str) -> String {
+        let claims = JwtClaims {
+            sub: user_id.to_string(),
+        };
         encode(
             &Header::default(),
             &claims,
@@ -142,7 +148,7 @@ mod tests {
     #[test]
     fn test_valid_jwt_token() {
         let secret = "test-secret-key-32-characters-long";
-        let user_id = Uuid::new_v4();
+        let user_id = "user-123";
         let token = create_test_token(user_id, secret);
 
         let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
@@ -161,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_invalid_signature() {
-        let user_id = Uuid::new_v4();
+        let user_id = "user-456";
         let token = create_test_token(user_id, "secret1");
 
         let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
@@ -182,17 +188,17 @@ mod tests {
         use std::time::{SystemTime, UNIX_EPOCH};
 
         let secret = "test-secret";
-        let user_id = Uuid::new_v4();
+        let user_id = "user-789";
 
         // Create expired token
         #[derive(Serialize)]
         struct ExpiredClaims {
-            sub: Uuid,
+            sub: String,
             exp: u64,
         }
 
         let claims = ExpiredClaims {
-            sub: user_id,
+            sub: user_id.to_string(),
             // Expired 1 hour ago
             exp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)

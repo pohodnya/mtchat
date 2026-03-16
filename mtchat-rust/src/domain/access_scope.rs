@@ -17,8 +17,8 @@ use uuid::Uuid;
 pub struct DialogAccessScope {
     pub id: Uuid,
     pub dialog_id: Uuid,
-    /// Tenant identifier that this scope applies to
-    pub tenant_uid: Uuid,
+    /// Tenant identifier that this scope applies to (external identifier)
+    pub tenant_uid: String,
     /// First scope level (e.g., departments): ["dept_logistics", "dept_sales"]
     pub scope_level1: Vec<String>,
     /// Second scope level (e.g., permissions): ["tender:manager", "tender:admin"]
@@ -29,14 +29,14 @@ pub struct DialogAccessScope {
 impl DialogAccessScope {
     pub fn new(
         dialog_id: Uuid,
-        tenant_uid: Uuid,
+        tenant_uid: impl Into<String>,
         scope_level1: Vec<String>,
         scope_level2: Vec<String>,
     ) -> Self {
         Self {
             id: Uuid::now_v7(),
             dialog_id,
-            tenant_uid,
+            tenant_uid: tenant_uid.into(),
             scope_level1,
             scope_level2,
             created_at: Utc::now(),
@@ -46,7 +46,7 @@ impl DialogAccessScope {
     /// Check if user scope matches this access scope
     pub fn matches(
         &self,
-        user_tenant: Uuid,
+        user_tenant: &str,
         user_scope1: &[String],
         user_scope2: &[String],
     ) -> bool {
@@ -68,7 +68,7 @@ impl DialogAccessScope {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserScopeConfig {
-    pub tenant_uid: Uuid,
+    pub tenant_uid: String,
     #[serde(default)]
     pub scope_level1: Vec<String>,
     #[serde(default)]

@@ -3,7 +3,6 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use jsonwebtoken::decode;
 use std::collections::HashMap;
-use uuid::Uuid;
 
 use crate::config::JwtConfig;
 use crate::middleware::JwtClaims;
@@ -36,7 +35,7 @@ pub async fn ws_handler(
 
 /// Extract user_id from JWT token (if enabled) or query parameter
 #[allow(clippy::result_large_err)]
-fn extract_user_id(params: &HashMap<String, String>) -> Result<Uuid, Response> {
+fn extract_user_id(params: &HashMap<String, String>) -> Result<String, Response> {
     // If JWT auth is enabled, validate token and extract user_id from claims
     if let Some(config) = JwtConfig::get() {
         let token = params.get("token").ok_or_else(|| {
@@ -53,14 +52,13 @@ fn extract_user_id(params: &HashMap<String, String>) -> Result<Uuid, Response> {
     }
 
     // JWT disabled - use user_id query parameter
-    params
-        .get("user_id")
-        .and_then(|s| s.parse().ok())
-        .ok_or_else(|| {
-            (
-                StatusCode::BAD_REQUEST,
-                "Missing or invalid user_id query parameter",
-            )
-                .into_response()
-        })
+    let user_id = params.get("user_id").ok_or_else(|| {
+        (StatusCode::BAD_REQUEST, "Missing user_id query parameter").into_response()
+    })?;
+
+    if user_id.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "user_id cannot be empty").into_response());
+    }
+
+    Ok(user_id.clone())
 }

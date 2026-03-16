@@ -6,7 +6,6 @@ use fred::clients::Pool;
 use fred::error::Error as RedisError;
 use fred::interfaces::KeysInterface;
 use std::sync::Arc;
-use uuid::Uuid;
 
 /// TTL for online status keys in seconds (60s)
 /// Heartbeat is 30s, so status expires if 2 heartbeats are missed
@@ -34,7 +33,7 @@ impl PresenceService {
     }
 
     /// Set user as online (with TTL)
-    pub async fn set_online(&self, user_id: Uuid) -> Result<(), RedisError> {
+    pub async fn set_online(&self, user_id: &str) -> Result<(), RedisError> {
         let Some(redis) = &self.redis else {
             return Ok(());
         };
@@ -53,7 +52,7 @@ impl PresenceService {
     }
 
     /// Refresh online status TTL (called on ping)
-    pub async fn refresh_online(&self, user_id: Uuid) -> Result<(), RedisError> {
+    pub async fn refresh_online(&self, user_id: &str) -> Result<(), RedisError> {
         let Some(redis) = &self.redis else {
             return Ok(());
         };
@@ -64,7 +63,7 @@ impl PresenceService {
     }
 
     /// Set user as offline (remove key)
-    pub async fn set_offline(&self, user_id: Uuid) -> Result<(), RedisError> {
+    pub async fn set_offline(&self, user_id: &str) -> Result<(), RedisError> {
         let Some(redis) = &self.redis else {
             return Ok(());
         };
@@ -75,7 +74,7 @@ impl PresenceService {
     }
 
     /// Get list of online users from a list of user IDs (batch check)
-    pub async fn get_online_users(&self, user_ids: &[Uuid]) -> Result<Vec<Uuid>, RedisError> {
+    pub async fn get_online_users(&self, user_ids: &[String]) -> Result<Vec<String>, RedisError> {
         let Some(redis) = &self.redis else {
             return Ok(vec![]);
         };
@@ -91,14 +90,14 @@ impl PresenceService {
         let online_users = user_ids
             .iter()
             .zip(results)
-            .filter_map(|(id, result)| result.map(|_| *id))
+            .filter_map(|(id, result)| result.map(|_| id.clone()))
             .collect();
 
         Ok(online_users)
     }
 
     /// Check if a single user is online
-    pub async fn is_online(&self, user_id: Uuid) -> Result<bool, RedisError> {
+    pub async fn is_online(&self, user_id: &str) -> Result<bool, RedisError> {
         let Some(redis) = &self.redis else {
             return Ok(false);
         };

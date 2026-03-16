@@ -4,7 +4,7 @@
 //! The header value is base64-encoded JSON:
 //! ```json
 //! {
-//!   "tenant_uid": "uuid",
+//!   "tenant_uid": "tenant-123",
 //!   "scope_level1": ["dept_a", "dept_b"],
 //!   "scope_level2": ["manager", "admin"]
 //! }
@@ -18,12 +18,11 @@ use axum::{
 };
 use base64::Engine;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// User scope configuration extracted from X-Scope-Config header
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ScopeConfig {
-    pub tenant_uid: Uuid,
+    pub tenant_uid: String,
     #[serde(default)]
     pub scope_level1: Vec<String>,
     #[serde(default)]
@@ -160,7 +159,7 @@ where
 ///
 /// Extracts user_id from ?user_id= or ?sender_id= query parameter
 #[derive(Debug, Clone)]
-pub struct UserId(pub Uuid);
+pub struct UserId(pub String);
 
 impl<S> FromRequestParts<S> for UserId
 where
@@ -176,13 +175,16 @@ where
             let mut kv = pair.splitn(2, '=');
             if let (Some(key), Some(value)) = (kv.next(), kv.next()) {
                 if key == "user_id" || key == "sender_id" {
-                    return value.parse().map(UserId).map_err(|_| {
-                        (
+                    // URL decode the value
+                    let decoded = urlencoding::decode(value).unwrap_or_else(|_| value.into());
+                    if decoded.is_empty() {
+                        return Err((
                             StatusCode::BAD_REQUEST,
-                            Json(ScopeError::bad_request("Invalid user_id format")),
+                            Json(ScopeError::bad_request("user_id cannot be empty")),
                         )
-                            .into_response()
-                    });
+                            .into_response());
+                    }
+                    return Ok(UserId(decoded.into_owned()));
                 }
             }
         }
@@ -201,17 +203,27 @@ mod tests {
 
     #[test]
     fn test_scope_config_deserialize() {
-        let json = r#"{"tenant_uid": "550e8400-e29b-41d4-a716-446655440000", "scope_level1": ["a"], "scope_level2": ["b"]}"#;
+        let json = r#"{"tenant_uid": "tenant-123", "scope_level1": ["a"], "scope_level2": ["b"]}"#;
         let config: ScopeConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.tenant_uid, "tenant-123");
         assert_eq!(config.scope_level1, vec!["a"]);
         assert_eq!(config.scope_level2, vec!["b"]);
     }
 
     #[test]
     fn test_scope_config_defaults() {
-        let json = r#"{"tenant_uid": "550e8400-e29b-41d4-a716-446655440000"}"#;
+        let json = r#"{"tenant_uid": "org_001"}"#;
         let config: ScopeConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.tenant_uid, "org_001");
         assert!(config.scope_level1.is_empty());
         assert!(config.scope_level2.is_empty());
+    }
+
+    #[test]
+    fn test_scope_config_uuid_format() {
+        // UUID format should still work (backward compatibility)
+        let json = r#"{"tenant_uid": "550e8400-e29b-41d4-a716-446655440000"}"#;
+        let config: ScopeConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.tenant_uid, "550e8400-e29b-41d4-a716-446655440000");
     }
 }

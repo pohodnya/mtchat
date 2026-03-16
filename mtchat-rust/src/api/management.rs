@@ -16,7 +16,7 @@ use super::{ApiError, ApiResponse, AppState, ErrorCode};
 
 #[derive(Debug, Deserialize)]
 pub struct ParticipantInput {
-    pub user_id: Uuid,
+    pub user_id: String,
     pub display_name: String,
     pub company: Option<String>,
     pub email: Option<String>,
@@ -25,7 +25,7 @@ pub struct ParticipantInput {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateDialogRequest {
-    pub object_id: Uuid,
+    pub object_id: String,
     pub object_type: String,
     pub title: Option<String>,
     pub object_url: Option<String>,
@@ -36,7 +36,7 @@ pub struct CreateDialogRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct AccessScopeInput {
-    pub tenant_uid: Uuid,
+    pub tenant_uid: String,
     #[serde(default)]
     pub scope_level1: Vec<String>,
     #[serde(default)]
@@ -45,7 +45,7 @@ pub struct AccessScopeInput {
 
 #[derive(Debug, Deserialize)]
 pub struct AddParticipantRequest {
-    pub user_id: Uuid,
+    pub user_id: String,
     pub display_name: String,
     pub company: Option<String>,
     pub email: Option<String>,
@@ -88,7 +88,7 @@ pub async fn management_create_dialog(
     let mut tx = state.db.begin().await?;
 
     // Create dialog
-    let created_by = req.participants.first().map(|p| p.user_id);
+    let created_by = req.participants.first().map(|p| p.user_id.clone());
     let dialog = Dialog::new(
         req.object_id,
         req.object_type,
@@ -125,7 +125,7 @@ pub async fn management_create_dialog(
                VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7)"#,
         )
         .bind(dialog.id)
-        .bind(participant.user_id)
+        .bind(&participant.user_id)
         .bind(&JoinedAs::Participant)
         .bind(&profile.display_name)
         .bind(&profile.company)
@@ -190,7 +190,7 @@ pub async fn management_create_dialog(
 
     // Broadcast events after transaction is committed
     for participant in req.participants.iter() {
-        ws::broadcast_participant_joined(&state.connections, dialog.id, participant.user_id).await;
+        ws::broadcast_participant_joined(&state.connections, dialog.id, &participant.user_id).await;
     }
 
     Ok(Json(ApiResponse { data: dialog }))
@@ -226,23 +226,23 @@ pub async fn management_add_participant(
     };
     state
         .participants
-        .add_with_profile_if_not_exists(dialog_id, req.user_id, JoinedAs::Participant, &profile)
+        .add_with_profile_if_not_exists(dialog_id, &req.user_id, JoinedAs::Participant, &profile)
         .await?;
 
     // Broadcast participant joined event (for dialog list updates)
-    ws::broadcast_participant_joined(&state.connections, dialog_id, req.user_id).await;
+    ws::broadcast_participant_joined(&state.connections, dialog_id, &req.user_id).await;
 
     Ok(StatusCode::CREATED)
 }
 
 pub async fn management_remove_participant(
     State(state): State<AppState>,
-    Path((dialog_id, user_id)): Path<(Uuid, Uuid)>,
+    Path((dialog_id, user_id)): Path<(Uuid, String)>,
 ) -> Result<StatusCode, ApiError> {
-    state.participants.remove(dialog_id, user_id).await?;
+    state.participants.remove(dialog_id, &user_id).await?;
 
     // Broadcast participant left event (for dialog list updates)
-    ws::broadcast_participant_left(&state.connections, dialog_id, user_id).await;
+    ws::broadcast_participant_left(&state.connections, dialog_id, &user_id).await;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -271,7 +271,7 @@ pub async fn management_update_access_scopes(
     let new_scopes: Vec<DialogAccessScope> = req
         .access_scopes
         .into_iter()
-        .map(|s| DialogAccessScope::new(dialog_id, s.tenant_uid, s.scope_level1, s.scope_level2))
+        .map(|s| DialogAccessScope::new(dialog_id, &s.tenant_uid, s.scope_level1, s.scope_level2))
         .collect();
 
     let created = state

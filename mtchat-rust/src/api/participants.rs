@@ -32,7 +32,7 @@ pub async fn list_participants(
     Path(dialog_id): Path<Uuid>,
 ) -> Result<Json<ApiResponse<Vec<ParticipantResponse>>>, ApiError> {
     // Check if user is participant
-    let is_participant = state.participants.exists(dialog_id, user_id).await?;
+    let is_participant = state.participants.exists(dialog_id, &user_id).await?;
 
     // If not participant, check scope access (potential participant)
     if !is_participant {
@@ -41,7 +41,7 @@ pub async fn list_participants(
                 .scopes
                 .check_access(
                     dialog_id,
-                    scope.tenant_uid,
+                    &scope.tenant_uid,
                     &scope.scope_level1,
                     &scope.scope_level2,
                 )
@@ -58,7 +58,7 @@ pub async fn list_participants(
     let participants = state.participants.list_by_dialog(dialog_id).await?;
 
     // Get online status for all participants
-    let user_ids: Vec<Uuid> = participants.iter().map(|p| p.user_id).collect();
+    let user_ids: Vec<String> = participants.iter().map(|p| p.user_id.clone()).collect();
     let online_users = state
         .presence
         .get_online_users(&user_ids)
@@ -104,21 +104,21 @@ pub async fn mark_as_read(
         .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
 
     // Check user is participant
-    if !state.participants.exists(dialog_id, user_id).await? {
+    if !state.participants.exists(dialog_id, &user_id).await? {
         return Err(ApiError::Forbidden("Not a participant".into()));
     }
 
     // Mark as read
     state
         .participants
-        .mark_as_read(dialog_id, user_id, req.last_read_message_id)
+        .mark_as_read(dialog_id, &user_id, req.last_read_message_id)
         .await?;
 
     // Broadcast WebSocket event
     ws::broadcast_read(
         &state.connections,
         dialog_id,
-        user_id,
+        &user_id,
         req.last_read_message_id,
     )
     .await;

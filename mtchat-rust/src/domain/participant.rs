@@ -8,7 +8,7 @@ use uuid::Uuid;
 /// How the participant joined the dialog
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[serde(rename_all = "snake_case")]
-#[sqlx(type_name = "text", rename_all = "snake_case")]
+#[sqlx(type_name = "varchar", rename_all = "snake_case")]
 pub enum JoinedAs {
     /// Created the dialog
     Creator,
@@ -54,8 +54,8 @@ impl From<&str> for JoinedAs {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct DialogParticipant {
     pub dialog_id: Uuid,
-    /// External user identifier (from JWT token)
-    pub user_id: Uuid,
+    /// External user identifier (from JWT token or host system)
+    pub user_id: String,
     pub joined_at: DateTime<Utc>,
     /// How the user joined the dialog
     pub joined_as: JoinedAs,
@@ -88,10 +88,10 @@ pub struct ParticipantProfile {
 }
 
 impl DialogParticipant {
-    pub fn new(dialog_id: Uuid, user_id: Uuid, joined_as: JoinedAs) -> Self {
+    pub fn new(dialog_id: Uuid, user_id: impl Into<String>, joined_as: JoinedAs) -> Self {
         Self {
             dialog_id,
-            user_id,
+            user_id: user_id.into(),
             joined_at: Utc::now(),
             joined_as,
             notifications_enabled: true,
@@ -108,13 +108,13 @@ impl DialogParticipant {
 
     pub fn with_profile(
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: impl Into<String>,
         joined_as: JoinedAs,
         profile: ParticipantProfile,
     ) -> Self {
         Self {
             dialog_id,
-            user_id,
+            user_id: user_id.into(),
             joined_at: Utc::now(),
             joined_as,
             notifications_enabled: true,

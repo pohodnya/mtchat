@@ -69,7 +69,7 @@ pub async fn list_messages(
     Query(pagination): Query<PaginationQuery>,
 ) -> Result<Json<ApiResponse<MessagesResponse>>, ApiError> {
     // Check user is participant (potential participants cannot read messages)
-    if !state.participants.exists(dialog_id, user_id).await? {
+    if !state.participants.exists(dialog_id, &user_id).await? {
         return Err(ApiError::Forbidden(
             "Not a participant. Join the dialog first.".into(),
         ));
@@ -105,7 +105,7 @@ pub async fn list_messages(
 
     // Get participant to find first unread message (only for regular pagination, not "around")
     let first_unread_message_id = if pagination.around.is_none() {
-        let participant = state.participants.find(dialog_id, user_id).await?;
+        let participant = state.participants.find(dialog_id, &user_id).await?;
         if let Some(ref p) = participant {
             if let Some(last_read_id) = p.last_read_message_id {
                 // Find the last read message to get its sent_at
@@ -215,7 +215,7 @@ pub async fn send_message(
         .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Check user is participant (potential participants cannot send messages)
-    if !state.participants.exists(dialog_id, sender_id).await? {
+    if !state.participants.exists(dialog_id, &sender_id).await? {
         return Err(ApiError::Forbidden(
             "Not a participant. Join the dialog first.".into(),
         ));
@@ -282,7 +282,7 @@ pub async fn send_message(
     let mut tx = state.db.begin().await?;
 
     // Create message
-    let mut message = Message::new(dialog_id, sender_id, sanitized_content);
+    let mut message = Message::new(dialog_id, &sender_id, sanitized_content);
     if let Some(reply_to) = req.reply_to {
         message = message.with_reply(reply_to);
     }
@@ -338,7 +338,7 @@ pub async fn send_message(
            WHERE dialog_id = $1 AND user_id != $2"#,
     )
     .bind(dialog_id)
-    .bind(sender_id)
+    .bind(&sender_id)
     .execute(&mut *tx)
     .await?;
 
@@ -360,7 +360,7 @@ pub async fn send_message(
            WHERE dialog_id = $1 AND user_id = $2"#,
     )
     .bind(dialog_id)
-    .bind(sender_id)
+    .bind(&sender_id)
     .bind(message.id)
     .execute(&mut *tx)
     .await?;
@@ -409,7 +409,8 @@ pub async fn send_message(
     let broadcast_future = async {
         if unarchived > 0 {
             tracing::debug!(dialog_id = %dialog_id, count = unarchived, "Auto-unarchived dialog for participants");
-            let participant_ids: Vec<Uuid> = participants.iter().map(|p| p.user_id).collect();
+            let participant_ids: Vec<String> =
+                participants.iter().map(|p| p.user_id.clone()).collect();
             ws::broadcast_dialog_unarchived(&state.connections, dialog_id, &participant_ids).await;
         }
         ws::broadcast_message(&state.connections, dialog_id, &message).await;
@@ -423,8 +424,12 @@ pub async fn send_message(
         if state.jobs.is_enabled() {
             for participant in &participants {
                 if participant.user_id != sender_id {
-                    let job =
-                        NotificationJob::new(dialog_id, participant.user_id, message.id, sender_id);
+                    let job = NotificationJob::new(
+                        dialog_id,
+                        &participant.user_id,
+                        message.id,
+                        &sender_id,
+                    );
                     if let Err(e) = state.jobs.enqueue_notification(job).await {
                         tracing::warn!(
                             recipient_id = %participant.user_id,
@@ -475,7 +480,7 @@ pub async fn edit_message(
         .ok_or_else(|| ApiError::new(ErrorCode::MessageNotFound, "Message not found"))?;
 
     // Check ownership (only author can edit)
-    if message.sender_id != Some(user_id) {
+    if message.sender_id.as_deref() != Some(user_id.as_str()) {
         return Err(ApiError::new(
             ErrorCode::NotMessageAuthor,
             "Can only edit own messages",
@@ -549,7 +554,7 @@ pub async fn delete_message(
         .ok_or_else(|| ApiError::new(ErrorCode::MessageNotFound, "Message not found"))?;
 
     // Check ownership
-    if message.sender_id != Some(user_id) {
+    if message.sender_id.as_deref() != Some(user_id.as_str()) {
         return Err(ApiError::new(
             ErrorCode::NotMessageAuthor,
             "Can only delete own messages",

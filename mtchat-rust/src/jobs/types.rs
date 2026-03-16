@@ -11,22 +11,27 @@ use uuid::Uuid;
 pub struct NotificationJob {
     /// Dialog where message was sent
     pub dialog_id: Uuid,
-    /// User who should receive notification
-    pub recipient_id: Uuid,
+    /// User who should receive notification (external identifier)
+    pub recipient_id: String,
     /// Message that triggered the notification
     pub message_id: Uuid,
-    /// User who sent the message
-    pub sender_id: Uuid,
+    /// User who sent the message (external identifier)
+    pub sender_id: String,
 }
 
 impl NotificationJob {
     /// Create a new notification job.
-    pub fn new(dialog_id: Uuid, recipient_id: Uuid, message_id: Uuid, sender_id: Uuid) -> Self {
+    pub fn new(
+        dialog_id: Uuid,
+        recipient_id: impl Into<String>,
+        message_id: Uuid,
+        sender_id: impl Into<String>,
+    ) -> Self {
         Self {
             dialog_id,
-            recipient_id,
+            recipient_id: recipient_id.into(),
             message_id,
-            sender_id,
+            sender_id: sender_id.into(),
         }
     }
 }
@@ -70,9 +75,9 @@ mod tests {
     #[test]
     fn test_notification_job_creation() {
         let dialog_id = Uuid::now_v7();
-        let recipient_id = Uuid::now_v7();
+        let recipient_id = "user-123";
         let message_id = Uuid::now_v7();
-        let sender_id = Uuid::now_v7();
+        let sender_id = "user-456";
 
         let job = NotificationJob::new(dialog_id, recipient_id, message_id, sender_id);
 
@@ -84,12 +89,7 @@ mod tests {
 
     #[test]
     fn test_notification_job_serialization() {
-        let job = NotificationJob::new(
-            Uuid::now_v7(),
-            Uuid::now_v7(),
-            Uuid::now_v7(),
-            Uuid::now_v7(),
-        );
+        let job = NotificationJob::new(Uuid::now_v7(), "recipient-1", Uuid::now_v7(), "sender-1");
 
         let json = serde_json::to_string(&job).unwrap();
         let deserialized: NotificationJob = serde_json::from_str(&json).unwrap();

@@ -48,10 +48,10 @@
 │                           Dialog                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │  id              UUID                                            │
-│  object_id       UUID        ← привязка к объекту (required)    │
+│  object_id       STRING      ← external ID (e.g., "tender-123") │
 │  object_type     STRING      "tender", "order", "route"         │
 │  title           STRING                                          │
-│  created_by      UUID                                            │
+│  created_by      STRING      ← external user ID                 │
 │  created_at      TIMESTAMP                                       │
 └─────────────────────────────────────────────────────────────────┘
          │
@@ -63,7 +63,7 @@
 │  (прямые участники) │        │   (потенциальные участники)     │
 ├─────────────────────┤        ├─────────────────────────────────┤
 │  dialog_id          │        │  dialog_id                      │
-│  user_id            │        │  tenant_uid                     │
+│  user_id (STRING)   │        │  tenant_uid (STRING)            │
 │  display_name       │        │  scope_level1[]  (departments)  │
 │  company            │        │  scope_level2[]  (permissions)  │
 │  email              │        │                                 │
@@ -452,8 +452,20 @@ docker-compose up -d
 | Input validation | ✅ |
 | Dialog list pagination | ✅ |
 | Structured error codes | ✅ |
+| String identifiers (user_id, object_id) | ✅ |
 
 ## Changelog
+
+### 2026-03-16 (v0.4.0) - UUID to String Migration
+- **External identifier support** - `user_id`, `object_id`, `tenant_uid`, `sender_id`, `created_by` changed from UUID to String
+- Allows integration with external systems using arbitrary identifier formats (e.g., `user-123`, `ORG_001`, `tenant:abc`)
+- Existing UUID identifiers remain valid (converted to hyphenated string representation)
+- **Database migration** converts UUID columns to TEXT with 255-char length constraints
+- **Identifier validation** added via `validate_identifier()` in validation module
+- URL-encoded query parameters supported (e.g., `user_id=user%3A123`)
+- WebSocket connections now keyed by String instead of UUID
+- Frontend unchanged (TypeScript already used string types)
+- Database migration: `20260316000002_uuid_to_string.sql`
 
 ### 2026-03-16 (v0.3.23) - Backend Hardening & Performance
 - **Input validation** for all text fields with length limits:
@@ -494,7 +506,7 @@ docker-compose up -d
 - New `jwt_auth` middleware in `mtchat-rust/src/middleware/`
 - `JwtUserId` extractor for handlers (auto-switches between JWT and query param)
 - Frontend: `token` prop added to `MTChatConfig`
-- SDK API client adds `Authorization` header when token provided
+- SDK API client adds `Authorization` header when token p0rovided
 - SDK WebSocket adds `token` query param when token provided
 - Demo app: JWT settings in Admin Panel (enable/secret)
 - Demo app: automatic token generation for demo users using `jose` library

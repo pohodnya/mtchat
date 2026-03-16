@@ -18,6 +18,9 @@ pub const MAX_EMAIL_LENGTH: usize = 254;
 /// Maximum length for phone
 pub const MAX_PHONE_LENGTH: usize = 50;
 
+/// Maximum length for external identifiers (user_id, object_id, tenant_uid)
+pub const MAX_IDENTIFIER_LENGTH: usize = 255;
+
 /// Validation error with field name and limit
 #[derive(Debug)]
 pub struct ValidationError {
@@ -102,6 +105,28 @@ pub fn validate_email(email: &Option<String>) -> Result<(), ValidationError> {
 /// Validate phone
 pub fn validate_phone(phone: &Option<String>) -> Result<(), ValidationError> {
     validate_optional_length(phone, "phone", MAX_PHONE_LENGTH)
+}
+
+/// Validate external identifier (user_id, object_id, tenant_uid)
+pub fn validate_identifier(value: &str, field: &'static str) -> Result<(), ValidationError> {
+    if value.is_empty() {
+        return Err(ValidationError::required(field));
+    }
+    if value.len() > MAX_IDENTIFIER_LENGTH {
+        return Err(ValidationError::too_long(field, MAX_IDENTIFIER_LENGTH));
+    }
+    Ok(())
+}
+
+/// Validate optional external identifier
+pub fn validate_optional_identifier(
+    value: &Option<String>,
+    field: &'static str,
+) -> Result<(), ValidationError> {
+    if let Some(v) = value {
+        validate_identifier(v, field)?;
+    }
+    Ok(())
 }
 
 /// Validate S3 key for path traversal attacks and dialog ownership

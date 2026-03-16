@@ -57,8 +57,8 @@ impl sqlx::Type<sqlx::Postgres> for MessageType {
 pub struct Message {
     pub id: Uuid,
     pub dialog_id: Uuid,
-    /// External user identifier (from JWT token). NULL for system messages.
-    pub sender_id: Option<Uuid>,
+    /// External user identifier (from JWT token or host system). NULL for system messages.
+    pub sender_id: Option<String>,
     pub content: String,
     pub sent_at: DateTime<Utc>,
     pub last_edited_at: Option<DateTime<Utc>>,
@@ -71,11 +71,11 @@ pub struct Message {
 
 impl Message {
     /// Create a new user message
-    pub fn new(dialog_id: Uuid, sender_id: Uuid, content: impl Into<String>) -> Self {
+    pub fn new(dialog_id: Uuid, sender_id: impl Into<String>, content: impl Into<String>) -> Self {
         Self {
             id: Uuid::now_v7(), // Time-ordered UUID for efficient sorting
             dialog_id,
-            sender_id: Some(sender_id),
+            sender_id: Some(sender_id.into()),
             content: content.into(),
             sent_at: Utc::now(),
             last_edited_at: None,

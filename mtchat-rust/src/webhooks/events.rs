@@ -68,11 +68,11 @@ impl WebhookEvent {
             WebhookEventType::MessageNew,
             WebhookPayload::MessageNew(MessageNewPayload {
                 dialog_id: dialog.id,
-                object_id: dialog.object_id,
+                object_id: dialog.object_id.clone(),
                 object_type: dialog.object_type.clone(),
                 message: MessageData {
                     id: message.id,
-                    sender_id: message.sender_id,
+                    sender_id: message.sender_id.clone(),
                     content: message.content.clone(),
                     reply_to: message.reply_to_id,
                     created_at: message.sent_at,
@@ -88,9 +88,9 @@ impl WebhookEvent {
             WebhookEventType::ParticipantJoined,
             WebhookPayload::ParticipantJoined(ParticipantPayload {
                 dialog_id: dialog.id,
-                object_id: dialog.object_id,
+                object_id: dialog.object_id.clone(),
                 object_type: dialog.object_type.clone(),
-                user_id: participant.user_id,
+                user_id: participant.user_id.clone(),
                 joined_as: participant.joined_as.clone(),
                 joined_at: participant.joined_at,
             }),
@@ -98,14 +98,14 @@ impl WebhookEvent {
     }
 
     /// Create a participant.left event
-    pub fn participant_left(dialog: &Dialog, user_id: Uuid) -> Self {
+    pub fn participant_left(dialog: &Dialog, user_id: &str) -> Self {
         Self::new(
             WebhookEventType::ParticipantLeft,
             WebhookPayload::ParticipantLeft(ParticipantLeftPayload {
                 dialog_id: dialog.id,
-                object_id: dialog.object_id,
+                object_id: dialog.object_id.clone(),
                 object_type: dialog.object_type.clone(),
-                user_id,
+                user_id: user_id.to_string(),
                 left_at: Utc::now(),
             }),
         )
@@ -115,17 +115,17 @@ impl WebhookEvent {
     ///
     /// Sent when a message was not read after delay period.
     /// The receiving system should send a push notification to the user.
-    pub fn notification_pending(dialog: &Dialog, message: &Message, recipient_id: Uuid) -> Self {
+    pub fn notification_pending(dialog: &Dialog, message: &Message, recipient_id: &str) -> Self {
         Self::new(
             WebhookEventType::NotificationPending,
             WebhookPayload::NotificationPending(NotificationPendingPayload {
                 dialog_id: dialog.id,
-                object_id: dialog.object_id,
+                object_id: dialog.object_id.clone(),
                 object_type: dialog.object_type.clone(),
-                recipient_id,
+                recipient_id: recipient_id.to_string(),
                 message: MessageData {
                     id: message.id,
-                    sender_id: message.sender_id,
+                    sender_id: message.sender_id.clone(),
                     content: message.content.clone(),
                     reply_to: message.reply_to_id,
                     created_at: message.sent_at,
@@ -150,7 +150,7 @@ pub enum WebhookPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageNewPayload {
     pub dialog_id: Uuid,
-    pub object_id: Uuid,
+    pub object_id: String,
     pub object_type: String,
     pub message: MessageData,
 }
@@ -160,7 +160,7 @@ pub struct MessageNewPayload {
 pub struct MessageData {
     pub id: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sender_id: Option<Uuid>,
+    pub sender_id: Option<String>,
     pub content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<Uuid>,
@@ -178,9 +178,9 @@ fn default_message_type() -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParticipantPayload {
     pub dialog_id: Uuid,
-    pub object_id: Uuid,
+    pub object_id: String,
     pub object_type: String,
-    pub user_id: Uuid,
+    pub user_id: String,
     pub joined_as: JoinedAs,
     pub joined_at: DateTime<Utc>,
 }
@@ -189,9 +189,9 @@ pub struct ParticipantPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParticipantLeftPayload {
     pub dialog_id: Uuid,
-    pub object_id: Uuid,
+    pub object_id: String,
     pub object_type: String,
-    pub user_id: Uuid,
+    pub user_id: String,
     pub left_at: DateTime<Utc>,
 }
 
@@ -199,10 +199,10 @@ pub struct ParticipantLeftPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationPendingPayload {
     pub dialog_id: Uuid,
-    pub object_id: Uuid,
+    pub object_id: String,
     pub object_type: String,
     /// User who should receive the notification
-    pub recipient_id: Uuid,
+    pub recipient_id: String,
     /// Message that triggered the notification
     pub message: MessageData,
 }
@@ -230,11 +230,11 @@ mod tests {
             WebhookEventType::MessageNew,
             WebhookPayload::MessageNew(MessageNewPayload {
                 dialog_id: Uuid::nil(),
-                object_id: Uuid::nil(),
+                object_id: "tender-123".to_string(),
                 object_type: "tender".to_string(),
                 message: MessageData {
                     id: Uuid::nil(),
-                    sender_id: Some(Uuid::nil()),
+                    sender_id: Some("user-1".to_string()),
                     content: "Hello".to_string(),
                     reply_to: None,
                     created_at: Utc::now(),

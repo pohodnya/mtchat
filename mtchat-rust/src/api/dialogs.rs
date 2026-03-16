@@ -85,7 +85,7 @@ pub async fn list_dialogs(
         "participating" => {
             state
                 .dialogs
-                .find_participating(user_id, search, archived, limit, offset)
+                .find_participating(&user_id, search, archived, limit, offset)
                 .await?
         }
         "available" => {
@@ -94,8 +94,8 @@ pub async fn list_dialogs(
                 state
                     .dialogs
                     .find_available(
-                        user_id,
-                        scope.tenant_uid,
+                        &user_id,
+                        &scope.tenant_uid,
                         &scope.scope_level1,
                         &scope.scope_level2,
                         search,
@@ -121,7 +121,7 @@ pub async fn list_dialogs(
     let participant_map = if dialog_type == "participating" {
         state
             .participants
-            .find_by_dialogs_and_user(&dialog_ids, user_id)
+            .find_by_dialogs_and_user(&dialog_ids, &user_id)
             .await?
     } else {
         std::collections::HashMap::new()
@@ -167,15 +167,15 @@ pub async fn get_dialog_by_object(
     State(state): State<AppState>,
     UserId(user_id): UserId,
     OptionalScopeConfig(scope_config): OptionalScopeConfig,
-    Path((object_type, object_id)): Path<(String, Uuid)>,
+    Path((object_type, object_id)): Path<(String, String)>,
 ) -> Result<Json<ApiResponse<Option<DialogResponse>>>, ApiError> {
     let dialog = state
         .dialogs
-        .find_by_object(&object_type, object_id)
+        .find_by_object(&object_type, &object_id)
         .await?;
 
     if let Some(dialog) = dialog {
-        let i_am_participant = state.participants.exists(dialog.id, user_id).await?;
+        let i_am_participant = state.participants.exists(dialog.id, &user_id).await?;
 
         let can_join = if !i_am_participant {
             if let Some(scope) = &scope_config {
@@ -183,7 +183,7 @@ pub async fn get_dialog_by_object(
                     .scopes
                     .check_access(
                         dialog.id,
-                        scope.tenant_uid,
+                        &scope.tenant_uid,
                         &scope.scope_level1,
                         &scope.scope_level2,
                     )
@@ -242,7 +242,7 @@ pub async fn join_dialog(
         .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Check if already participant
-    if state.participants.exists(dialog_id, user_id).await? {
+    if state.participants.exists(dialog_id, &user_id).await? {
         return Err(ApiError::BadRequest("Already a participant".into()));
     }
 
@@ -251,7 +251,7 @@ pub async fn join_dialog(
         .scopes
         .check_access(
             dialog_id,
-            scope_config.tenant_uid,
+            &scope_config.tenant_uid,
             &scope_config.scope_level1,
             &scope_config.scope_level2,
         )
@@ -288,7 +288,7 @@ pub async fn join_dialog(
            RETURNING *"#,
     )
     .bind(dialog_id)
-    .bind(user_id)
+    .bind(&user_id)
     .bind(&JoinedAs::Joined)
     .bind(&profile.display_name)
     .bind(&profile.company)
@@ -304,7 +304,7 @@ pub async fn join_dialog(
            WHERE dialog_id = $1 AND user_id = $2"#,
     )
     .bind(dialog_id)
-    .bind(user_id)
+    .bind(&user_id)
     .execute(&mut *tx)
     .await?;
 
@@ -332,7 +332,7 @@ pub async fn join_dialog(
 
     // Broadcast and webhook after transaction is committed
     ws::broadcast_message(&state.connections, dialog_id, &system_msg).await;
-    ws::broadcast_participant_joined(&state.connections, dialog_id, user_id).await;
+    ws::broadcast_participant_joined(&state.connections, dialog_id, &user_id).await;
     state
         .webhooks
         .send(WebhookEvent::participant_joined(&dialog, &participant))
@@ -357,7 +357,7 @@ pub async fn leave_dialog(
         .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Get participant before removing to get display_name
-    let participant = state.participants.find(dialog_id, user_id).await?;
+    let participant = state.participants.find(dialog_id, &user_id).await?;
     let display_name = participant
         .as_ref()
         .and_then(|p| p.display_name.clone())
@@ -375,7 +375,7 @@ pub async fn leave_dialog(
     // Remove participant
     sqlx::query("DELETE FROM dialog_participants WHERE dialog_id = $1 AND user_id = $2")
         .bind(dialog_id)
-        .bind(user_id)
+        .bind(&user_id)
         .execute(&mut *tx)
         .await?;
 
@@ -399,10 +399,10 @@ pub async fn leave_dialog(
 
     // Broadcast and webhook after transaction is committed
     ws::broadcast_message(&state.connections, dialog_id, &system_msg).await;
-    ws::broadcast_participant_left(&state.connections, dialog_id, user_id).await;
+    ws::broadcast_participant_left(&state.connections, dialog_id, &user_id).await;
     state
         .webhooks
-        .send(WebhookEvent::participant_left(&dialog, user_id))
+        .send(WebhookEvent::participant_left(&dialog, &user_id))
         .await;
 
     Ok(Json(serde_json::json!({
@@ -416,7 +416,7 @@ pub async fn archive_dialog(
     Path(dialog_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
-    if !state.participants.exists(dialog_id, user_id).await? {
+    if !state.participants.exists(dialog_id, &user_id).await? {
         return Err(ApiError::new(
             ErrorCode::NotParticipant,
             "Not a participant",
@@ -425,7 +425,7 @@ pub async fn archive_dialog(
 
     state
         .participants
-        .set_archived(dialog_id, user_id, true)
+        .set_archived(dialog_id, &user_id, true)
         .await?;
 
     Ok(Json(serde_json::json!({ "status": "archived" })))
@@ -437,7 +437,7 @@ pub async fn unarchive_dialog(
     Path(dialog_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
-    if !state.participants.exists(dialog_id, user_id).await? {
+    if !state.participants.exists(dialog_id, &user_id).await? {
         return Err(ApiError::new(
             ErrorCode::NotParticipant,
             "Not a participant",
@@ -446,7 +446,7 @@ pub async fn unarchive_dialog(
 
     state
         .participants
-        .set_archived(dialog_id, user_id, false)
+        .set_archived(dialog_id, &user_id, false)
         .await?;
 
     Ok(Json(serde_json::json!({ "status": "unarchived" })))
@@ -458,7 +458,7 @@ pub async fn pin_dialog(
     Path(dialog_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
-    if !state.participants.exists(dialog_id, user_id).await? {
+    if !state.participants.exists(dialog_id, &user_id).await? {
         return Err(ApiError::new(
             ErrorCode::NotParticipant,
             "Not a participant",
@@ -467,7 +467,7 @@ pub async fn pin_dialog(
 
     state
         .participants
-        .set_pinned(dialog_id, user_id, true)
+        .set_pinned(dialog_id, &user_id, true)
         .await?;
 
     Ok(Json(serde_json::json!({ "status": "pinned" })))
@@ -479,7 +479,7 @@ pub async fn unpin_dialog(
     Path(dialog_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
-    if !state.participants.exists(dialog_id, user_id).await? {
+    if !state.participants.exists(dialog_id, &user_id).await? {
         return Err(ApiError::new(
             ErrorCode::NotParticipant,
             "Not a participant",
@@ -488,7 +488,7 @@ pub async fn unpin_dialog(
 
     state
         .participants
-        .set_pinned(dialog_id, user_id, false)
+        .set_pinned(dialog_id, &user_id, false)
         .await?;
 
     Ok(Json(serde_json::json!({ "status": "unpinned" })))
@@ -501,7 +501,7 @@ pub async fn set_dialog_notifications(
     Json(body): Json<SetNotificationsRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
-    if !state.participants.exists(dialog_id, user_id).await? {
+    if !state.participants.exists(dialog_id, &user_id).await? {
         return Err(ApiError::new(
             ErrorCode::NotParticipant,
             "Not a participant",
@@ -510,7 +510,7 @@ pub async fn set_dialog_notifications(
 
     state
         .participants
-        .set_notifications(dialog_id, user_id, body.enabled)
+        .set_notifications(dialog_id, &user_id, body.enabled)
         .await?;
 
     Ok(Json(serde_json::json!({
@@ -531,12 +531,12 @@ pub async fn get_dialog(
         .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Check access: must be participant OR have scope access (potential participant)
-    let is_participant = state.participants.exists(dialog_id, user_id).await?;
+    let is_participant = state.participants.exists(dialog_id, &user_id).await?;
     let has_scope_access = state
         .scopes
         .check_access(
             dialog_id,
-            scope_config.tenant_uid,
+            &scope_config.tenant_uid,
             &scope_config.scope_level1,
             &scope_config.scope_level2,
         )

@@ -5,6 +5,9 @@ use uuid::Uuid;
 
 use crate::domain::{DialogParticipant, JoinedAs, ParticipantProfile};
 
+/// Type alias for external user identifier
+type UserId = str;
+
 pub struct ParticipantRepository {
     pool: PgPool,
 }
@@ -18,7 +21,7 @@ impl ParticipantRepository {
     pub async fn add(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
         joined_as: JoinedAs,
     ) -> Result<DialogParticipant, sqlx::Error> {
         sqlx::query_as::<_, DialogParticipant>(
@@ -37,7 +40,7 @@ impl ParticipantRepository {
     pub async fn add_with_profile(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
         joined_as: JoinedAs,
         profile: &ParticipantProfile,
     ) -> Result<DialogParticipant, sqlx::Error> {
@@ -62,7 +65,7 @@ impl ParticipantRepository {
     pub async fn add_if_not_exists(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
         joined_as: JoinedAs,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
@@ -82,7 +85,7 @@ impl ParticipantRepository {
     pub async fn add_with_profile_if_not_exists(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
         joined_as: JoinedAs,
         profile: &ParticipantProfile,
     ) -> Result<(), sqlx::Error> {
@@ -105,7 +108,7 @@ impl ParticipantRepository {
     }
 
     /// Remove a participant from a dialog
-    pub async fn remove(&self, dialog_id: Uuid, user_id: Uuid) -> Result<bool, sqlx::Error> {
+    pub async fn remove(&self, dialog_id: Uuid, user_id: &UserId) -> Result<bool, sqlx::Error> {
         let result =
             sqlx::query("DELETE FROM dialog_participants WHERE dialog_id = $1 AND user_id = $2")
                 .bind(dialog_id)
@@ -116,7 +119,7 @@ impl ParticipantRepository {
     }
 
     /// Check if user is a participant
-    pub async fn exists(&self, dialog_id: Uuid, user_id: Uuid) -> Result<bool, sqlx::Error> {
+    pub async fn exists(&self, dialog_id: Uuid, user_id: &UserId) -> Result<bool, sqlx::Error> {
         let result: Option<(i32,)> = sqlx::query_as(
             "SELECT 1 FROM dialog_participants WHERE dialog_id = $1 AND user_id = $2",
         )
@@ -131,7 +134,7 @@ impl ParticipantRepository {
     pub async fn find(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
     ) -> Result<Option<DialogParticipant>, sqlx::Error> {
         sqlx::query_as::<_, DialogParticipant>(
             "SELECT * FROM dialog_participants WHERE dialog_id = $1 AND user_id = $2",
@@ -146,7 +149,7 @@ impl ParticipantRepository {
     pub async fn find_by_dialogs_and_user(
         &self,
         dialog_ids: &[Uuid],
-        user_id: Uuid,
+        user_id: &UserId,
     ) -> Result<std::collections::HashMap<Uuid, DialogParticipant>, sqlx::Error> {
         if dialog_ids.is_empty() {
             return Ok(std::collections::HashMap::new());
@@ -180,7 +183,7 @@ impl ParticipantRepository {
     pub async fn set_notifications(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
         enabled: bool,
     ) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(
@@ -200,7 +203,7 @@ impl ParticipantRepository {
     pub async fn update_last_read(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
         message_id: Uuid,
     ) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(
@@ -220,7 +223,7 @@ impl ParticipantRepository {
     pub async fn mark_as_read(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
         last_read_message_id: Uuid,
     ) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(
@@ -240,7 +243,7 @@ impl ParticipantRepository {
     pub async fn increment_unread(
         &self,
         dialog_id: Uuid,
-        exclude_user_id: Uuid,
+        exclude_user_id: &UserId,
     ) -> Result<u64, sqlx::Error> {
         let result = sqlx::query(
             r#"UPDATE dialog_participants
@@ -258,7 +261,7 @@ impl ParticipantRepository {
     pub async fn set_unread_count_from_messages(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
     ) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(
             r#"UPDATE dialog_participants
@@ -276,7 +279,7 @@ impl ParticipantRepository {
     pub async fn set_archived(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
         archived: bool,
     ) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(
@@ -293,7 +296,7 @@ impl ParticipantRepository {
     }
 
     /// Get all dialog IDs that a user participates in
-    pub async fn get_user_dialogs(&self, user_id: Uuid) -> Result<Vec<Uuid>, sqlx::Error> {
+    pub async fn get_user_dialogs(&self, user_id: &UserId) -> Result<Vec<Uuid>, sqlx::Error> {
         sqlx::query_scalar("SELECT dialog_id FROM dialog_participants WHERE user_id = $1")
             .bind(user_id)
             .fetch_all(&self.pool)
@@ -304,7 +307,7 @@ impl ParticipantRepository {
     pub async fn get_dialog_participants_user_ids(
         &self,
         dialog_ids: &[Uuid],
-    ) -> Result<Vec<Uuid>, sqlx::Error> {
+    ) -> Result<Vec<String>, sqlx::Error> {
         if dialog_ids.is_empty() {
             return Ok(vec![]);
         }
@@ -321,7 +324,7 @@ impl ParticipantRepository {
     pub async fn set_pinned(
         &self,
         dialog_id: Uuid,
-        user_id: Uuid,
+        user_id: &UserId,
         pinned: bool,
     ) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(

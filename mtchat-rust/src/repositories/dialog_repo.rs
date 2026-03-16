@@ -5,6 +5,9 @@ use uuid::Uuid;
 
 use crate::domain::Dialog;
 
+/// Type alias for external user identifier
+type UserId = str;
+
 pub struct DialogRepository {
     pool: PgPool,
 }
@@ -22,11 +25,11 @@ impl DialogRepository {
                RETURNING *"#,
         )
         .bind(dialog.id)
-        .bind(dialog.object_id)
+        .bind(&dialog.object_id)
         .bind(&dialog.object_type)
         .bind(&dialog.title)
         .bind(&dialog.object_url)
-        .bind(dialog.created_by)
+        .bind(&dialog.created_by)
         .bind(dialog.created_at)
         .fetch_one(&self.pool)
         .await
@@ -47,7 +50,7 @@ impl DialogRepository {
     pub async fn find_by_object(
         &self,
         object_type: &str,
-        object_id: Uuid,
+        object_id: &str,
     ) -> Result<Option<Dialog>, sqlx::Error> {
         sqlx::query_as::<_, Dialog>(
             "SELECT * FROM dialogs WHERE object_type = $1 AND object_id = $2 ORDER BY created_at DESC LIMIT 1",
@@ -65,7 +68,7 @@ impl DialogRepository {
     /// - limit/offset: pagination parameters
     pub async fn find_participating(
         &self,
-        user_id: Uuid,
+        user_id: &UserId,
         search: Option<&str>,
         archived: Option<bool>,
         limit: i64,
@@ -107,8 +110,8 @@ impl DialogRepository {
     #[allow(clippy::too_many_arguments)]
     pub async fn find_available(
         &self,
-        user_id: Uuid,
-        tenant_uid: Uuid,
+        user_id: &UserId,
+        tenant_uid: &str,
         scope_level1: &[String],
         scope_level2: &[String],
         search: Option<&str>,
