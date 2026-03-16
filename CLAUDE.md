@@ -400,7 +400,7 @@ docker-compose up -d
 | attachments | Вложения к сообщениям |
 | message_edit_history | История редактирования сообщений |
 
-**Удалённые таблицы (v3):** `tenants`, `employees` — идентификация пользователей теперь через внешние ID (JWT).
+**Удалённые таблицы (v0.3):** `tenants`, `employees` — идентификация пользователей теперь через внешние ID (JWT).
 
 ## Feature Status
 
@@ -451,7 +451,7 @@ docker-compose up -d
 
 ## Changelog
 
-### 2026-03-12 (v3.22) - JWT Authentication for Chat API
+### 2026-03-12 (v0.3.22) - JWT Authentication for Chat API
 - **Optional JWT authentication** for Chat API routes (when `JWT_AUTH_ENABLED=true`)
 - Validates token signature only (HS256), skips expiration check
 - User ID extracted from JWT `sub` claim
@@ -469,7 +469,7 @@ docker-compose up -d
 - Environment variables: `JWT_AUTH_ENABLED`, `JWT_SECRET`
 - Unit tests for JWT validation (valid, invalid signature, expired accepted)
 
-### 2026-03-12 (v3.21) - CORS Configuration
+### 2026-03-12 (v0.3.21) - CORS Configuration
 - **CORS via environment variables** - configure allowed origins, methods, headers
 - New `CorsConfig` module in `mtchat-rust/src/config/`
 - Environment variables: `CORS_ALLOWED_ORIGINS`, `CORS_ALLOWED_METHODS`, `CORS_ALLOWED_HEADERS`, `CORS_ALLOW_CREDENTIALS`, `CORS_MAX_AGE`
@@ -477,7 +477,7 @@ docker-compose up -d
 - Defaults to permissive mode (`*`) for backward compatibility
 - Production-ready: restrict origins with comma-separated list
 
-### 2026-02-13 (v3.20) - Jump to Message & Bidirectional Scroll
+### 2026-02-13 (v0.3.20) - Jump to Message & Bidirectional Scroll
 - **Jump to message** - clicking quoted message loads it even if not in current page
 - **Bidirectional infinite scroll** - after jumping, scroll up/down to load more messages
 - Backend: added `around` and `after` parameters to messages API
@@ -491,7 +491,7 @@ docker-compose up -d
 - Handles deleted messages gracefully (no action on click)
 - i18n: added `chat.loadingNewer` translation
 
-### 2026-02-13 (v3.19) - Component Refactoring & Infinite Scroll
+### 2026-02-13 (v0.3.19) - Component Refactoring & Infinite Scroll
 - **MTChat.vue refactored** from 3359 lines to ~780 lines
 - New sub-components extracted:
   - `ChatMessages.vue` - message list with infinite scroll and scroll position preservation
@@ -506,7 +506,7 @@ docker-compose up -d
 - New state: `hasMoreMessages`, `isLoadingOlder`, `replyMessagesCache`
 - i18n: added `chat.messageLoading` and `chat.loadingOlder` translations
 
-### 2026-02-11 (v3.18) - Background Job Queue & Auto-Archive
+### 2026-02-11 (v0.3.18) - Background Job Queue & Auto-Archive
 - **apalis 0.6** integration for background task processing with Redis backend
 - **Smart notifications** with 30s delay and debounce (configurable via env vars)
 - Debounce logic: multiple messages to same recipient trigger only one notification
@@ -535,7 +535,7 @@ docker-compose up -d
   - Toast notifications for `notification.pending`, `message.new`, `participant.joined/left`
   - Run with `npm run dev:all` to start both Vite and webhook server
 
-### 2026-02-10 (v3.17) - Read Receipts & Reactivity Fixes
+### 2026-02-10 (v0.3.17) - Read Receipts & Reactivity Fixes
 - Checkmark indicator on own messages when at least 1 participant has read
 - PrimeVue tooltip on hover showing who read (max 2 names + "and X more")
 - Click checkmark opens ReadersDialog modal with full list of readers
@@ -572,13 +572,13 @@ docker-compose up -d
 - Add `object_url` field for dialog links to host system
 - Create chat button with placeholder dialog slot
 
-### 2026-02-10 (v3.16) - Multiple Dialogs Per Object
+### 2026-02-10 (v0.3.16) - Multiple Dialogs Per Object
 - Removed uniqueness constraint on (object_id, object_type)
 - Multiple chats can now be created for the same business object
 - API `by-object/{type}/{id}` returns the most recent dialog (backward compatible)
 - Database migration: drops unique index, creates regular index for query performance
 
-### 2026-02-07 (v3.15) - Per-Chat Notification Toggle
+### 2026-02-07 (v0.3.15) - Per-Chat Notification Toggle
 - Mute/unmute notifications for individual chats
 - Toggle via header menu (⋮) or context menu (right-click)
 - Bell-off icon displayed in chat list for muted chats
@@ -586,7 +586,7 @@ docker-compose up -d
 - `notifications_enabled` field in dialog list API response
 - i18n translations for mute/unmute (ru/en/zh)
 
-### 2026-02-07 (v3.14) - Chat Pinning & Sorting
+### 2026-02-07 (v0.3.14) - Chat Pinning & Sorting
 - Pin/unpin chats via header menu (⋮) or context menu (right-click)
 - Pinned chats displayed at top of list with pin icon
 - Sorting: pinned first, then by last_message_at (newest first)
@@ -600,7 +600,7 @@ docker-compose up -d
 - i18n translations for pin/unpin (ru/en/zh)
 - Esc closes context menu
 
-### 2026-02-06 (v3.13) - Message Editing & Deletion
+### 2026-02-06 (v0.3.13) - Message Editing & Deletion
 - Edit and delete messages via dropdown menu (⋮)
 - Dropdown menu with Reply, Edit, Delete actions
 - Edit/Delete only available for own messages
@@ -615,7 +615,7 @@ docker-compose up -d
 - Esc key cancels edit mode
 - Click outside closes dropdown menu
 
-### 2026-02-06 (v3.12) - User Online Status
+### 2026-02-06 (v0.3.12) - User Online Status
 - Real-time online status tracking via Redis with 60s TTL
 - Message avatars: circular avatar with initials (36x36px) next to each message
 - Green online indicator on message avatars (bottom-right, 10x10px)
@@ -630,7 +630,7 @@ docker-compose up -d
 - isUserOnline() helper function in useChat composable
 - getInitials() helper for generating avatar letters
 
-### 2025-02-06 (v3.11) - Message Formatting
+### 2026-02-06 (v0.3.11) - Message Formatting
 - Rich text editor based on Tiptap (ProseMirror)
 - Formatting toolbar: bold, italic, underline, strikethrough, link, lists, quote, code
 - Active formatting buttons highlighted with light gray background
@@ -648,7 +648,7 @@ docker-compose up -d
 - HTML content rendering in messages with proper styling
 - i18n support for formatting toolbar tooltips and placeholder (ru/en/zh)
 
-### 2025-02-06 (v3.10) - System Messages
+### 2026-02-06 (v0.3.10) - System Messages
 - System messages for chat events (created, joined, left)
 - Message types: 'user' (default) and 'system'
 - System messages have no sender_id (NULL in DB)
@@ -662,7 +662,7 @@ docker-compose up -d
 - WebSocket broadcasts system messages with message_type field
 - Translations for all system message types (ru/en/zh)
 
-### 2025-02-06 (v3.9) - Chat Archiving
+### 2026-02-06 (v0.3.9) - Chat Archiving
 - Per-user chat archiving (each participant archives independently)
 - Archived chats shown in collapsible accordion below active chats
 - Accordion toggles between 50% height and collapsed states
@@ -675,7 +675,7 @@ docker-compose up -d
 - API endpoints: POST /dialogs/{id}/archive, POST /dialogs/{id}/unarchive
 - Translations for archive UI elements (ru/en/zh)
 
-### 2025-02-05 (v3.8) - Dialog Search
+### 2026-02-05 (v0.3.8) - Dialog Search
 - Search input in sidebar above dialog tabs
 - Backend search by dialog title using ILIKE (case-insensitive)
 - 300ms debounce to prevent excessive API calls
@@ -686,7 +686,7 @@ docker-compose up -d
 - Search works across both "My Chats" and "Available" tabs
 - Translations for search placeholder and empty state (ru/en/zh)
 
-### 2025-02-05 (v3.7) - Potential Chat Access Control
+### 2026-02-05 (v0.3.7) - Potential Chat Access Control
 - Security fix: potential participants can no longer read messages before joining
 - Potential participants see "Join to view messages" prompt with join button
 - Backend validation on all message-related endpoints (403 Forbidden for non-participants)
@@ -696,7 +696,7 @@ docker-compose up -d
 - Messages and participants load automatically after successful join
 - Updated translations for join-required state (ru/en/zh)
 
-### 2025-02-05 (v3.6) - Internationalization (i18n)
+### 2026-02-05 (v0.3.6) - Internationalization (i18n)
 - Full i18n support with Russian (default), English, and Chinese translations
 - ~65 strings translated across all components
 - Lightweight implementation using Vue provide/inject (no external dependencies)
@@ -708,7 +708,7 @@ docker-compose up -d
 - Removed redundant "can join" badge from available dialogs list
 - Removed unused ImageGallery and PDFViewer components (FileViewer handles all)
 
-### 2025-02-05 (v3.5) - Participant Profiles & Join UX
+### 2026-02-05 (v0.3.5) - Participant Profiles & Join UX
 - Participant profile support (display_name, company, email, phone)
 - Join dialog with name selection (real name or anonymous)
 - Contact visibility toggles (email/phone) when joining
@@ -721,7 +721,7 @@ docker-compose up -d
 - Demo app: email/phone fields in user management
 - Demo app: improved text contrast in light theme
 
-### 2025-02-05 (v3.4) - UI Improvements & PrimeVue Themes
+### 2026-02-05 (v0.3.4) - UI Improvements & PrimeVue Themes
 - List-style message layout (left-aligned, full width, no bubbles)
 - Date dividers between messages with smart formatting (Сегодня/Вчера/дата)
 - Sticky date headers that appear when scrolling past dividers
@@ -731,7 +731,7 @@ docker-compose up -d
 - CSS variables system for easy theming (--tms-*, --mtchat-*)
 - Theme persistence via localStorage
 
-### 2025-02-04 (v3.3) - Message Replies & Unread Tracking
+### 2026-02-04 (v0.3.3) - Message Replies & Unread Tracking
 - Message reply functionality with reply-to icon on hover (outside message bubble)
 - Quote preview above input field with cancel (X/Esc)
 - Quoted message display in sent messages with click-to-scroll
@@ -743,7 +743,7 @@ docker-compose up -d
 - WebSocket message.read event for real-time updates across devices
 - Unread badge in dialog list UI (99+ cap)
 
-### 2025-02-04 (v3.2) - File Attachments
+### 2026-02-04 (v0.3.2) - File Attachments
 - Full file attachment support with S3/MinIO storage
 - Presigned URL upload flow (secure, direct-to-S3)
 - Unified FileViewer component for images and PDFs
@@ -755,7 +755,7 @@ docker-compose up -d
 - Cross-origin file download support
 - Inline mode layout fixes (proper 100vh containment)
 
-### 2025-02-04 (v3.1) - Demo App Complete
+### 2026-02-04 (v0.3.1) - Demo App Complete
 - Dev Playground (mtchat-example) fully implemented
 - Admin panel: Tenants, Users, Objects, Dialogs, Settings tabs
 - Full mode: chat list with "My Chats" / "Available" tabs
@@ -763,7 +763,7 @@ docker-compose up -d
 - TMS-style dark theme with sidebar navigation
 - localStorage-based demo data management
 
-### 2025-02-03 (v3) - Architecture Update
+### 2026-02-03 (v0.3.0) - Architecture Update
 - New data model: object-bound dialogs
 - Direct participants + potential participants (scopes)
 - Two-level scope matching (departments + permissions)
@@ -771,9 +771,9 @@ docker-compose up -d
 - Outgoing webhooks for notifications
 - Inline mode for embedding
 
-### 2025-02-02 (v2)
+### 2026-02-02 (v0.2.0)
 - Project restructure (mtchat-rust, mtchat-vue, mtchat-example)
 - TypeScript SDK
 
-### 2025-02-02 (v1)
+### 2026-02-02 (v0.1.0)
 - Initial implementation
