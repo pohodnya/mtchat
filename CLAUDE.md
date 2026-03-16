@@ -152,6 +152,7 @@ DELETE /api/v1/management/dialogs/{id}    # Delete dialog
 GET  /api/v1/dialogs?type=participating   # My chats (includes unread_count)
 GET  /api/v1/dialogs?type=participating&archived=true  # Archived chats
 GET  /api/v1/dialogs?type=available       # Can join
+# Pagination: &limit=50&offset=0 (limit max 100, default 50)
 GET  /api/v1/dialogs/by-object/{type}/{id}  # Inline mode
 POST /api/v1/dialogs/{id}/join            # Join chat
 POST /api/v1/dialogs/{id}/leave           # Leave chat
@@ -448,8 +449,39 @@ docker-compose up -d
 | Jump to unloaded reply | ✅ |
 | CORS configuration | ✅ |
 | JWT authentication (Chat API) | ✅ |
+| Input validation | ✅ |
+| Dialog list pagination | ✅ |
+| Structured error codes | ✅ |
 
 ## Changelog
+
+### 2026-03-16 (v0.3.23) - Backend Hardening & Performance
+- **Input validation** for all text fields with length limits:
+  - Message content: 50,000 chars
+  - Dialog title: 500 chars
+  - Display name: 200 chars
+  - Company: 200 chars
+  - Email: 254 chars
+  - Phone: 50 chars
+- **S3 key path traversal protection** - validates s3_key in attachments:
+  - Blocks `..` sequences and URL-encoded variants
+  - Blocks null byte injection
+  - Verifies file belongs to correct dialog
+- **Dialog list pagination** - new query parameters:
+  - `limit`: number of dialogs (default 50, max 100)
+  - `offset`: skip N dialogs (default 0)
+- **pg_trgm indexes** for efficient ILIKE search on dialog title and participant company
+- **Structured error codes** - new `ErrorCode` enum for machine-readable errors:
+  - `DialogNotFound`, `MessageNotFound`, `ParticipantNotFound`, `AttachmentNotFound`
+  - `InvalidInput`, `FileTooLarge`, `UnsupportedFileType`, `TooManyAttachments`
+  - `NotParticipant`, `NotMessageAuthor`, `ScopeMismatch`
+- **WebSocket broadcast optimization** - extracted common logic, serialize JSON once
+- **Presence TTL alignment** - 60s TTL with 30s heartbeat (was mismatched)
+- **Parallelized send_message** - broadcast, webhook, and notifications run concurrently
+- **JoinedAs enum refactoring** - now uses sqlx::Type derive instead of string conversion
+- Removed unused Subscribe/Unsubscribe WebSocket handlers
+- New validation module: `mtchat-rust/src/domain/validation.rs`
+- Database migration: `20250316000001_add_trgm_indexes.sql`
 
 ### 2026-03-12 (v0.3.22) - JWT Authentication for Chat API
 - **Optional JWT authentication** for Chat API routes (when `JWT_AUTH_ENABLED=true`)
