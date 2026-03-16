@@ -398,41 +398,47 @@ pub async fn send_message(
     }
 
     // Broadcast and webhook after transaction is committed
-    if unarchived > 0 {
-        tracing::debug!(dialog_id = %dialog_id, count = unarchived, "Auto-unarchived dialog for participants");
-        let participant_ids: Vec<Uuid> = state
-            .participants
-            .list_by_dialog(dialog_id)
-            .await?
-            .iter()
-            .map(|p| p.user_id)
-            .collect();
-        ws::broadcast_dialog_unarchived(&state.connections, dialog_id, &participant_ids).await;
-    }
+    // Fetch participants once for both unarchive broadcast and notifications
+    let participants = if unarchived > 0 || state.jobs.is_enabled() {
+        state.participants.list_by_dialog(dialog_id).await?
+    } else {
+        vec![]
+    };
 
-    ws::broadcast_message(&state.connections, dialog_id, &message).await;
-    state
+    // Run broadcast, webhook, and notifications in parallel
+    let broadcast_future = async {
+        if unarchived > 0 {
+            tracing::debug!(dialog_id = %dialog_id, count = unarchived, "Auto-unarchived dialog for participants");
+            let participant_ids: Vec<Uuid> = participants.iter().map(|p| p.user_id).collect();
+            ws::broadcast_dialog_unarchived(&state.connections, dialog_id, &participant_ids).await;
+        }
+        ws::broadcast_message(&state.connections, dialog_id, &message).await;
+    };
+
+    let webhook_future = state
         .webhooks
-        .send(WebhookEvent::message_new(&dialog, &message))
-        .await;
+        .send(WebhookEvent::message_new(&dialog, &message));
 
-    // Schedule smart notifications for all participants except sender
-    if state.jobs.is_enabled() {
-        let participants = state.participants.list_by_dialog(dialog_id).await?;
-        for participant in participants {
-            if participant.user_id != sender_id {
-                let job =
-                    NotificationJob::new(dialog_id, participant.user_id, message.id, sender_id);
-                if let Err(e) = state.jobs.enqueue_notification(job).await {
-                    tracing::warn!(
-                        recipient_id = %participant.user_id,
-                        error = %e,
-                        "Failed to enqueue notification job"
-                    );
+    let notifications_future = async {
+        if state.jobs.is_enabled() {
+            for participant in &participants {
+                if participant.user_id != sender_id {
+                    let job =
+                        NotificationJob::new(dialog_id, participant.user_id, message.id, sender_id);
+                    if let Err(e) = state.jobs.enqueue_notification(job).await {
+                        tracing::warn!(
+                            recipient_id = %participant.user_id,
+                            error = %e,
+                            "Failed to enqueue notification job"
+                        );
+                    }
                 }
             }
         }
-    }
+    };
+
+    // Execute all in parallel
+    tokio::join!(broadcast_future, webhook_future, notifications_future);
 
     Ok(Json(ApiResponse {
         data: MessageWithAttachments {
