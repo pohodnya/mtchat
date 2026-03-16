@@ -260,6 +260,17 @@ pub async fn send_message(
         }
     }
 
+    // Validate content length (before sanitization)
+    if req.content.len() > domain::validation::MAX_MESSAGE_LENGTH {
+        return Err(ApiError::new(
+            ErrorCode::InvalidInput,
+            format!(
+                "Message content exceeds maximum length of {} characters",
+                domain::validation::MAX_MESSAGE_LENGTH
+            ),
+        ));
+    }
+
     // Sanitize message content (removes XSS, preserves formatting)
     let sanitized_content = domain::sanitize_html(&req.content);
 
@@ -464,6 +475,17 @@ pub async fn edit_message(
     // Can't edit system messages
     if message.message_type != domain::MessageType::User {
         return Err(ApiError::BadRequest("Cannot edit system messages".into()));
+    }
+
+    // Validate content length
+    if req.content.len() > domain::validation::MAX_MESSAGE_LENGTH {
+        return Err(ApiError::new(
+            ErrorCode::InvalidInput,
+            format!(
+                "Message content exceeds maximum length of {} characters",
+                domain::validation::MAX_MESSAGE_LENGTH
+            ),
+        ));
     }
 
     // Sanitize content

@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::{
-    system_messages, Dialog, DialogAccessScope, DialogParticipant, JoinedAs, Message,
+    self, system_messages, Dialog, DialogAccessScope, DialogParticipant, JoinedAs, Message,
     ParticipantProfile,
 };
 use crate::ws;
 
-use super::{ApiError, ApiResponse, AppState};
+use super::{ApiError, ApiResponse, AppState, ErrorCode};
 
 // ============ DTOs ============
 
@@ -71,6 +71,20 @@ pub async fn management_create_dialog(
     State(state): State<AppState>,
     Json(req): Json<CreateDialogRequest>,
 ) -> Result<Json<ApiResponse<Dialog>>, ApiError> {
+    // Validate input
+    domain::validation::validate_title(&req.title)
+        .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+    for participant in &req.participants {
+        domain::validation::validate_display_name(&participant.display_name)
+            .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+        domain::validation::validate_company(&participant.company)
+            .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+        domain::validation::validate_email(&participant.email)
+            .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+        domain::validation::validate_phone(&participant.phone)
+            .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+    }
+
     let mut tx = state.db.begin().await?;
 
     // Create dialog
@@ -187,6 +201,16 @@ pub async fn management_add_participant(
     Path(dialog_id): Path<Uuid>,
     Json(req): Json<AddParticipantRequest>,
 ) -> Result<StatusCode, ApiError> {
+    // Validate input
+    domain::validation::validate_display_name(&req.display_name)
+        .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+    domain::validation::validate_company(&req.company)
+        .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+    domain::validation::validate_email(&req.email)
+        .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+    domain::validation::validate_phone(&req.phone)
+        .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+
     // Check dialog exists
     state
         .dialogs

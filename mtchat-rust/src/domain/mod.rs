@@ -9,6 +9,7 @@ pub mod html_sanitize;
 mod message;
 mod participant;
 pub mod system_messages;
+pub mod validation;
 
 pub use access_scope::DialogAccessScope;
 pub use attachment::{

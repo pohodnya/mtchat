@@ -3,7 +3,7 @@ use axum::response::Json;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::{system_messages, Dialog, JoinedAs, Message, ParticipantProfile};
+use crate::domain::{self, system_messages, Dialog, JoinedAs, Message, ParticipantProfile};
 use crate::middleware::{OptionalScopeConfig, ScopeConfig, UserId};
 use crate::webhooks::WebhookEvent;
 use crate::ws;
@@ -246,6 +246,16 @@ pub async fn join_dialog(
     if !has_access {
         return Err(ApiError::Forbidden("No access to join this dialog".into()));
     }
+
+    // Validate input
+    domain::validation::validate_display_name(&req.display_name)
+        .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+    domain::validation::validate_company(&Some(req.company.clone()))
+        .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+    domain::validation::validate_email(&req.email)
+        .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+    domain::validation::validate_phone(&req.phone)
+        .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
 
     // All DB writes in a transaction
     let mut tx = state.db.begin().await?;
