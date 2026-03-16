@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::{Dialog, DialogParticipant, Message};
+use crate::domain::{Dialog, DialogParticipant, JoinedAs, Message};
 
 /// Webhook event types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -181,7 +181,7 @@ pub struct ParticipantPayload {
     pub object_id: Uuid,
     pub object_type: String,
     pub user_id: Uuid,
-    pub joined_as: String,
+    pub joined_as: JoinedAs,
     pub joined_at: DateTime<Utc>,
 }
 

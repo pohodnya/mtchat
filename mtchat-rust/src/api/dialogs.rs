@@ -262,7 +262,7 @@ pub async fn join_dialog(
     )
     .bind(dialog_id)
     .bind(user_id)
-    .bind(JoinedAs::Joined.as_str())
+    .bind(&JoinedAs::Joined)
     .bind(&profile.display_name)
     .bind(&profile.company)
     .bind(&profile.email)

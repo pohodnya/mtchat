@@ -28,7 +28,7 @@ impl ParticipantRepository {
         )
         .bind(dialog_id)
         .bind(user_id)
-        .bind(joined_as.as_str())
+        .bind(&joined_as)
         .fetch_one(&self.pool)
         .await
     }
@@ -49,7 +49,7 @@ impl ParticipantRepository {
         )
         .bind(dialog_id)
         .bind(user_id)
-        .bind(joined_as.as_str())
+        .bind(&joined_as)
         .bind(&profile.display_name)
         .bind(&profile.company)
         .bind(&profile.email)
@@ -72,7 +72,7 @@ impl ParticipantRepository {
         )
         .bind(dialog_id)
         .bind(user_id)
-        .bind(joined_as.as_str())
+        .bind(&joined_as)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -94,7 +94,7 @@ impl ParticipantRepository {
         )
         .bind(dialog_id)
         .bind(user_id)
-        .bind(joined_as.as_str())
+        .bind(&joined_as)
         .bind(&profile.display_name)
         .bind(&profile.company)
         .bind(&profile.email)

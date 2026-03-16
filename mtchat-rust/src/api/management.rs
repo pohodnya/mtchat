@@ -112,7 +112,7 @@ pub async fn management_create_dialog(
         )
         .bind(dialog.id)
         .bind(participant.user_id)
-        .bind(JoinedAs::Participant.as_str())
+        .bind(&JoinedAs::Participant)
         .bind(&profile.display_name)
         .bind(&profile.company)
         .bind(&profile.email)

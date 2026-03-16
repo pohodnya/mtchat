@@ -6,8 +6,9 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 /// How the participant joined the dialog
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[serde(rename_all = "snake_case")]
+#[sqlx(type_name = "text", rename_all = "snake_case")]
 pub enum JoinedAs {
     /// Created the dialog
     Creator,
@@ -56,8 +57,8 @@ pub struct DialogParticipant {
     /// External user identifier (from JWT token)
     pub user_id: Uuid,
     pub joined_at: DateTime<Utc>,
-    /// How the user joined: "creator", "participant", "joined"
-    pub joined_as: String,
+    /// How the user joined the dialog
+    pub joined_as: JoinedAs,
     pub notifications_enabled: bool,
     /// Last message the user has read
     pub last_read_message_id: Option<Uuid>,
@@ -92,7 +93,7 @@ impl DialogParticipant {
             dialog_id,
             user_id,
             joined_at: Utc::now(),
-            joined_as: joined_as.as_str().to_string(),
+            joined_as,
             notifications_enabled: true,
             last_read_message_id: None,
             unread_count: 0,
@@ -115,7 +116,7 @@ impl DialogParticipant {
             dialog_id,
             user_id,
             joined_at: Utc::now(),
-            joined_as: joined_as.as_str().to_string(),
+            joined_as,
             notifications_enabled: true,
             last_read_message_id: None,
             unread_count: 0,
@@ -126,9 +127,5 @@ impl DialogParticipant {
             is_archived: false,
             is_pinned: false,
         }
-    }
-
-    pub fn joined_as_enum(&self) -> JoinedAs {
-        JoinedAs::from(self.joined_as.as_str())
     }
 }
