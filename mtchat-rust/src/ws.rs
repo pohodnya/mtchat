@@ -86,8 +86,6 @@ pub enum WsEvent {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WsClientMessage {
-    Subscribe { dialog_id: Uuid },
-    Unsubscribe { dialog_id: Uuid },
     Ping,
 }
 
@@ -148,16 +146,6 @@ pub async fn handle_socket(
                             }
                             let pong = serde_json::to_string(&WsEvent::Pong).unwrap();
                             let _ = tx.send(pong).await;
-                        }
-                        WsClientMessage::Subscribe { dialog_id } => {
-                            tracing::debug!("User {} subscribed to dialog {}", user_id, dialog_id);
-                        }
-                        WsClientMessage::Unsubscribe { dialog_id } => {
-                            tracing::debug!(
-                                "User {} unsubscribed from dialog {}",
-                                user_id,
-                                dialog_id
-                            );
                         }
                     }
                 }
