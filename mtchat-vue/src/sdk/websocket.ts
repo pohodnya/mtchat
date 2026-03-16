@@ -40,7 +40,7 @@ export class MTChatWebSocket {
     this.options = {
       reconnect: true,
       reconnectInterval: 3000,
-      heartbeatInterval: 10000, // 10 seconds for faster presence updates
+      heartbeatInterval: 30000, // 30 seconds, backend TTL is 60s
       onConnect: () => {},
       onDisconnect: () => {},
       onError: () => {},

@@ -8,9 +8,9 @@ use fred::interfaces::KeysInterface;
 use std::sync::Arc;
 use uuid::Uuid;
 
-/// TTL for online status keys in seconds (20s)
-/// Heartbeat is 10s, so status expires if 2 heartbeats are missed
-const ONLINE_TTL: i64 = 20;
+/// TTL for online status keys in seconds (60s)
+/// Heartbeat is 30s, so status expires if 2 heartbeats are missed
+const ONLINE_TTL: i64 = 60;
 
 /// Service for managing user online presence via Redis
 pub struct PresenceService {
