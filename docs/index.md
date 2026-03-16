@@ -101,4 +101,4 @@ MTChat is a microservice-based chat system designed to be embedded into business
 
 ## License
 
-MTChat is open-source software licensed under the [MIT License](https://github.com/nicenemo/mtchat/blob/master/LICENSE).
+MTChat is open-source software licensed under the [MIT License](https://github.com/pohodnya/mtchat/blob/master/LICENSE).

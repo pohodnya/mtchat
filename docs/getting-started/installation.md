@@ -7,7 +7,7 @@
 The easiest way to run MTChat is with Docker Compose, which starts all required services:
 
 ```bash
-git clone https://github.com/nicenemo/mtchat.git
+git clone https://github.com/pohodnya/mtchat.git
 cd mtchat
 docker-compose up -d
 ```

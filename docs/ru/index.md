@@ -101,4 +101,4 @@ MTChat -- микросервисная чат-система, предназна
 
 ## Лицензия
 
-MTChat -- открытое ПО, распространяемое по [лицензии MIT](https://github.com/nicenemo/mtchat/blob/master/LICENSE).
+MTChat -- открытое ПО, распространяемое по [лицензии MIT](https://github.com/pohodnya/mtchat/blob/master/LICENSE).

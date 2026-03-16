@@ -10,7 +10,7 @@ Get MTChat running in under 5 minutes.
 ## 1. Start the Backend
 
 ```bash
-git clone https://github.com/nicenemo/mtchat.git
+git clone https://github.com/pohodnya/mtchat.git
 cd mtchat
 docker-compose up -d
 ```
