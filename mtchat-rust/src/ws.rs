@@ -219,6 +219,42 @@ async fn broadcast_presence(
     }
 }
 
+/// Broadcast an event to all connected users
+async fn broadcast_to_all(connections: &Connections, event: &WsEvent) {
+    let json = match serde_json::to_string(event) {
+        Ok(j) => j,
+        Err(e) => {
+            tracing::warn!("Failed to serialize WsEvent: {}", e);
+            return;
+        }
+    };
+
+    for entry in connections.iter() {
+        if entry.value().send(json.clone()).await.is_err() {
+            tracing::debug!("Failed to send to user {}", entry.key());
+        }
+    }
+}
+
+/// Broadcast an event to specific users
+async fn broadcast_to_users(connections: &Connections, event: &WsEvent, user_ids: &[Uuid]) {
+    let json = match serde_json::to_string(event) {
+        Ok(j) => j,
+        Err(e) => {
+            tracing::warn!("Failed to serialize WsEvent: {}", e);
+            return;
+        }
+    };
+
+    for user_id in user_ids {
+        if let Some(tx) = connections.get(user_id) {
+            if tx.send(json.clone()).await.is_err() {
+                tracing::debug!("Failed to send to user {}", user_id);
+            }
+        }
+    }
+}
+
 pub async fn broadcast_message(
     connections: &Connections,
     _dialog_id: Uuid,
@@ -232,15 +268,7 @@ pub async fn broadcast_message(
         sent_at: message.sent_at,
         message_type: message.message_type.as_str().to_string(),
     };
-
-    let json = match serde_json::to_string(&event) {
-        Ok(j) => j,
-        Err(_) => return,
-    };
-
-    for entry in connections.iter() {
-        let _ = entry.value().send(json.clone()).await;
-    }
+    broadcast_to_all(connections, &event).await;
 }
 
 pub async fn broadcast_read(
@@ -254,15 +282,7 @@ pub async fn broadcast_read(
         user_id,
         last_read_message_id,
     };
-
-    let json = match serde_json::to_string(&event) {
-        Ok(j) => j,
-        Err(_) => return,
-    };
-
-    for entry in connections.iter() {
-        let _ = entry.value().send(json.clone()).await;
-    }
+    broadcast_to_all(connections, &event).await;
 }
 
 pub async fn broadcast_message_edited(connections: &Connections, message: &crate::domain::Message) {
@@ -277,15 +297,7 @@ pub async fn broadcast_message_edited(connections: &Connections, message: &crate
         content: message.content.clone(),
         last_edited_at,
     };
-
-    let json = match serde_json::to_string(&event) {
-        Ok(j) => j,
-        Err(_) => return,
-    };
-
-    for entry in connections.iter() {
-        let _ = entry.value().send(json.clone()).await;
-    }
+    broadcast_to_all(connections, &event).await;
 }
 
 pub async fn broadcast_message_deleted(
@@ -297,15 +309,7 @@ pub async fn broadcast_message_deleted(
         id: message_id,
         dialog_id,
     };
-
-    let json = match serde_json::to_string(&event) {
-        Ok(j) => j,
-        Err(_) => return,
-    };
-
-    for entry in connections.iter() {
-        let _ = entry.value().send(json.clone()).await;
-    }
+    broadcast_to_all(connections, &event).await;
 }
 
 pub async fn broadcast_participant_joined(
@@ -314,28 +318,12 @@ pub async fn broadcast_participant_joined(
     user_id: Uuid,
 ) {
     let event = WsEvent::ParticipantJoined { dialog_id, user_id };
-
-    let json = match serde_json::to_string(&event) {
-        Ok(j) => j,
-        Err(_) => return,
-    };
-
-    for entry in connections.iter() {
-        let _ = entry.value().send(json.clone()).await;
-    }
+    broadcast_to_all(connections, &event).await;
 }
 
 pub async fn broadcast_participant_left(connections: &Connections, dialog_id: Uuid, user_id: Uuid) {
     let event = WsEvent::ParticipantLeft { dialog_id, user_id };
-
-    let json = match serde_json::to_string(&event) {
-        Ok(j) => j,
-        Err(_) => return,
-    };
-
-    for entry in connections.iter() {
-        let _ = entry.value().send(json.clone()).await;
-    }
+    broadcast_to_all(connections, &event).await;
 }
 
 /// Broadcast dialog archived event to specific users.
@@ -345,17 +333,7 @@ pub async fn broadcast_dialog_archived(
     user_ids: &[Uuid],
 ) {
     let event = WsEvent::DialogArchived { dialog_id };
-
-    let json = match serde_json::to_string(&event) {
-        Ok(j) => j,
-        Err(_) => return,
-    };
-
-    for user_id in user_ids {
-        if let Some(tx) = connections.get(user_id) {
-            let _ = tx.send(json.clone()).await;
-        }
-    }
+    broadcast_to_users(connections, &event, user_ids).await;
 }
 
 /// Broadcast dialog unarchived event to specific users.
@@ -364,32 +342,7 @@ pub async fn broadcast_dialog_unarchived(
     dialog_id: Uuid,
     user_ids: &[Uuid],
 ) {
+    tracing::debug!(dialog_id = %dialog_id, user_ids = ?user_ids, "Broadcasting dialog.unarchived");
     let event = WsEvent::DialogUnarchived { dialog_id };
-
-    let json = match serde_json::to_string(&event) {
-        Ok(j) => j,
-        Err(_) => return,
-    };
-
-    tracing::debug!(
-        dialog_id = %dialog_id,
-        user_ids = ?user_ids,
-        event_json = %json,
-        "Broadcasting dialog.unarchived event"
-    );
-
-    let mut sent_count = 0;
-    for user_id in user_ids {
-        if let Some(tx) = connections.get(user_id) {
-            if tx.send(json.clone()).await.is_ok() {
-                sent_count += 1;
-            }
-        }
-    }
-    tracing::debug!(
-        dialog_id = %dialog_id,
-        sent_count = sent_count,
-        total_recipients = user_ids.len(),
-        "Sent dialog.unarchived event"
-    );
+    broadcast_to_users(connections, &event, user_ids).await;
 }
