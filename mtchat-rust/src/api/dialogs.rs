@@ -12,6 +12,10 @@ use super::{ApiError, ApiResponse, AppState, ErrorCode};
 
 // ============ DTOs ============
 
+fn default_dialogs_limit() -> i64 {
+    50
+}
+
 #[derive(Debug, Deserialize)]
 pub struct DialogsQuery {
     #[serde(default)]
@@ -20,6 +24,10 @@ pub struct DialogsQuery {
     pub search: Option<String>,
     #[serde(default)]
     pub archived: Option<bool>,
+    #[serde(default = "default_dialogs_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,11 +77,15 @@ pub async fn list_dialogs(
     let search = params.search.as_deref();
     let archived = params.archived;
 
+    // Cap limit at 100 to prevent excessive queries
+    let limit = params.limit.min(100);
+    let offset = params.offset.max(0);
+
     let dialogs = match dialog_type {
         "participating" => {
             state
                 .dialogs
-                .find_participating(user_id, search, archived)
+                .find_participating(user_id, search, archived, limit, offset)
                 .await?
         }
         "available" => {
@@ -87,6 +99,8 @@ pub async fn list_dialogs(
                         &scope.scope_level1,
                         &scope.scope_level2,
                         search,
+                        limit,
+                        offset,
                     )
                     .await?
             } else {

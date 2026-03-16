@@ -62,11 +62,14 @@ impl DialogRepository {
     ///
     /// - archived: None = all, Some(true) = only archived, Some(false) = only active
     /// - search: searches in dialog title AND participant company names
+    /// - limit/offset: pagination parameters
     pub async fn find_participating(
         &self,
         user_id: Uuid,
         search: Option<&str>,
         archived: Option<bool>,
+        limit: i64,
+        offset: i64,
     ) -> Result<Vec<Dialog>, sqlx::Error> {
         sqlx::query_as::<_, Dialog>(
             r#"SELECT d.* FROM dialogs d
@@ -81,11 +84,14 @@ impl DialogRepository {
                    )
                  ))
                  AND ($3::boolean IS NULL OR dp.is_archived = $3)
-               ORDER BY d.created_at DESC"#,
+               ORDER BY d.created_at DESC
+               LIMIT $4 OFFSET $5"#,
         )
         .bind(user_id)
         .bind(search)
         .bind(archived)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(&self.pool)
         .await
     }
@@ -97,6 +103,8 @@ impl DialogRepository {
     /// - scope_level1: empty array in DB = wildcard (match all), otherwise requires overlap
     /// - scope_level2: empty array in DB = wildcard (match all), otherwise requires overlap
     /// - search: searches in dialog title AND participant company names
+    /// - limit/offset: pagination parameters
+    #[allow(clippy::too_many_arguments)]
     pub async fn find_available(
         &self,
         user_id: Uuid,
@@ -104,6 +112,8 @@ impl DialogRepository {
         scope_level1: &[String],
         scope_level2: &[String],
         search: Option<&str>,
+        limit: i64,
+        offset: i64,
     ) -> Result<Vec<Dialog>, sqlx::Error> {
         sqlx::query_as::<_, Dialog>(
             r#"SELECT DISTINCT d.* FROM dialogs d
@@ -123,13 +133,16 @@ impl DialogRepository {
                        AND p.company ILIKE '%' || $5 || '%'
                    )
                  ))
-               ORDER BY d.created_at DESC"#,
+               ORDER BY d.created_at DESC
+               LIMIT $6 OFFSET $7"#,
         )
         .bind(tenant_uid)
         .bind(scope_level1)
         .bind(scope_level2)
         .bind(user_id)
         .bind(search)
+        .bind(limit)
+        .bind(offset)
         .fetch_all(&self.pool)
         .await
     }
