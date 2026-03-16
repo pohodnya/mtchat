@@ -89,7 +89,87 @@ pub struct ErrorBody {
     pub message: String,
 }
 
+/// Structured error codes for API responses
+#[derive(Debug, Clone, Copy)]
+pub enum ErrorCode {
+    // Not Found errors
+    DialogNotFound,
+    MessageNotFound,
+    ParticipantNotFound,
+    AttachmentNotFound,
+    // Bad Request errors
+    InvalidInput,
+    FileTooLarge,
+    UnsupportedFileType,
+    TooManyAttachments,
+    // Forbidden errors
+    NotParticipant,
+    NotMessageAuthor,
+    ScopeMismatch,
+    // Auth errors
+    Unauthorized,
+    // Generic fallbacks
+    NotFound,
+    BadRequest,
+    Forbidden,
+    InternalError,
+}
+
+impl ErrorCode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ErrorCode::DialogNotFound => "DIALOG_NOT_FOUND",
+            ErrorCode::MessageNotFound => "MESSAGE_NOT_FOUND",
+            ErrorCode::ParticipantNotFound => "PARTICIPANT_NOT_FOUND",
+            ErrorCode::AttachmentNotFound => "ATTACHMENT_NOT_FOUND",
+            ErrorCode::InvalidInput => "INVALID_INPUT",
+            ErrorCode::FileTooLarge => "FILE_TOO_LARGE",
+            ErrorCode::UnsupportedFileType => "UNSUPPORTED_FILE_TYPE",
+            ErrorCode::TooManyAttachments => "TOO_MANY_ATTACHMENTS",
+            ErrorCode::NotParticipant => "NOT_PARTICIPANT",
+            ErrorCode::NotMessageAuthor => "NOT_MESSAGE_AUTHOR",
+            ErrorCode::ScopeMismatch => "SCOPE_MISMATCH",
+            ErrorCode::Unauthorized => "UNAUTHORIZED",
+            ErrorCode::NotFound => "NOT_FOUND",
+            ErrorCode::BadRequest => "BAD_REQUEST",
+            ErrorCode::Forbidden => "FORBIDDEN",
+            ErrorCode::InternalError => "INTERNAL_ERROR",
+        }
+    }
+
+    pub fn status_code(&self) -> StatusCode {
+        match self {
+            ErrorCode::DialogNotFound
+            | ErrorCode::MessageNotFound
+            | ErrorCode::ParticipantNotFound
+            | ErrorCode::AttachmentNotFound
+            | ErrorCode::NotFound => StatusCode::NOT_FOUND,
+
+            ErrorCode::InvalidInput
+            | ErrorCode::FileTooLarge
+            | ErrorCode::UnsupportedFileType
+            | ErrorCode::TooManyAttachments
+            | ErrorCode::BadRequest => StatusCode::BAD_REQUEST,
+
+            ErrorCode::NotParticipant
+            | ErrorCode::NotMessageAuthor
+            | ErrorCode::ScopeMismatch
+            | ErrorCode::Forbidden => StatusCode::FORBIDDEN,
+
+            ErrorCode::Unauthorized => StatusCode::UNAUTHORIZED,
+
+            ErrorCode::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+}
+
 pub enum ApiError {
+    /// Error with structured code
+    Structured {
+        code: ErrorCode,
+        message: String,
+    },
+    /// Legacy errors (for backward compatibility)
     NotFound(String),
     BadRequest(String),
     Unauthorized(String),
@@ -97,9 +177,20 @@ pub enum ApiError {
     Internal(String),
 }
 
+impl ApiError {
+    /// Create a structured error
+    pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
+        ApiError::Structured {
+            code,
+            message: message.into(),
+        }
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
         let (status, code, message) = match self {
+            ApiError::Structured { code, message } => (code.status_code(), code.as_str(), message),
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, "NOT_FOUND", msg),
             ApiError::BadRequest(msg) => (StatusCode::BAD_REQUEST, "BAD_REQUEST", msg),
             ApiError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", msg),

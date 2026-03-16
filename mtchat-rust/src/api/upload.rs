@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::domain;
 use crate::middleware::UserId;
 
-use super::{ApiError, ApiResponse, AppState};
+use super::{ApiError, ApiResponse, AppState, ErrorCode};
 
 // ============ DTOs ============
 
@@ -39,19 +39,25 @@ pub async fn presign_upload(
 
     // Validate file type
     if !domain::attachment_limits::is_allowed_type(&req.content_type) {
-        return Err(ApiError::BadRequest(format!(
-            "File type '{}' is not allowed. Allowed types: {:?}",
-            req.content_type,
-            domain::attachment_limits::ALLOWED_TYPES
-        )));
+        return Err(ApiError::new(
+            ErrorCode::UnsupportedFileType,
+            format!(
+                "File type '{}' is not allowed. Allowed types: {:?}",
+                req.content_type,
+                domain::attachment_limits::ALLOWED_TYPES
+            ),
+        ));
     }
 
     // Validate file size
     if !domain::attachment_limits::is_valid_size(req.size) {
-        return Err(ApiError::BadRequest(format!(
-            "File size must be between 1 byte and {} bytes",
-            domain::attachment_limits::MAX_FILE_SIZE
-        )));
+        return Err(ApiError::new(
+            ErrorCode::FileTooLarge,
+            format!(
+                "File size must be between 1 byte and {} bytes",
+                domain::attachment_limits::MAX_FILE_SIZE
+            ),
+        ));
     }
 
     // Verify dialog exists
@@ -59,7 +65,7 @@ pub async fn presign_upload(
         .dialogs
         .find_by_id(req.dialog_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Generate S3 key
     // Format: dialogs/{dialog_id}/pending/{uuid}.{ext}
@@ -97,7 +103,7 @@ pub async fn get_attachment_url(
         .attachments
         .find_by_id(attachment_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound("Attachment not found".into()))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::AttachmentNotFound, "Attachment not found"))?;
 
     // Generate presigned download URL
     let url = state

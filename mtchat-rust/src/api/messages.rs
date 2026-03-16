@@ -11,7 +11,7 @@ use crate::middleware::UserId;
 use crate::webhooks::WebhookEvent;
 use crate::ws;
 
-use super::{ApiError, ApiResponse, AppState};
+use super::{ApiError, ApiResponse, AppState, ErrorCode};
 
 // ============ DTOs ============
 
@@ -212,7 +212,7 @@ pub async fn send_message(
         .dialogs
         .find_by_id(dialog_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Check user is participant (potential participants cannot send messages)
     if !state.participants.exists(dialog_id, sender_id).await? {
@@ -435,7 +435,7 @@ pub async fn get_message(
         .messages
         .find_by_id_and_dialog(message_id, dialog_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound("Message not found".into()))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::MessageNotFound, "Message not found"))?;
 
     Ok(Json(ApiResponse { data: message }))
 }
@@ -451,11 +451,14 @@ pub async fn edit_message(
         .messages
         .find_by_id_and_dialog(message_id, dialog_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound("Message not found".into()))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::MessageNotFound, "Message not found"))?;
 
     // Check ownership (only author can edit)
     if message.sender_id != Some(user_id) {
-        return Err(ApiError::Forbidden("Can only edit own messages".into()));
+        return Err(ApiError::new(
+            ErrorCode::NotMessageAuthor,
+            "Can only edit own messages",
+        ));
     }
 
     // Can't edit system messages
@@ -511,11 +514,14 @@ pub async fn delete_message(
         .messages
         .find_by_id_and_dialog(message_id, dialog_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound("Message not found".into()))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::MessageNotFound, "Message not found"))?;
 
     // Check ownership
     if message.sender_id != Some(user_id) {
-        return Err(ApiError::Forbidden("Can only delete own messages".into()));
+        return Err(ApiError::new(
+            ErrorCode::NotMessageAuthor,
+            "Can only delete own messages",
+        ));
     }
 
     // Delete message

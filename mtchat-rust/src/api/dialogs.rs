@@ -8,7 +8,7 @@ use crate::middleware::{OptionalScopeConfig, ScopeConfig, UserId};
 use crate::webhooks::WebhookEvent;
 use crate::ws;
 
-use super::{ApiError, ApiResponse, AppState};
+use super::{ApiError, ApiResponse, AppState, ErrorCode};
 
 // ============ DTOs ============
 
@@ -182,7 +182,10 @@ pub async fn get_dialog_by_object(
         };
 
         if !i_am_participant && !can_join {
-            return Err(ApiError::Forbidden("No access to this dialog".into()));
+            return Err(ApiError::new(
+                ErrorCode::ScopeMismatch,
+                "No access to this dialog",
+            ));
         }
 
         // Use batch methods to avoid N+1 queries (consistent with list_dialogs)
@@ -222,7 +225,7 @@ pub async fn join_dialog(
         .dialogs
         .find_by_id(dialog_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Check if already participant
     if state.participants.exists(dialog_id, user_id).await? {
@@ -327,7 +330,7 @@ pub async fn leave_dialog(
         .dialogs
         .find_by_id(dialog_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Get participant before removing to get display_name
     let participant = state.participants.find(dialog_id, user_id).await?;
@@ -390,7 +393,10 @@ pub async fn archive_dialog(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
     if !state.participants.exists(dialog_id, user_id).await? {
-        return Err(ApiError::Forbidden("Not a participant".into()));
+        return Err(ApiError::new(
+            ErrorCode::NotParticipant,
+            "Not a participant",
+        ));
     }
 
     state
@@ -408,7 +414,10 @@ pub async fn unarchive_dialog(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
     if !state.participants.exists(dialog_id, user_id).await? {
-        return Err(ApiError::Forbidden("Not a participant".into()));
+        return Err(ApiError::new(
+            ErrorCode::NotParticipant,
+            "Not a participant",
+        ));
     }
 
     state
@@ -426,7 +435,10 @@ pub async fn pin_dialog(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
     if !state.participants.exists(dialog_id, user_id).await? {
-        return Err(ApiError::Forbidden("Not a participant".into()));
+        return Err(ApiError::new(
+            ErrorCode::NotParticipant,
+            "Not a participant",
+        ));
     }
 
     state
@@ -444,7 +456,10 @@ pub async fn unpin_dialog(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
     if !state.participants.exists(dialog_id, user_id).await? {
-        return Err(ApiError::Forbidden("Not a participant".into()));
+        return Err(ApiError::new(
+            ErrorCode::NotParticipant,
+            "Not a participant",
+        ));
     }
 
     state
@@ -463,7 +478,10 @@ pub async fn set_dialog_notifications(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     // Check user is participant
     if !state.participants.exists(dialog_id, user_id).await? {
-        return Err(ApiError::Forbidden("Not a participant".into()));
+        return Err(ApiError::new(
+            ErrorCode::NotParticipant,
+            "Not a participant",
+        ));
     }
 
     state
@@ -486,7 +504,7 @@ pub async fn get_dialog(
         .dialogs
         .find_by_id(dialog_id)
         .await?
-        .ok_or_else(|| ApiError::NotFound("Dialog not found".into()))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Check access: must be participant OR have scope access (potential participant)
     let is_participant = state.participants.exists(dialog_id, user_id).await?;
@@ -501,7 +519,10 @@ pub async fn get_dialog(
         .await?;
 
     if !is_participant && !has_scope_access {
-        return Err(ApiError::Forbidden("No access to this dialog".into()));
+        return Err(ApiError::new(
+            ErrorCode::ScopeMismatch,
+            "No access to this dialog",
+        ));
     }
 
     Ok(Json(ApiResponse { data: dialog }))
