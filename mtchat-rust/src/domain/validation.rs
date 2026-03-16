@@ -104,6 +104,44 @@ pub fn validate_phone(phone: &Option<String>) -> Result<(), ValidationError> {
     validate_optional_length(phone, "phone", MAX_PHONE_LENGTH)
 }
 
+/// Validate S3 key for path traversal attacks and dialog ownership
+pub fn validate_s3_key(s3_key: &str, dialog_id: uuid::Uuid) -> Result<(), ValidationError> {
+    // Check for path traversal sequences
+    if s3_key.contains("..") {
+        return Err(ValidationError {
+            field: "s3_key",
+            message: "Invalid S3 key: path traversal not allowed".to_string(),
+        });
+    }
+
+    // Normalize and check for encoded path traversal (e.g., %2e%2e)
+    if s3_key.contains("%2e") || s3_key.contains("%2E") {
+        return Err(ValidationError {
+            field: "s3_key",
+            message: "Invalid S3 key: encoded characters not allowed".to_string(),
+        });
+    }
+
+    // Check for null bytes (truncation attack)
+    if s3_key.contains('\0') {
+        return Err(ValidationError {
+            field: "s3_key",
+            message: "Invalid S3 key: null bytes not allowed".to_string(),
+        });
+    }
+
+    // Verify S3 key belongs to the correct dialog
+    let expected_prefix = format!("dialogs/{}/", dialog_id);
+    if !s3_key.starts_with(&expected_prefix) {
+        return Err(ValidationError {
+            field: "s3_key",
+            message: "Invalid S3 key: file does not belong to this dialog".to_string(),
+        });
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +168,41 @@ mod tests {
     #[test]
     fn test_validate_message_content_ok() {
         assert!(validate_message_content("hello").is_ok());
+    }
+
+    #[test]
+    fn test_validate_s3_key_valid() {
+        let dialog_id = uuid::Uuid::parse_str("12345678-1234-1234-1234-123456789abc").unwrap();
+        let key = format!("dialogs/{}/pending/file.txt", dialog_id);
+        assert!(validate_s3_key(&key, dialog_id).is_ok());
+    }
+
+    #[test]
+    fn test_validate_s3_key_path_traversal() {
+        let dialog_id = uuid::Uuid::parse_str("12345678-1234-1234-1234-123456789abc").unwrap();
+        let key = format!("dialogs/{}/../../../etc/passwd", dialog_id);
+        assert!(validate_s3_key(&key, dialog_id).is_err());
+    }
+
+    #[test]
+    fn test_validate_s3_key_encoded_traversal() {
+        let dialog_id = uuid::Uuid::parse_str("12345678-1234-1234-1234-123456789abc").unwrap();
+        let key = format!("dialogs/{}/%2e%2e/secret", dialog_id);
+        assert!(validate_s3_key(&key, dialog_id).is_err());
+    }
+
+    #[test]
+    fn test_validate_s3_key_wrong_dialog() {
+        let dialog_id = uuid::Uuid::parse_str("12345678-1234-1234-1234-123456789abc").unwrap();
+        let other_dialog = uuid::Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").unwrap();
+        let key = format!("dialogs/{}/pending/file.txt", other_dialog);
+        assert!(validate_s3_key(&key, dialog_id).is_err());
+    }
+
+    #[test]
+    fn test_validate_s3_key_null_byte() {
+        let dialog_id = uuid::Uuid::parse_str("12345678-1234-1234-1234-123456789abc").unwrap();
+        let key = format!("dialogs/{}/pending/file\0.txt", dialog_id);
+        assert!(validate_s3_key(&key, dialog_id).is_err());
     }
 }

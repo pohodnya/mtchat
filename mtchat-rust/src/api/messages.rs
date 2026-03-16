@@ -231,6 +231,10 @@ pub async fn send_message(
 
     // Validate and verify attachments exist in S3
     for att_input in &req.attachments {
+        // Validate S3 key (path traversal and dialog ownership)
+        domain::validation::validate_s3_key(&att_input.s3_key, dialog_id)
+            .map_err(|e| ApiError::new(ErrorCode::InvalidInput, e.message))?;
+
         // Validate type
         if !domain::attachment_limits::is_allowed_type(&att_input.content_type) {
             return Err(ApiError::BadRequest(format!(
