@@ -39,8 +39,8 @@ interface MTChatConfig {
 
 ```typescript
 interface ScopeConfig {
-  /** ID тенанта/организации */
-  tenantUid: string
+  /** Нулевой уровень scope (напр., тенанты/организации) */
+  scopeLevel0: string[]
 
   /** Первый уровень scope (напр., отделы) */
   scopeLevel1: string[]
@@ -86,7 +86,7 @@ const config: MTChatConfig = {
   baseUrl: 'https://chat.example.com',
   userId: user.id,
   scopeConfig: {
-    tenantUid: user.tenantId,
+    scopeLevel0: [user.tenantId],
     scopeLevel1: user.departments,
     scopeLevel2: user.permissions,
   },

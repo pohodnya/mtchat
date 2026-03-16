@@ -109,7 +109,7 @@ curl -X POST http://localhost:8080/api/v1/management/dialogs \
     "title": "Order #1234 Discussion",
     "participants": ["user-1", "user-2"],
     "access_scopes": [{
-      "tenant_uid": "tenant-abc",
+      "scope_level0": ["tenant-abc"],
       "scope_level1": ["logistics"],
       "scope_level2": ["manager", "admin"]
     }]
@@ -140,9 +140,9 @@ const chatConfig = {
   token: userToken,
   userId: currentUser.id,
   scopeConfig: {
-    tenant_uid: currentUser.tenantId,
-    scope_level1: currentUser.departments,
-    scope_level2: currentUser.permissions,
+    scopeLevel0: [currentUser.tenantId],
+    scopeLevel1: currentUser.departments,
+    scopeLevel2: currentUser.permissions,
   },
   userProfile: {
     displayName: currentUser.name,
@@ -354,24 +354,26 @@ Authenticated with user token (passed via header). Used by the Vue SDK.
 
 ## Scope Matching
 
-MTChat uses a two-level scope system to determine which users can see and join chats:
+MTChat uses a three-level scope system to determine which users can see and join chats:
 
 ```
 Dialog scope:                    User scope:
 {                                {
-  tenant_uid: "X",                 tenant_uid: "X",
-  scope_level1: ["A", "B"],       scope_level1: ["A"],
-  scope_level2: ["mgr", "admin"]  scope_level2: ["mgr", "viewer"]
+  scope_level0: ["X"],             scope_level0: ["X"],
+  scope_level1: ["A", "B"],        scope_level1: ["A"],
+  scope_level2: ["mgr", "admin"]   scope_level2: ["mgr", "viewer"]
 }                                }
 
-Match: tenant_uid matches
+Match: scope_level0 intersection: ["X"] (not empty)
        scope_level1 intersection: ["A"] (not empty)
        scope_level2 intersection: ["mgr"] (not empty)
 
 Result: User CAN JOIN this dialog
 ```
 
-**Logic:** `same tenant AND (any scope_level1 overlap) AND (any scope_level2 overlap)`
+**Logic:** `(any scope_level0 overlap) AND (any scope_level1 overlap) AND (any scope_level2 overlap)`
+
+Empty arrays act as wildcards (match any value).
 
 ## Contributing
 

@@ -63,7 +63,7 @@
 │  (прямые участники) │        │   (потенциальные участники)     │
 ├─────────────────────┤        ├─────────────────────────────────┤
 │  dialog_id          │        │  dialog_id                      │
-│  user_id (STRING)   │        │  tenant_uid (STRING)            │
+│  user_id (STRING)   │        │  scope_level0[]  (tenants)      │
 │  display_name       │        │  scope_level1[]  (departments)  │
 │  company            │        │  scope_level2[]  (permissions)  │
 │  email              │        │                                 │
@@ -83,20 +83,22 @@
 ```
 Dialog scope:                    User scope:
 {                                {
-  tenant_uid: "X",                 tenant_uid: "X",
+  scope_level0: ["X", "Y"],        scope_level0: ["X"],
   scope_level1: ["A", "B"],        scope_level1: ["A"],
   scope_level2: ["mgr", "admin"]   scope_level2: ["mgr", "viewer"]
 }                                }
 
 Match:
-  ✓ tenant_uid == tenant_uid
+  ✓ scope_level0 ∩ ["X"] ≠ ∅  →  "X" matches (user has "X", dialog allows "X" or "Y")
   ✓ scope_level1 ∩ ["A", "B"] ≠ ∅  →  "A" matches
   ✓ scope_level2 ∩ ["mgr", "admin"] ≠ ∅  →  "mgr" matches
 
 Result: User is POTENTIAL participant (can join)
 ```
 
-**Logic**: `tenant AND (ANY scope1) AND (ANY scope2)`
+**Logic**: `(ANY scope0) AND (ANY scope1) AND (ANY scope2)`
+
+Empty array at any level = wildcard (matches all values)
 
 ## Tech Stack
 
@@ -311,11 +313,11 @@ const config: MTChatConfig = {
   baseUrl: 'https://chat.example.com',
   token: userToken,
   userId: user.id,
-  // Scope config for access matching
+  // Scope config for access matching (all levels use OR logic, empty array = wildcard)
   scopeConfig: {
-    tenantUid: user.tenantId,
-    scopeLevel1: user.departments,
-    scopeLevel2: user.permissions,
+    scopeLevel0: [user.tenantId],     // tenants/organizations
+    scopeLevel1: user.departments,     // departments
+    scopeLevel2: user.permissions,     // roles/permissions
   },
   // User profile for join dialog
   userProfile: {
@@ -455,6 +457,21 @@ docker-compose up -d
 | String identifiers (user_id, object_id) | ✅ |
 
 ## Changelog
+
+### 2026-03-16 (v0.5.0) - Scope Level 0 (tenant_uid to scope_level0)
+- **Breaking change**: `tenant_uid` replaced with `scope_level0[]` array
+- Consistent OR logic across all scope levels: `(ANY scope0) AND (ANY scope1) AND (ANY scope2)`
+- Empty array at any level = wildcard (matches all values)
+- Enables multi-tenant access rules (e.g., `scope_level0: ["tenant-a", "tenant-b"]`)
+- Systems without tenant concept can use `scope_level0: []` (wildcard)
+- **API changes**:
+  - Management API: `tenant_uid: string` → `scope_level0: string[]` in access scopes
+  - Chat API: X-Scope-Config header: `tenant_uid` → `scope_level0`
+- **Frontend SDK changes**:
+  - `ScopeConfig.tenantUid: string` → `ScopeConfig.scopeLevel0: string[]`
+  - Existing code: change `tenantUid: user.tenantId` → `scopeLevel0: [user.tenantId]`
+- Database migration: `20260316000003_tenant_to_scope_level0.sql`
+- Backward compatible data migration: existing `tenant_uid` values converted to single-element arrays
 
 ### 2026-03-16 (v0.4.0) - UUID to String Migration
 - **External identifier support** - `user_id`, `object_id`, `tenant_uid`, `sender_id`, `created_by` changed from UUID to String

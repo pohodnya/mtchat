@@ -39,7 +39,7 @@ POST /api/v1/management/dialogs
   ],
   "access_scopes": [
     {
-      "tenant_uid": "22222222-2222-2222-2222-222222222222",
+      "scope_level0": ["22222222-2222-2222-2222-222222222222"],
       "scope_level1": ["logistics", "sales"],
       "scope_level2": ["manager", "admin"]
     }
@@ -60,7 +60,7 @@ POST /api/v1/management/dialogs
 | `participants[].email` | string | Нет | Контактный email |
 | `participants[].phone` | string | Нет | Контактный телефон |
 | `access_scopes` | array | Нет | Scope-правила для потенциальных участников |
-| `access_scopes[].tenant_uid` | UUID | Да | ID тенанта/организации |
+| `access_scopes[].scope_level0` | string[] | Нет | Нулевой уровень scope (напр., тенанты). Пустой = любое значение. |
 | `access_scopes[].scope_level1` | string[] | Нет | Первый уровень scope (напр., отделы). Пустой = любое значение. |
 | `access_scopes[].scope_level2` | string[] | Нет | Второй уровень scope (напр., роли). Пустой = любое значение. |
 
@@ -149,7 +149,7 @@ PUT /api/v1/management/dialogs/{id}/access-scopes
 {
   "access_scopes": [
     {
-      "tenant_uid": "22222222-2222-2222-2222-222222222222",
+      "scope_level0": ["22222222-2222-2222-2222-222222222222"],
       "scope_level1": ["logistics"],
       "scope_level2": ["admin"]
     }

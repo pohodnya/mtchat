@@ -47,7 +47,7 @@ export interface MockObject {
  * Access scope for potential participants
  */
 export interface AccessScope {
-  tenantUid: string
+  scopeLevel0: string[]
   scopeLevel1: string[]
   scopeLevel2: string[]
 }

@@ -41,7 +41,7 @@ export class MTChatApi {
    */
   private encodeScopeConfig(): string {
     const snakeCaseConfig = {
-      tenant_uid: this.scopeConfig.tenantUid,
+      scope_level0: this.scopeConfig.scopeLevel0,
       scope_level1: this.scopeConfig.scopeLevel1,
       scope_level2: this.scopeConfig.scopeLevel2,
     }

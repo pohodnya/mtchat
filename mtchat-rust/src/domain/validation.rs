@@ -18,7 +18,7 @@ pub const MAX_EMAIL_LENGTH: usize = 254;
 /// Maximum length for phone
 pub const MAX_PHONE_LENGTH: usize = 50;
 
-/// Maximum length for external identifiers (user_id, object_id, tenant_uid)
+/// Maximum length for external identifiers (user_id, object_id, scope values)
 pub const MAX_IDENTIFIER_LENGTH: usize = 255;
 
 /// Validation error with field name and limit
@@ -107,7 +107,7 @@ pub fn validate_phone(phone: &Option<String>) -> Result<(), ValidationError> {
     validate_optional_length(phone, "phone", MAX_PHONE_LENGTH)
 }
 
-/// Validate external identifier (user_id, object_id, tenant_uid)
+/// Validate external identifier (user_id, object_id, scope values)
 pub fn validate_identifier(value: &str, field: &'static str) -> Result<(), ValidationError> {
     if value.is_empty() {
         return Err(ValidationError::required(field));

@@ -101,8 +101,8 @@ impl DialogRepository {
 
     /// Find dialogs available to user via scope (not yet participating)
     ///
-    /// Matching logic:
-    /// - tenant_uid must match exactly
+    /// Matching logic (consistent OR across all levels):
+    /// - scope_level0: empty array in DB = wildcard (match all), otherwise requires overlap
     /// - scope_level1: empty array in DB = wildcard (match all), otherwise requires overlap
     /// - scope_level2: empty array in DB = wildcard (match all), otherwise requires overlap
     /// - search: searches in dialog title AND participant company names
@@ -111,7 +111,7 @@ impl DialogRepository {
     pub async fn find_available(
         &self,
         user_id: &UserId,
-        tenant_uid: &str,
+        scope_level0: &[String],
         scope_level1: &[String],
         scope_level2: &[String],
         search: Option<&str>,
@@ -121,7 +121,7 @@ impl DialogRepository {
         sqlx::query_as::<_, Dialog>(
             r#"SELECT DISTINCT d.* FROM dialogs d
                INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
-               WHERE s.tenant_uid = $1
+               WHERE (s.scope_level0 = '{}' OR s.scope_level0 && $1)
                  AND (s.scope_level1 = '{}' OR s.scope_level1 && $2)
                  AND (s.scope_level2 = '{}' OR s.scope_level2 && $3)
                  AND NOT EXISTS (
@@ -139,7 +139,7 @@ impl DialogRepository {
                ORDER BY d.created_at DESC
                LIMIT $6 OFFSET $7"#,
         )
-        .bind(tenant_uid)
+        .bind(scope_level0)
         .bind(scope_level1)
         .bind(scope_level2)
         .bind(user_id)

@@ -95,7 +95,7 @@ pub async fn list_dialogs(
                     .dialogs
                     .find_available(
                         &user_id,
-                        &scope.tenant_uid,
+                        &scope.scope_level0,
                         &scope.scope_level1,
                         &scope.scope_level2,
                         search,
@@ -183,7 +183,7 @@ pub async fn get_dialog_by_object(
                     .scopes
                     .check_access(
                         dialog.id,
-                        &scope.tenant_uid,
+                        &scope.scope_level0,
                         &scope.scope_level1,
                         &scope.scope_level2,
                     )
@@ -251,7 +251,7 @@ pub async fn join_dialog(
         .scopes
         .check_access(
             dialog_id,
-            &scope_config.tenant_uid,
+            &scope_config.scope_level0,
             &scope_config.scope_level1,
             &scope_config.scope_level2,
         )
@@ -536,7 +536,7 @@ pub async fn get_dialog(
         .scopes
         .check_access(
             dialog_id,
-            &scope_config.tenant_uid,
+            &scope_config.scope_level0,
             &scope_config.scope_level1,
             &scope_config.scope_level2,
         )

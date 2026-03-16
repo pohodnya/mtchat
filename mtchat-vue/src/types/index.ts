@@ -97,7 +97,7 @@ export interface JoinDialogRequest {
 export interface DialogAccessScope {
   id: string
   dialog_id: string
-  tenant_uid: string
+  scope_level0: string[]
   scope_level1: string[]
   scope_level2: string[]
   created_at: string
@@ -364,8 +364,8 @@ export function getFileIconName(contentType?: string): string {
  * Passed to API via X-Scope-Config header (converted to snake_case)
  */
 export interface ScopeConfig {
-  /** User's tenant/organization ID */
-  tenantUid: string
+  /** Top level scope (e.g., tenants/organizations). Empty = wildcard. */
+  scopeLevel0: string[]
   /** First level scope (e.g., departments) */
   scopeLevel1: string[]
   /** Second level scope (e.g., roles/permissions) */

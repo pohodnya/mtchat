@@ -109,7 +109,7 @@ const chatConfig = computed<MTChatConfig>(() => {
       baseUrl: settings.value.apiBaseUrl,
       userId: '',
       scopeConfig: {
-        tenantUid: '',
+        scopeLevel0: [],
         scopeLevel1: [],
         scopeLevel2: [],
       },
@@ -127,7 +127,7 @@ const chatConfig = computed<MTChatConfig>(() => {
     userId: currentUser.value.id,
     token: jwtToken.value,
     scopeConfig: {
-      tenantUid: currentUser.value.tenantId,
+      scopeLevel0: [currentUser.value.tenantId],
       scopeLevel1: currentUser.value.scopeLevel1,
       scopeLevel2: currentUser.value.scopeLevel2,
     },

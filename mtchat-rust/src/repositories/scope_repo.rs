@@ -20,13 +20,13 @@ impl AccessScopeRepository {
         scope: &DialogAccessScope,
     ) -> Result<DialogAccessScope, sqlx::Error> {
         sqlx::query_as::<_, DialogAccessScope>(
-            r#"INSERT INTO dialog_access_scopes (id, dialog_id, tenant_uid, scope_level1, scope_level2, created_at)
+            r#"INSERT INTO dialog_access_scopes (id, dialog_id, scope_level0, scope_level1, scope_level2, created_at)
                VALUES ($1, $2, $3, $4, $5, $6)
                RETURNING *"#,
         )
         .bind(scope.id)
         .bind(scope.dialog_id)
-        .bind(&scope.tenant_uid)
+        .bind(&scope.scope_level0)
         .bind(&scope.scope_level1)
         .bind(&scope.scope_level2)
         .bind(scope.created_at)
@@ -49,26 +49,26 @@ impl AccessScopeRepository {
 
     /// Check if user has scope access to a dialog
     ///
-    /// Matching logic:
-    /// - tenant_uid must match exactly
+    /// Matching logic (consistent OR across all levels):
+    /// - scope_level0: empty array in DB = wildcard (match all), otherwise requires overlap
     /// - scope_level1: empty array in DB = wildcard (match all), otherwise requires overlap
     /// - scope_level2: empty array in DB = wildcard (match all), otherwise requires overlap
     pub async fn check_access(
         &self,
         dialog_id: Uuid,
-        tenant_uid: &str,
+        scope_level0: &[String],
         scope_level1: &[String],
         scope_level2: &[String],
     ) -> Result<bool, sqlx::Error> {
         let result: Option<(i32,)> = sqlx::query_as(
             r#"SELECT 1 FROM dialog_access_scopes
                WHERE dialog_id = $1
-                 AND tenant_uid = $2
+                 AND (scope_level0 = '{}' OR scope_level0 && $2)
                  AND (scope_level1 = '{}' OR scope_level1 && $3)
                  AND (scope_level2 = '{}' OR scope_level2 && $4)"#,
         )
         .bind(dialog_id)
-        .bind(tenant_uid)
+        .bind(scope_level0)
         .bind(scope_level1)
         .bind(scope_level2)
         .fetch_optional(&self.pool)
@@ -103,13 +103,13 @@ impl AccessScopeRepository {
         let mut result = Vec::new();
         for scope in scopes {
             let created = sqlx::query_as::<_, DialogAccessScope>(
-                r#"INSERT INTO dialog_access_scopes (id, dialog_id, tenant_uid, scope_level1, scope_level2, created_at)
+                r#"INSERT INTO dialog_access_scopes (id, dialog_id, scope_level0, scope_level1, scope_level2, created_at)
                    VALUES ($1, $2, $3, $4, $5, $6)
                    RETURNING *"#,
             )
             .bind(scope.id)
             .bind(scope.dialog_id)
-            .bind(scope.tenant_uid)
+            .bind(&scope.scope_level0)
             .bind(&scope.scope_level1)
             .bind(&scope.scope_level2)
             .bind(scope.created_at)

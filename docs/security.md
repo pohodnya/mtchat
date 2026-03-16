@@ -46,7 +46,7 @@ This architecture means your host application is responsible for ensuring that o
 ### Scope-based Visibility
 
 - The "Available" dialog list is filtered by [scope matching](guide/scope-matching.md)
-- Users only see dialogs matching their `tenant_uid`, `scope_level1`, and `scope_level2`
+- Users only see dialogs matching their `scope_level0`, `scope_level1`, and `scope_level2`
 - Scope configuration is passed via the `X-Scope-Config` header (base64-encoded JSON)
 
 ## Input Sanitization

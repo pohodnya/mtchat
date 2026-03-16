@@ -299,7 +299,7 @@ async function handleCreate() {
       access_scopes: form.accessScopes
         .filter((s) => s.tenantId)
         .map((s) => ({
-          tenant_uid: s.tenantId,
+          scope_level0: [s.tenantId],
           scope_level1: s.scopeLevel1,
           scope_level2: s.scopeLevel2,
         })),
@@ -317,7 +317,7 @@ async function handleCreate() {
       accessScopes: form.accessScopes
         .filter((s) => s.tenantId)
         .map((s) => ({
-          tenantUid: s.tenantId,
+          scopeLevel0: [s.tenantId],
           scopeLevel1: s.scopeLevel1,
           scopeLevel2: s.scopeLevel2,
         })),

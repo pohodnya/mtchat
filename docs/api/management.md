@@ -39,7 +39,7 @@ POST /api/v1/management/dialogs
   ],
   "access_scopes": [
     {
-      "tenant_uid": "22222222-2222-2222-2222-222222222222",
+      "scope_level0": ["22222222-2222-2222-2222-222222222222"],
       "scope_level1": ["logistics", "sales"],
       "scope_level2": ["manager", "admin"]
     }
@@ -60,7 +60,7 @@ POST /api/v1/management/dialogs
 | `participants[].email` | string | No | Contact email |
 | `participants[].phone` | string | No | Contact phone |
 | `access_scopes` | array | No | Scope rules for potential participants |
-| `access_scopes[].tenant_uid` | UUID | Yes | Tenant/organization ID |
+| `access_scopes[].scope_level0` | string[] | No | Scope level 0 (e.g., tenants). Empty = match any. |
 | `access_scopes[].scope_level1` | string[] | No | First scope level (e.g., departments). Empty = match any. |
 | `access_scopes[].scope_level2` | string[] | No | Second scope level (e.g., roles). Empty = match any. |
 
@@ -115,7 +115,7 @@ GET /api/v1/management/dialogs/{id}
     ],
     "access_scopes": [
       {
-        "tenant_uid": "22222222-...",
+        "scope_level0": ["22222222-..."],
         "scope_level1": ["logistics"],
         "scope_level2": ["manager", "admin"]
       }
@@ -222,7 +222,7 @@ PUT /api/v1/management/dialogs/{id}/access-scopes
 {
   "access_scopes": [
     {
-      "tenant_uid": "22222222-2222-2222-2222-222222222222",
+      "scope_level0": ["22222222-2222-2222-2222-222222222222"],
       "scope_level1": ["logistics"],
       "scope_level2": ["admin"]
     }

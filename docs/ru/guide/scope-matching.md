@@ -1,6 +1,6 @@
 # Scope-сопоставление
 
-MTChat использует двухуровневую систему scope для определения, какие пользователи могут обнаруживать и присоединяться к диалогам. Это управляет вкладкой "Доступные" в SDK.
+MTChat использует трёхуровневую систему scope для определения, какие пользователи могут обнаруживать и присоединяться к диалогам. Это управляет вкладкой "Доступные" в SDK.
 
 ## Концепция
 
@@ -10,11 +10,11 @@ MTChat использует двухуровневую систему scope дл
 
 Диалог виден пользователю, когда **все три условия** выполнены:
 
-1. **Тенант совпадает** -- `user.tenant_uid == scope.tenant_uid`
+1. **Level 0 пересекается** -- хотя бы одно значение в `user.scope_level0` совпадает со значением в `scope.scope_level0`
 2. **Level 1 пересекается** -- хотя бы одно значение в `user.scope_level1` совпадает со значением в `scope.scope_level1`
 3. **Level 2 пересекается** -- хотя бы одно значение в `user.scope_level2` совпадает со значением в `scope.scope_level2`
 
-**Логика**: `tenant AND (ANY scope_level1) AND (ANY scope_level2)`
+**Логика**: `(ANY scope_level0) AND (ANY scope_level1) AND (ANY scope_level2)`
 
 ## Пример
 
@@ -22,7 +22,7 @@ MTChat использует двухуровневую систему scope дл
 
 ```json
 {
-  "tenant_uid": "acme-corp",
+  "scope_level0": ["acme-corp"],
   "scope_level1": ["logistics", "sales"],
   "scope_level2": ["manager", "admin"]
 }
@@ -32,14 +32,14 @@ MTChat использует двухуровневую систему scope дл
 
 ```json
 {
-  "tenant_uid": "acme-corp",
+  "scope_level0": ["acme-corp"],
   "scope_level1": ["logistics"],
   "scope_level2": ["manager"]
 }
 ```
 
 ```
-✓ tenant_uid совпадает: "acme-corp" == "acme-corp"
+✓ scope_level0 пересекается: "acme-corp" ∈ ["acme-corp"]
 ✓ scope_level1 пересекается: "logistics" ∈ ["logistics", "sales"]
 ✓ scope_level2 пересекается: "manager" ∈ ["manager", "admin"]
 → Результат: ВИДИМ (может присоединиться)
@@ -49,14 +49,14 @@ MTChat использует двухуровневую систему scope дл
 
 ```json
 {
-  "tenant_uid": "acme-corp",
+  "scope_level0": ["acme-corp"],
   "scope_level1": ["hr"],
   "scope_level2": ["manager"]
 }
 ```
 
 ```
-✓ tenant_uid совпадает
+✓ scope_level0 пересекается
 ✗ scope_level1 НЕ пересекается: "hr" ∉ ["logistics", "sales"]
 → Результат: НЕ ВИДИМ
 ```
@@ -65,14 +65,14 @@ MTChat использует двухуровневую систему scope дл
 
 ```json
 {
-  "tenant_uid": "other-company",
+  "scope_level0": ["other-company"],
   "scope_level1": ["logistics"],
   "scope_level2": ["admin"]
 }
 ```
 
 ```
-✗ tenant_uid НЕ совпадает: "other-company" ≠ "acme-corp"
+✗ scope_level0 НЕ пересекается: "other-company" ∉ ["acme-corp"]
 → Результат: НЕ ВИДИМ
 ```
 
@@ -82,13 +82,13 @@ MTChat использует двухуровневую систему scope дл
 
 ```json
 {
-  "tenant_uid": "acme-corp",
+  "scope_level0": ["acme-corp"],
   "scope_level1": [],
   "scope_level2": ["admin"]
 }
 ```
 
-Этот scope подходит всем пользователям тенанта `acme-corp`, у которых есть `admin` в `scope_level2`, независимо от их значений `scope_level1`.
+Этот scope подходит всем пользователям с `acme-corp` в `scope_level0`, у которых есть `admin` в `scope_level2`, независимо от их значений `scope_level1`.
 
 ## Множественные scope
 
@@ -98,12 +98,12 @@ MTChat использует двухуровневую систему scope дл
 {
   "access_scopes": [
     {
-      "tenant_uid": "acme-corp",
+      "scope_level0": ["acme-corp"],
       "scope_level1": ["logistics"],
       "scope_level2": ["manager"]
     },
     {
-      "tenant_uid": "partner-inc",
+      "scope_level0": ["partner-inc"],
       "scope_level1": ["operations"],
       "scope_level2": ["driver"]
     }
@@ -115,23 +115,26 @@ MTChat использует двухуровневую систему scope дл
 
 ## Практические сценарии
 
-### Департаменты + Роли
+### Тенанты + Департаменты + Роли
 
 ```
+scope_level0 = тенанты (acme-corp, partner-inc)
 scope_level1 = департаменты (logistics, sales, hr, finance)
 scope_level2 = роли (admin, manager, viewer, driver)
 ```
 
-### Регионы + Разрешения
+### Организации + Регионы + Разрешения
 
 ```
+scope_level0 = организации (org-1, org-2)
 scope_level1 = регионы (north, south, east, west)
 scope_level2 = разрешения (read, write, approve)
 ```
 
-### Команды + Уровень
+### Компании + Команды + Уровень
 
 ```
+scope_level0 = компании (company-a, company-b)
 scope_level1 = команды (team_a, team_b, team_c)
 scope_level2 = уровни (junior, senior, lead)
 ```
@@ -145,9 +148,9 @@ const config: MTChatConfig = {
   baseUrl: 'https://chat.example.com',
   userId: user.id,
   scopeConfig: {
-    tenantUid: user.tenantId,
-    scope_level1: user.departments,   // string[]
-    scope_level2: user.permissions,   // string[]
+    scopeLevel0: [user.tenantId],     // string[]
+    scopeLevel1: user.departments,    // string[]
+    scopeLevel2: user.permissions,    // string[]
   },
   userProfile: {
     displayName: user.name,

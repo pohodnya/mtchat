@@ -52,7 +52,7 @@ Defines rules for potential participants -- users who can discover and join the 
 | Field | Type | Description |
 |-------|------|-------------|
 | dialog_id | UUID | Reference to dialog |
-| tenant_uid | STRING | Tenant identifier |
+| scope_level0 | STRING[] | Tenants/organizations |
 | scope_level1 | STRING[] | Departments |
 | scope_level2 | STRING[] | Permissions/roles |
 

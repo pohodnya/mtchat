@@ -18,7 +18,7 @@ export interface CreateDialogRequest {
   object_url?: string
   participants?: ParticipantInput[]
   access_scopes?: {
-    tenant_uid: string
+    scope_level0: string[]
     scope_level1: string[]
     scope_level2: string[]
   }[]
@@ -144,7 +144,7 @@ export class ManagementApi {
   async addAccessScope(
     dialogId: string,
     scope: {
-      tenant_uid: string
+      scope_level0: string[]
       scope_level1: string[]
       scope_level2: string[]
     }

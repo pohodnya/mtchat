@@ -14,7 +14,7 @@ const config: MTChatConfig = {
   baseUrl: 'https://chat.example.com',
   userId: currentUser.id,
   scopeConfig: {
-    tenantUid: currentUser.tenantId,
+    scopeLevel0: [currentUser.tenantId],
     scopeLevel1: currentUser.departments,
     scopeLevel2: currentUser.permissions,
   },
@@ -174,7 +174,7 @@ curl -X POST https://chat.example.com/api/v1/management/dialogs \
     ],
     "access_scopes": [
       {
-        "tenant_uid": "tenant-abc",
+        "scope_level0": ["tenant-abc"],
         "scope_level1": ["logistics"],
         "scope_level2": ["manager", "admin"]
       }

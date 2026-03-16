@@ -36,7 +36,8 @@ pub struct CreateDialogRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct AccessScopeInput {
-    pub tenant_uid: String,
+    #[serde(default)]
+    pub scope_level0: Vec<String>,
     #[serde(default)]
     pub scope_level1: Vec<String>,
     #[serde(default)]
@@ -139,17 +140,17 @@ pub async fn management_create_dialog(
     for scope_input in req.access_scopes {
         let scope = DialogAccessScope::new(
             dialog.id,
-            scope_input.tenant_uid,
+            scope_input.scope_level0,
             scope_input.scope_level1,
             scope_input.scope_level2,
         );
         sqlx::query(
-            r#"INSERT INTO dialog_access_scopes (id, dialog_id, tenant_uid, scope_level1, scope_level2, created_at)
+            r#"INSERT INTO dialog_access_scopes (id, dialog_id, scope_level0, scope_level1, scope_level2, created_at)
                VALUES ($1, $2, $3, $4, $5, $6)"#,
         )
         .bind(scope.id)
         .bind(scope.dialog_id)
-        .bind(scope.tenant_uid)
+        .bind(&scope.scope_level0)
         .bind(&scope.scope_level1)
         .bind(&scope.scope_level2)
         .bind(scope.created_at)
@@ -271,7 +272,7 @@ pub async fn management_update_access_scopes(
     let new_scopes: Vec<DialogAccessScope> = req
         .access_scopes
         .into_iter()
-        .map(|s| DialogAccessScope::new(dialog_id, &s.tenant_uid, s.scope_level1, s.scope_level2))
+        .map(|s| DialogAccessScope::new(dialog_id, s.scope_level0, s.scope_level1, s.scope_level2))
         .collect();
 
     let created = state

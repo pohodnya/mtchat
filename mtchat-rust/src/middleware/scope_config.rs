@@ -4,7 +4,7 @@
 //! The header value is base64-encoded JSON:
 //! ```json
 //! {
-//!   "tenant_uid": "tenant-123",
+//!   "scope_level0": ["tenant-a", "tenant-b"],
 //!   "scope_level1": ["dept_a", "dept_b"],
 //!   "scope_level2": ["manager", "admin"]
 //! }
@@ -22,7 +22,9 @@ use serde::{Deserialize, Serialize};
 /// User scope configuration extracted from X-Scope-Config header
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ScopeConfig {
-    pub tenant_uid: String,
+    /// Top scope level (e.g., tenants/organizations)
+    #[serde(default)]
+    pub scope_level0: Vec<String>,
     #[serde(default)]
     pub scope_level1: Vec<String>,
     #[serde(default)]
@@ -203,27 +205,30 @@ mod tests {
 
     #[test]
     fn test_scope_config_deserialize() {
-        let json = r#"{"tenant_uid": "tenant-123", "scope_level1": ["a"], "scope_level2": ["b"]}"#;
+        let json =
+            r#"{"scope_level0": ["tenant-123"], "scope_level1": ["a"], "scope_level2": ["b"]}"#;
         let config: ScopeConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(config.tenant_uid, "tenant-123");
+        assert_eq!(config.scope_level0, vec!["tenant-123"]);
         assert_eq!(config.scope_level1, vec!["a"]);
         assert_eq!(config.scope_level2, vec!["b"]);
     }
 
     #[test]
     fn test_scope_config_defaults() {
-        let json = r#"{"tenant_uid": "org_001"}"#;
+        let json = r#"{}"#;
         let config: ScopeConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(config.tenant_uid, "org_001");
+        assert!(config.scope_level0.is_empty());
         assert!(config.scope_level1.is_empty());
         assert!(config.scope_level2.is_empty());
     }
 
     #[test]
-    fn test_scope_config_uuid_format() {
-        // UUID format should still work (backward compatibility)
-        let json = r#"{"tenant_uid": "550e8400-e29b-41d4-a716-446655440000"}"#;
+    fn test_scope_config_multi_tenant() {
+        // Multiple tenants in scope_level0
+        let json = r#"{"scope_level0": ["tenant-a", "tenant-b"], "scope_level1": ["dept"]}"#;
         let config: ScopeConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(config.tenant_uid, "550e8400-e29b-41d4-a716-446655440000");
+        assert_eq!(config.scope_level0, vec!["tenant-a", "tenant-b"]);
+        assert_eq!(config.scope_level1, vec!["dept"]);
+        assert!(config.scope_level2.is_empty());
     }
 }
