@@ -9,18 +9,18 @@ use uuid::Uuid;
 
 fn make_dialog() -> Dialog {
     Dialog::new(
-        Uuid::new_v4(),
+        "tender-123",
         "tender",
         Some("Test Dialog".into()),
         None,
-        Some(Uuid::new_v4()),
+        Some("user-creator".to_string()),
     )
 }
 
 #[test]
 fn test_message_new_event() {
     let dialog = make_dialog();
-    let sender_id = Uuid::new_v4();
+    let sender_id = "user-sender";
     let message = Message::new(dialog.id, sender_id, "Hello world");
 
     let event = WebhookEvent::message_new(&dialog, &message);
@@ -33,7 +33,7 @@ fn test_message_new_event() {
         assert_eq!(payload.object_id, dialog.object_id);
         assert_eq!(payload.object_type, "tender");
         assert_eq!(payload.message.id, message.id);
-        assert_eq!(payload.message.sender_id, Some(sender_id));
+        assert_eq!(payload.message.sender_id.as_deref(), Some(sender_id));
         assert_eq!(payload.message.content, "Hello world");
         assert!(payload.message.reply_to.is_none());
         assert_eq!(payload.message.message_type, "user");
@@ -61,7 +61,7 @@ fn test_message_new_event_system_message() {
 fn test_message_new_event_with_reply() {
     let dialog = make_dialog();
     let reply_to = Uuid::new_v4();
-    let message = Message::new(dialog.id, Uuid::new_v4(), "Reply text").with_reply(reply_to);
+    let message = Message::new(dialog.id, "user-replier", "Reply text").with_reply(reply_to);
 
     let event = WebhookEvent::message_new(&dialog, &message);
 
@@ -75,7 +75,7 @@ fn test_message_new_event_with_reply() {
 #[test]
 fn test_participant_joined_event() {
     let dialog = make_dialog();
-    let user_id = Uuid::new_v4();
+    let user_id = "user-joiner";
     let participant = DialogParticipant::new(dialog.id, user_id, JoinedAs::Joined);
 
     let event = WebhookEvent::participant_joined(&dialog, &participant);
@@ -87,7 +87,7 @@ fn test_participant_joined_event() {
         assert_eq!(payload.object_id, dialog.object_id);
         assert_eq!(payload.object_type, "tender");
         assert_eq!(payload.user_id, user_id);
-        assert_eq!(payload.joined_as, "joined");
+        assert_eq!(payload.joined_as, JoinedAs::Joined);
     } else {
         panic!("Expected ParticipantJoined payload");
     }
@@ -96,7 +96,7 @@ fn test_participant_joined_event() {
 #[test]
 fn test_participant_left_event() {
     let dialog = make_dialog();
-    let user_id = Uuid::new_v4();
+    let user_id = "user-leaver";
 
     let event = WebhookEvent::participant_left(&dialog, user_id);
 
@@ -114,8 +114,8 @@ fn test_participant_left_event() {
 #[test]
 fn test_notification_pending_event() {
     let dialog = make_dialog();
-    let sender_id = Uuid::new_v4();
-    let recipient_id = Uuid::new_v4();
+    let sender_id = "user-sender";
+    let recipient_id = "user-recipient";
     let message = Message::new(dialog.id, sender_id, "Unread message");
 
     let event = WebhookEvent::notification_pending(&dialog, &message, recipient_id);
@@ -126,7 +126,7 @@ fn test_notification_pending_event() {
         assert_eq!(payload.dialog_id, dialog.id);
         assert_eq!(payload.recipient_id, recipient_id);
         assert_eq!(payload.message.id, message.id);
-        assert_eq!(payload.message.sender_id, Some(sender_id));
+        assert_eq!(payload.message.sender_id.as_deref(), Some(sender_id));
         assert_eq!(payload.message.content, "Unread message");
     } else {
         panic!("Expected NotificationPending payload");
@@ -136,7 +136,7 @@ fn test_notification_pending_event() {
 #[test]
 fn test_event_serialization_roundtrip() {
     let dialog = make_dialog();
-    let message = Message::new(dialog.id, Uuid::new_v4(), "Test");
+    let message = Message::new(dialog.id, "user-test", "Test");
     let event = WebhookEvent::message_new(&dialog, &message);
 
     let json = serde_json::to_string(&event).expect("serialize");

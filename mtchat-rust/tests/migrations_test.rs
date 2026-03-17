@@ -40,8 +40,8 @@ async fn test_dialogs_table_has_new_columns() {
     let mut tx = pool.begin().await.unwrap();
 
     let id = Uuid::new_v4();
-    let object_id = Uuid::new_v4();
-    let created_by = Uuid::new_v4();
+    let object_id = "tender-123";
+    let created_by = "user-456";
 
     let result = sqlx::query(
         r#"INSERT INTO dialogs (id, object_id, object_type, title, created_by, created_at)
@@ -60,13 +60,16 @@ async fn test_dialogs_table_has_new_columns() {
 
     let row = result.unwrap();
     assert_eq!(row.get::<Uuid, _>("id"), id);
-    assert_eq!(row.get::<Uuid, _>("object_id"), object_id);
+    assert_eq!(row.get::<String, _>("object_id"), object_id);
     assert_eq!(row.get::<String, _>("object_type"), "tender");
     assert_eq!(
         row.get::<Option<String>, _>("title"),
         Some("Test Dialog".to_string())
     );
-    assert_eq!(row.get::<Option<Uuid>, _>("created_by"), Some(created_by));
+    assert_eq!(
+        row.get::<Option<String>, _>("created_by"),
+        Some(created_by.to_string())
+    );
 
     tx.rollback().await.unwrap();
 }
@@ -75,7 +78,7 @@ async fn test_dialogs_table_has_new_columns() {
 async fn test_dialogs_multiple_per_object() {
     let pool = setup_test_db().await;
 
-    let object_id = Uuid::new_v4();
+    let object_id = "tender-multi";
     let dialog1_id = Uuid::new_v4();
     let dialog2_id = Uuid::new_v4();
     let dialog3_id = Uuid::new_v4();
@@ -144,14 +147,14 @@ async fn test_dialog_participants_table_structure() {
         "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
-    .bind(Uuid::new_v4())
+    .bind("tender-part")
     .bind("tender")
     .execute(&mut *tx)
     .await
     .unwrap();
 
     // Insert participant with all new columns
-    let user_id = Uuid::new_v4();
+    let user_id = "user-participant";
     let result = sqlx::query(
         r#"INSERT INTO dialog_participants
            (dialog_id, user_id, joined_as, notifications_enabled, joined_at)
@@ -172,7 +175,7 @@ async fn test_dialog_participants_table_structure() {
 
     let row = result.unwrap();
     assert_eq!(row.get::<Uuid, _>("dialog_id"), dialog_id);
-    assert_eq!(row.get::<Uuid, _>("user_id"), user_id);
+    assert_eq!(row.get::<String, _>("user_id"), user_id);
     assert_eq!(row.get::<String, _>("joined_as"), "creator");
     assert!(row.get::<bool, _>("notifications_enabled"));
 
@@ -189,14 +192,14 @@ async fn test_dialog_participants_default_values() {
         "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
-    .bind(Uuid::new_v4())
+    .bind("tender-defaults")
     .bind("tender")
     .execute(&mut *tx)
     .await
     .unwrap();
 
     // Insert with minimal fields - check defaults
-    let user_id = Uuid::new_v4();
+    let user_id = "user-default";
     let row = sqlx::query(
         r#"INSERT INTO dialog_participants (dialog_id, user_id, joined_at)
            VALUES ($1, $2, NOW())
@@ -224,24 +227,24 @@ async fn test_dialog_access_scopes_table() {
         "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
-    .bind(Uuid::new_v4())
+    .bind("tender-scope")
     .bind("tender")
     .execute(&mut *tx)
     .await
     .unwrap();
 
-    let tenant_uid = Uuid::new_v4();
+    let scope_level0 = vec!["tenant-a", "tenant-b"];
     let scope_level1 = vec!["dept_logistics", "dept_sales"];
     let scope_level2 = vec!["tender:manager", "tender:admin"];
 
     let row = sqlx::query(
         r#"INSERT INTO dialog_access_scopes
-           (dialog_id, tenant_uid, scope_level1, scope_level2)
+           (dialog_id, scope_level0, scope_level1, scope_level2)
            VALUES ($1, $2, $3, $4)
-           RETURNING id, dialog_id, tenant_uid, scope_level1, scope_level2"#,
+           RETURNING id, dialog_id, scope_level0, scope_level1, scope_level2"#,
     )
     .bind(dialog_id)
-    .bind(tenant_uid)
+    .bind(&scope_level0)
     .bind(&scope_level1)
     .bind(&scope_level2)
     .fetch_one(&mut *tx)
@@ -249,7 +252,10 @@ async fn test_dialog_access_scopes_table() {
     .unwrap();
 
     assert_eq!(row.get::<Uuid, _>("dialog_id"), dialog_id);
-    assert_eq!(row.get::<Uuid, _>("tenant_uid"), tenant_uid);
+    assert_eq!(
+        row.get::<Vec<String>, _>("scope_level0"),
+        vec!["tenant-a", "tenant-b"]
+    );
     assert_eq!(
         row.get::<Vec<String>, _>("scope_level1"),
         vec!["dept_logistics", "dept_sales"]
@@ -271,25 +277,24 @@ async fn test_scope_matching_with_array_overlap() {
 
     // Setup: Create dialog with access scope
     let dialog_id = Uuid::new_v4();
-    let tenant_uid = Uuid::new_v4();
 
     sqlx::query(
         "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
-    .bind(Uuid::new_v4())
+    .bind("tender-matching")
     .bind("tender")
     .execute(&mut *tx)
     .await
     .unwrap();
 
-    // Scope: tenant X, departments [A, B], permissions [mgr, admin]
+    // Scope: scope0 [X, Y], departments [A, B], permissions [mgr, admin]
     sqlx::query(
-        r#"INSERT INTO dialog_access_scopes (dialog_id, tenant_uid, scope_level1, scope_level2)
+        r#"INSERT INTO dialog_access_scopes (dialog_id, scope_level0, scope_level1, scope_level2)
            VALUES ($1, $2, $3, $4)"#,
     )
     .bind(dialog_id)
-    .bind(tenant_uid)
+    .bind(&vec!["X", "Y"])
     .bind(&vec!["A", "B"])
     .bind(&vec!["mgr", "admin"])
     .execute(&mut *tx)
@@ -297,17 +302,18 @@ async fn test_scope_matching_with_array_overlap() {
     .unwrap();
 
     // Test 1: User with matching scope should find the dialog
+    let user_scope0 = vec!["X"]; // matches [X, Y]
     let user_scope1 = vec!["A"]; // matches [A, B]
     let user_scope2 = vec!["mgr", "viewer"]; // matches [mgr, admin]
 
     let result = sqlx::query(
         r#"SELECT d.id FROM dialogs d
            INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
-           WHERE s.tenant_uid = $1
+           WHERE s.scope_level0 && $1
              AND s.scope_level1 && $2
              AND s.scope_level2 && $3"#,
     )
-    .bind(tenant_uid)
+    .bind(&user_scope0)
     .bind(&user_scope1)
     .bind(&user_scope2)
     .fetch_optional(&mut *tx)
@@ -319,16 +325,37 @@ async fn test_scope_matching_with_array_overlap() {
         "User with matching scope should find dialog"
     );
 
-    // Test 2: User with non-matching scope_level1 should NOT find the dialog
+    // Test 2: User with non-matching scope_level0 should NOT find the dialog
+    let non_matching_scope0 = vec!["Z"]; // doesn't match [X, Y]
+    let result = sqlx::query(
+        r#"SELECT d.id FROM dialogs d
+           INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
+           WHERE s.scope_level0 && $1
+             AND s.scope_level1 && $2
+             AND s.scope_level2 && $3"#,
+    )
+    .bind(&non_matching_scope0)
+    .bind(&user_scope1)
+    .bind(&user_scope2)
+    .fetch_optional(&mut *tx)
+    .await
+    .unwrap();
+
+    assert!(
+        result.is_none(),
+        "User with non-matching scope_level0 should NOT find dialog"
+    );
+
+    // Test 3: User with non-matching scope_level1 should NOT find the dialog
     let non_matching_scope1 = vec!["C", "D"]; // doesn't match [A, B]
     let result = sqlx::query(
         r#"SELECT d.id FROM dialogs d
            INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
-           WHERE s.tenant_uid = $1
+           WHERE s.scope_level0 && $1
              AND s.scope_level1 && $2
              AND s.scope_level2 && $3"#,
     )
-    .bind(tenant_uid)
+    .bind(&user_scope0)
     .bind(&non_matching_scope1)
     .bind(&user_scope2)
     .fetch_optional(&mut *tx)
@@ -340,16 +367,16 @@ async fn test_scope_matching_with_array_overlap() {
         "User with non-matching scope_level1 should NOT find dialog"
     );
 
-    // Test 3: User with non-matching scope_level2 should NOT find the dialog
+    // Test 4: User with non-matching scope_level2 should NOT find the dialog
     let non_matching_scope2 = vec!["viewer", "guest"]; // doesn't match [mgr, admin]
     let result = sqlx::query(
         r#"SELECT d.id FROM dialogs d
            INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
-           WHERE s.tenant_uid = $1
+           WHERE s.scope_level0 && $1
              AND s.scope_level1 && $2
              AND s.scope_level2 && $3"#,
     )
-    .bind(tenant_uid)
+    .bind(&user_scope0)
     .bind(&user_scope1)
     .bind(&non_matching_scope2)
     .fetch_optional(&mut *tx)
@@ -361,27 +388,6 @@ async fn test_scope_matching_with_array_overlap() {
         "User with non-matching scope_level2 should NOT find dialog"
     );
 
-    // Test 4: Wrong tenant should NOT find the dialog
-    let wrong_tenant = Uuid::new_v4();
-    let result = sqlx::query(
-        r#"SELECT d.id FROM dialogs d
-           INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
-           WHERE s.tenant_uid = $1
-             AND s.scope_level1 && $2
-             AND s.scope_level2 && $3"#,
-    )
-    .bind(wrong_tenant)
-    .bind(&user_scope1)
-    .bind(&user_scope2)
-    .fetch_optional(&mut *tx)
-    .await
-    .unwrap();
-
-    assert!(
-        result.is_none(),
-        "User with wrong tenant should NOT find dialog"
-    );
-
     tx.rollback().await.unwrap();
 }
 
@@ -391,15 +397,14 @@ async fn test_available_dialogs_excludes_participants() {
     let mut tx = pool.begin().await.unwrap();
 
     let dialog_id = Uuid::new_v4();
-    let tenant_uid = Uuid::new_v4();
-    let user_id = Uuid::new_v4();
+    let user_id = "user-available";
 
     // Create dialog
     sqlx::query(
         "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
-    .bind(Uuid::new_v4())
+    .bind("tender-available")
     .bind("tender")
     .execute(&mut *tx)
     .await
@@ -407,11 +412,11 @@ async fn test_available_dialogs_excludes_participants() {
 
     // Create access scope
     sqlx::query(
-        r#"INSERT INTO dialog_access_scopes (dialog_id, tenant_uid, scope_level1, scope_level2)
+        r#"INSERT INTO dialog_access_scopes (dialog_id, scope_level0, scope_level1, scope_level2)
            VALUES ($1, $2, $3, $4)"#,
     )
     .bind(dialog_id)
-    .bind(tenant_uid)
+    .bind(&vec!["tenant"])
     .bind(&vec!["dept"])
     .bind(&vec!["perm"])
     .execute(&mut *tx)
@@ -422,7 +427,7 @@ async fn test_available_dialogs_excludes_participants() {
     let result = sqlx::query(
         r#"SELECT d.id FROM dialogs d
            INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
-           WHERE s.tenant_uid = $1
+           WHERE s.scope_level0 && $1
              AND s.scope_level1 && $2
              AND s.scope_level2 && $3
              AND NOT EXISTS (
@@ -430,7 +435,7 @@ async fn test_available_dialogs_excludes_participants() {
                WHERE dp.dialog_id = d.id AND dp.user_id = $4
              )"#,
     )
-    .bind(tenant_uid)
+    .bind(&vec!["tenant"])
     .bind(&vec!["dept"])
     .bind(&vec!["perm"])
     .bind(user_id)
@@ -457,7 +462,7 @@ async fn test_available_dialogs_excludes_participants() {
     let result = sqlx::query(
         r#"SELECT d.id FROM dialogs d
            INNER JOIN dialog_access_scopes s ON s.dialog_id = d.id
-           WHERE s.tenant_uid = $1
+           WHERE s.scope_level0 && $1
              AND s.scope_level1 && $2
              AND s.scope_level2 && $3
              AND NOT EXISTS (
@@ -465,7 +470,7 @@ async fn test_available_dialogs_excludes_participants() {
                WHERE dp.dialog_id = d.id AND dp.user_id = $4
              )"#,
     )
-    .bind(tenant_uid)
+    .bind(&vec!["tenant"])
     .bind(&vec!["dept"])
     .bind(&vec!["perm"])
     .bind(user_id)
@@ -493,13 +498,13 @@ async fn test_messages_reply_to_column() {
         "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
-    .bind(Uuid::new_v4())
+    .bind("tender-reply")
     .bind("tender")
     .execute(&mut *tx)
     .await
     .unwrap();
 
-    let sender_id = Uuid::new_v4();
+    let sender_id = "user-sender";
 
     // Create original message
     let msg1_id = Uuid::new_v4();
@@ -555,15 +560,14 @@ async fn test_cascade_delete_dialog() {
     let mut tx = pool.begin().await.unwrap();
 
     let dialog_id = Uuid::new_v4();
-    let user_id = Uuid::new_v4();
-    let tenant_uid = Uuid::new_v4();
+    let user_id = "user-cascade";
 
     // Create dialog
     sqlx::query(
         "INSERT INTO dialogs (id, object_id, object_type, created_at) VALUES ($1, $2, $3, NOW())",
     )
     .bind(dialog_id)
-    .bind(Uuid::new_v4())
+    .bind("tender-cascade")
     .bind("tender")
     .execute(&mut *tx)
     .await
@@ -581,11 +585,11 @@ async fn test_cascade_delete_dialog() {
 
     // Add access scope
     sqlx::query(
-        r#"INSERT INTO dialog_access_scopes (dialog_id, tenant_uid, scope_level1, scope_level2)
+        r#"INSERT INTO dialog_access_scopes (dialog_id, scope_level0, scope_level1, scope_level2)
            VALUES ($1, $2, $3, $4)"#,
     )
     .bind(dialog_id)
-    .bind(tenant_uid)
+    .bind(&vec!["tenant"])
     .bind(&vec!["dept"])
     .bind(&vec!["perm"])
     .execute(&mut *tx)
@@ -769,7 +773,7 @@ async fn test_system_messages_support() {
            VALUES ($1, $2, $3, NOW())"#,
     )
     .bind(dialog_id)
-    .bind(Uuid::new_v4())
+    .bind("tender-system")
     .bind("tender")
     .execute(&mut *tx)
     .await
@@ -777,7 +781,7 @@ async fn test_system_messages_support() {
 
     // Test 1: Verify message_type column exists with default 'user'
     let user_msg_id = Uuid::new_v4();
-    let sender_id = Uuid::new_v4();
+    let sender_id = "user-system-test";
     sqlx::query(
         r#"INSERT INTO messages (id, dialog_id, sender_id, content, sent_at)
            VALUES ($1, $2, $3, $4, NOW())"#,
@@ -818,7 +822,7 @@ async fn test_system_messages_support() {
         .await
         .unwrap();
 
-    let sys_sender_id: Option<Uuid> = row.get("sender_id");
+    let sys_sender_id: Option<String> = row.get("sender_id");
     let sys_msg_type: String = row.get("message_type");
     assert!(
         sys_sender_id.is_none(),

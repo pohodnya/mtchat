@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 #[test]
 fn test_dialog_new_sets_uuid_v7() {
-    let object_id = Uuid::new_v4();
+    let object_id = "tender-123";
     let dialog = Dialog::new(object_id, "tender", Some("Test".into()), None, None);
     // UUIDv7 has version bits = 7
     assert_eq!(dialog.id.get_version_num(), 7);
@@ -21,14 +21,14 @@ fn test_dialog_new_sets_uuid_v7() {
 
 #[test]
 fn test_dialog_new_preserves_fields() {
-    let object_id = Uuid::new_v4();
-    let creator = Uuid::new_v4();
+    let object_id = "order-456";
+    let creator = "user-789";
     let dialog = Dialog::new(
         object_id,
         "order",
         Some("Important Chat".into()),
         Some("https://example.com/order/1".into()),
-        Some(creator),
+        Some(creator.to_string()),
     );
     assert_eq!(dialog.object_id, object_id);
     assert_eq!(dialog.object_type, "order");
@@ -37,12 +37,12 @@ fn test_dialog_new_preserves_fields() {
         dialog.object_url.as_deref(),
         Some("https://example.com/order/1")
     );
-    assert_eq!(dialog.created_by, Some(creator));
+    assert_eq!(dialog.created_by.as_deref(), Some(creator));
 }
 
 #[test]
 fn test_dialog_new_optional_fields() {
-    let dialog = Dialog::new(Uuid::new_v4(), "tender", None, None, None);
+    let dialog = Dialog::new("tender-1", "tender", None, None, None);
     assert!(dialog.title.is_none());
     assert!(dialog.object_url.is_none());
     assert!(dialog.created_by.is_none());
@@ -50,7 +50,7 @@ fn test_dialog_new_optional_fields() {
 
 #[test]
 fn test_dialog_ids_are_unique() {
-    let id = Uuid::new_v4();
+    let id = "tender-same";
     let d1 = Dialog::new(id, "tender", None, None, None);
     let d2 = Dialog::new(id, "tender", None, None, None);
     assert_ne!(d1.id, d2.id);
@@ -59,7 +59,7 @@ fn test_dialog_ids_are_unique() {
 #[test]
 fn test_dialog_accepts_string_object_type() {
     let dialog = Dialog::new(
-        Uuid::new_v4(),
+        "delivery-1",
         String::from("delivery_note"),
         None,
         None,
@@ -115,12 +115,12 @@ fn test_joined_as_roundtrip() {
 #[test]
 fn test_participant_new_defaults() {
     let dialog_id = Uuid::new_v4();
-    let user_id = Uuid::new_v4();
+    let user_id = "user-123";
     let p = DialogParticipant::new(dialog_id, user_id, JoinedAs::Creator);
 
     assert_eq!(p.dialog_id, dialog_id);
     assert_eq!(p.user_id, user_id);
-    assert_eq!(p.joined_as, "creator");
+    assert_eq!(p.joined_as, JoinedAs::Creator);
     assert!(p.notifications_enabled);
     assert!(p.last_read_message_id.is_none());
     assert_eq!(p.unread_count, 0);
@@ -135,7 +135,7 @@ fn test_participant_new_defaults() {
 #[test]
 fn test_participant_with_profile() {
     let dialog_id = Uuid::new_v4();
-    let user_id = Uuid::new_v4();
+    let user_id = "user-456";
     let profile = ParticipantProfile {
         display_name: "John Doe".to_string(),
         company: Some("Acme Inc".to_string()),
@@ -148,7 +148,7 @@ fn test_participant_with_profile() {
     assert_eq!(p.company.as_deref(), Some("Acme Inc"));
     assert_eq!(p.email.as_deref(), Some("john@acme.com"));
     assert_eq!(p.phone.as_deref(), Some("+1234567890"));
-    assert_eq!(p.joined_as, "joined");
+    assert_eq!(p.joined_as, JoinedAs::Joined);
 }
 
 #[test]
@@ -159,8 +159,7 @@ fn test_participant_with_profile_partial() {
         email: None,
         phone: None,
     };
-    let p =
-        DialogParticipant::with_profile(Uuid::new_v4(), Uuid::new_v4(), JoinedAs::Joined, profile);
+    let p = DialogParticipant::with_profile(Uuid::new_v4(), "user-anon", JoinedAs::Joined, profile);
 
     assert_eq!(p.display_name.as_deref(), Some("Anonymous"));
     assert!(p.company.is_none());
@@ -169,12 +168,12 @@ fn test_participant_with_profile_partial() {
 }
 
 #[test]
-fn test_participant_joined_as_enum() {
-    let p = DialogParticipant::new(Uuid::new_v4(), Uuid::new_v4(), JoinedAs::Creator);
-    assert_eq!(p.joined_as_enum(), JoinedAs::Creator);
+fn test_participant_joined_as() {
+    let p = DialogParticipant::new(Uuid::new_v4(), "user-1", JoinedAs::Creator);
+    assert_eq!(p.joined_as, JoinedAs::Creator);
 
-    let p2 = DialogParticipant::new(Uuid::new_v4(), Uuid::new_v4(), JoinedAs::Joined);
-    assert_eq!(p2.joined_as_enum(), JoinedAs::Joined);
+    let p2 = DialogParticipant::new(Uuid::new_v4(), "user-2", JoinedAs::Joined);
+    assert_eq!(p2.joined_as, JoinedAs::Joined);
 }
 
 // ============ MessageType ============
@@ -217,12 +216,12 @@ fn test_message_type_roundtrip() {
 #[test]
 fn test_message_new_user_message() {
     let dialog_id = Uuid::new_v4();
-    let sender_id = Uuid::new_v4();
+    let sender_id = "user-sender";
     let msg = Message::new(dialog_id, sender_id, "Hello, world!");
 
     assert_eq!(msg.id.get_version_num(), 7);
     assert_eq!(msg.dialog_id, dialog_id);
-    assert_eq!(msg.sender_id, Some(sender_id));
+    assert_eq!(msg.sender_id.as_deref(), Some(sender_id));
     assert_eq!(msg.content, "Hello, world!");
     assert_eq!(msg.message_type, MessageType::User);
     assert!(msg.reply_to_id.is_none());
@@ -245,7 +244,7 @@ fn test_message_system() {
 #[test]
 fn test_message_with_reply() {
     let dialog_id = Uuid::new_v4();
-    let sender_id = Uuid::new_v4();
+    let sender_id = "user-reply";
     let reply_to = Uuid::new_v4();
     let msg = Message::new(dialog_id, sender_id, "Reply").with_reply(reply_to);
 
@@ -255,14 +254,14 @@ fn test_message_with_reply() {
 
 #[test]
 fn test_message_accepts_string_content() {
-    let msg = Message::new(Uuid::new_v4(), Uuid::new_v4(), String::from("owned string"));
+    let msg = Message::new(Uuid::new_v4(), "user-str", String::from("owned string"));
     assert_eq!(msg.content, "owned string");
 }
 
 #[test]
 fn test_message_ids_are_unique_and_ordered() {
     let dialog_id = Uuid::new_v4();
-    let sender_id = Uuid::new_v4();
+    let sender_id = "user-order";
     let m1 = Message::new(dialog_id, sender_id, "first");
     std::thread::sleep(std::time::Duration::from_millis(2));
     let m2 = Message::new(dialog_id, sender_id, "second");
@@ -388,148 +387,150 @@ fn test_attachment_limits_empty_type_allowed() {
 #[test]
 fn test_access_scope_new() {
     let dialog_id = Uuid::new_v4();
-    let tenant_uid = Uuid::new_v4();
     let scope = DialogAccessScope::new(
         dialog_id,
-        tenant_uid,
+        vec!["tenant-a".into()],
         vec!["dept_a".into(), "dept_b".into()],
         vec!["manager".into()],
     );
 
     assert_eq!(scope.id.get_version_num(), 7);
     assert_eq!(scope.dialog_id, dialog_id);
-    assert_eq!(scope.tenant_uid, tenant_uid);
+    assert_eq!(scope.scope_level0, vec!["tenant-a"]);
     assert_eq!(scope.scope_level1, vec!["dept_a", "dept_b"]);
     assert_eq!(scope.scope_level2, vec!["manager"]);
 }
 
 #[test]
 fn test_scope_matches_exact_match() {
-    let tenant = Uuid::new_v4();
     let scope = DialogAccessScope::new(
         Uuid::new_v4(),
-        tenant,
+        vec!["tenant-x".into()],
         vec!["dept_a".into(), "dept_b".into()],
         vec!["manager".into(), "admin".into()],
     );
 
+    let user_scope0 = vec!["tenant-x".into()];
     let user_scope1 = vec!["dept_a".into()];
     let user_scope2 = vec!["manager".into()];
-    assert!(scope.matches(tenant, &user_scope1, &user_scope2));
+    assert!(scope.matches(&user_scope0, &user_scope1, &user_scope2));
 }
 
 #[test]
 fn test_scope_matches_partial_overlap() {
-    let tenant = Uuid::new_v4();
     let scope = DialogAccessScope::new(
         Uuid::new_v4(),
-        tenant,
+        vec!["tenant-x".into(), "tenant-y".into()],
         vec!["dept_a".into(), "dept_b".into()],
         vec!["manager".into(), "admin".into()],
     );
 
-    // User has dept_a (matches), and viewer+manager (manager matches)
+    // User has tenant-x (matches), dept_a (matches), and viewer+manager (manager matches)
+    let user_scope0 = vec!["tenant-x".into()];
     let user_scope1 = vec!["dept_a".into(), "dept_c".into()];
     let user_scope2 = vec!["viewer".into(), "manager".into()];
-    assert!(scope.matches(tenant, &user_scope1, &user_scope2));
+    assert!(scope.matches(&user_scope0, &user_scope1, &user_scope2));
 }
 
 #[test]
-fn test_scope_no_match_wrong_tenant() {
-    let tenant = Uuid::new_v4();
-    let other_tenant = Uuid::new_v4();
+fn test_scope_no_match_wrong_scope0() {
     let scope = DialogAccessScope::new(
         Uuid::new_v4(),
-        tenant,
+        vec!["tenant-x".into()],
         vec!["dept_a".into()],
         vec!["manager".into()],
     );
 
+    let user_scope0 = vec!["tenant-y".into()]; // no overlap
     let user_scope1 = vec!["dept_a".into()];
     let user_scope2 = vec!["manager".into()];
-    assert!(!scope.matches(other_tenant, &user_scope1, &user_scope2));
+    assert!(!scope.matches(&user_scope0, &user_scope1, &user_scope2));
 }
 
 #[test]
 fn test_scope_no_match_level1() {
-    let tenant = Uuid::new_v4();
     let scope = DialogAccessScope::new(
         Uuid::new_v4(),
-        tenant,
+        vec!["tenant-x".into()],
         vec!["dept_a".into(), "dept_b".into()],
         vec!["manager".into()],
     );
 
+    let user_scope0 = vec!["tenant-x".into()];
     let user_scope1 = vec!["dept_c".into()]; // no overlap with [dept_a, dept_b]
     let user_scope2 = vec!["manager".into()];
-    assert!(!scope.matches(tenant, &user_scope1, &user_scope2));
+    assert!(!scope.matches(&user_scope0, &user_scope1, &user_scope2));
 }
 
 #[test]
 fn test_scope_no_match_level2() {
-    let tenant = Uuid::new_v4();
     let scope = DialogAccessScope::new(
         Uuid::new_v4(),
-        tenant,
+        vec!["tenant-x".into()],
         vec!["dept_a".into()],
         vec!["manager".into(), "admin".into()],
     );
 
+    let user_scope0 = vec!["tenant-x".into()];
     let user_scope1 = vec!["dept_a".into()];
     let user_scope2 = vec!["viewer".into(), "guest".into()]; // no overlap
-    assert!(!scope.matches(tenant, &user_scope1, &user_scope2));
+    assert!(!scope.matches(&user_scope0, &user_scope1, &user_scope2));
 }
 
 #[test]
 fn test_scope_empty_dialog_scope_matches_any() {
-    let tenant = Uuid::new_v4();
     let scope = DialogAccessScope::new(
         Uuid::new_v4(),
-        tenant,
+        vec![], // empty = matches any
         vec![], // empty = matches any
         vec![], // empty = matches any
     );
 
+    let user_scope0 = vec!["any-tenant".into()];
     let user_scope1 = vec!["anything".into()];
     let user_scope2 = vec!["anything".into()];
-    assert!(scope.matches(tenant, &user_scope1, &user_scope2));
+    assert!(scope.matches(&user_scope0, &user_scope1, &user_scope2));
 }
 
 #[test]
 fn test_scope_empty_dialog_scope_matches_empty_user() {
-    let tenant = Uuid::new_v4();
-    let scope = DialogAccessScope::new(Uuid::new_v4(), tenant, vec![], vec![]);
+    let scope = DialogAccessScope::new(Uuid::new_v4(), vec![], vec![], vec![]);
 
     let empty: Vec<String> = vec![];
-    assert!(scope.matches(tenant, &empty, &empty));
+    assert!(scope.matches(&empty, &empty, &empty));
 }
 
 #[test]
 fn test_scope_nonempty_vs_empty_user_no_match() {
-    let tenant = Uuid::new_v4();
     let scope = DialogAccessScope::new(
         Uuid::new_v4(),
-        tenant,
+        vec!["tenant-x".into()],
         vec!["dept_a".into()],
         vec!["manager".into()],
     );
 
     let empty: Vec<String> = vec![];
     // Non-empty dialog scope vs empty user scope = no match
-    assert!(!scope.matches(tenant, &empty, &empty));
+    assert!(!scope.matches(&empty, &empty, &empty));
 }
 
 #[test]
 fn test_scope_mixed_empty_levels() {
-    let tenant = Uuid::new_v4();
-
-    // level1 is empty (matches any), level2 is not
-    let scope1 = DialogAccessScope::new(Uuid::new_v4(), tenant, vec![], vec!["admin".into()]);
-    assert!(scope1.matches(tenant, &vec!["anything".into()], &vec!["admin".into()]));
-    assert!(!scope1.matches(tenant, &vec!["anything".into()], &vec!["viewer".into()]));
+    // scope0 and level1 are empty (matches any), level2 is not
+    let scope1 = DialogAccessScope::new(Uuid::new_v4(), vec![], vec![], vec!["admin".into()]);
+    assert!(scope1.matches(
+        &vec!["any".into()],
+        &vec!["anything".into()],
+        &vec!["admin".into()]
+    ));
+    assert!(!scope1.matches(
+        &vec!["any".into()],
+        &vec!["anything".into()],
+        &vec!["viewer".into()]
+    ));
 
     // level1 is not empty, level2 is empty (matches any)
-    let scope2 = DialogAccessScope::new(Uuid::new_v4(), tenant, vec!["dept_a".into()], vec![]);
-    assert!(scope2.matches(tenant, &vec!["dept_a".into()], &vec![]));
-    assert!(!scope2.matches(tenant, &vec!["dept_b".into()], &vec![]));
+    let scope2 = DialogAccessScope::new(Uuid::new_v4(), vec![], vec!["dept_a".into()], vec![]);
+    assert!(scope2.matches(&vec!["any".into()], &vec!["dept_a".into()], &vec![]));
+    assert!(!scope2.matches(&vec!["any".into()], &vec!["dept_b".into()], &vec![]));
 }
