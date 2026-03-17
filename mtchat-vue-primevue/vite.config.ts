@@ -35,11 +35,29 @@ export default defineConfig({
       formats: ['es', 'umd'],
     },
     rollupOptions: {
-      // Note: @mtchat/vue is bundled (not external) so users only need this single package
-      external: ['vue', 'primevue/button', 'primevue/dialog', 'primevue/menu', 'primevue/contextmenu', 'primevue/inputtext', 'primevue/checkbox', 'primevue/radiobutton', 'primevue/tabs', 'primevue/tab', 'primevue/tablist', 'primevue/accordion', 'primevue/accordionpanel', 'primevue/accordionheader', 'primevue/accordioncontent', 'primevue/tooltip'],
+      external: [
+        'vue',
+        '@mtchat/vue',
+        'primevue/button',
+        'primevue/dialog',
+        'primevue/menu',
+        'primevue/contextmenu',
+        'primevue/inputtext',
+        'primevue/checkbox',
+        'primevue/radiobutton',
+        'primevue/tabs',
+        'primevue/tab',
+        'primevue/tablist',
+        'primevue/accordion',
+        'primevue/accordionpanel',
+        'primevue/accordionheader',
+        'primevue/accordioncontent',
+        'primevue/tooltip',
+      ],
       output: {
         globals: {
           vue: 'Vue',
+          '@mtchat/vue': 'MTChatVue',
           'primevue/button': 'PrimeVueButton',
           'primevue/dialog': 'PrimeVueDialog',
           'primevue/menu': 'PrimeVueMenu',

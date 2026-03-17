@@ -5,7 +5,7 @@
 ## Установка
 
 ```bash
-npm install @mtchat/vue-primevue
+npm install @mtchat/vue @mtchat/vue-primevue
 ```
 
 ### Зависимости
@@ -14,9 +14,7 @@ npm install @mtchat/vue-primevue
 |-------|--------|
 | `vue` | `^3.4.0` |
 | `primevue` | `^4.0.0` |
-
-!!! note
-    Не нужно устанавливать `@mtchat/vue` отдельно. PrimeVue-пакет реэкспортирует всё из базового SDK.
+| `@mtchat/vue` | `^1.0.0` |
 
 ## Быстрый старт
 

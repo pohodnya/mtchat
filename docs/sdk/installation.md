@@ -72,7 +72,7 @@ const config: MTChatConfig = {
 If your application uses [PrimeVue](https://primevue.org/), install the companion package for seamless UI integration:
 
 ```bash
-npm install @mtchat/vue-primevue
+npm install @mtchat/vue @mtchat/vue-primevue
 ```
 
 This requires PrimeVue 4.x as a peer dependency:

@@ -5,7 +5,7 @@ The `@mtchat/vue-primevue` package provides seamless integration with [PrimeVue]
 ## Installation
 
 ```bash
-npm install @mtchat/vue-primevue
+npm install @mtchat/vue @mtchat/vue-primevue
 ```
 
 ### Peer Dependencies
@@ -14,9 +14,7 @@ npm install @mtchat/vue-primevue
 |---------|---------|
 | `vue` | `^3.4.0` |
 | `primevue` | `^4.0.0` |
-
-!!! note
-    You do **not** need to install `@mtchat/vue` separately. The PrimeVue package re-exports everything from the base SDK.
+| `@mtchat/vue` | `^1.0.0` |
 
 ## Quick Start
 

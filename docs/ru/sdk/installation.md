@@ -70,7 +70,7 @@ const config: MTChatConfig = {
 Если ваше приложение использует [PrimeVue](https://primevue.org/), установите пакет-компаньон:
 
 ```bash
-npm install @mtchat/vue-primevue
+npm install @mtchat/vue @mtchat/vue-primevue
 ```
 
 Подробнее: [Интеграция PrimeVue](primevue.md).

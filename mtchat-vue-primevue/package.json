@@ -24,7 +24,8 @@
   },
   "peerDependencies": {
     "vue": "^3.4.0",
-    "primevue": "^4.0.0"
+    "primevue": "^4.0.0",
+    "@mtchat/vue": "^1.0.0"
   },
   "devDependencies": {
     "@mtchat/vue": "file:../mtchat-vue",
