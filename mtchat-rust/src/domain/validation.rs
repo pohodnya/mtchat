@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn test_validate_s3_key_valid() {
         let dialog_id = uuid::Uuid::parse_str("12345678-1234-1234-1234-123456789abc").unwrap();
-        let key = format!("dialogs/{}/pending/file.txt", dialog_id);
+        let key = format!("dialogs/{}/file.txt", dialog_id);
         assert!(validate_s3_key(&key, dialog_id).is_ok());
     }
 
@@ -220,14 +220,14 @@ mod tests {
     fn test_validate_s3_key_wrong_dialog() {
         let dialog_id = uuid::Uuid::parse_str("12345678-1234-1234-1234-123456789abc").unwrap();
         let other_dialog = uuid::Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").unwrap();
-        let key = format!("dialogs/{}/pending/file.txt", other_dialog);
+        let key = format!("dialogs/{}/file.txt", other_dialog);
         assert!(validate_s3_key(&key, dialog_id).is_err());
     }
 
     #[test]
     fn test_validate_s3_key_null_byte() {
         let dialog_id = uuid::Uuid::parse_str("12345678-1234-1234-1234-123456789abc").unwrap();
-        let key = format!("dialogs/{}/pending/file\0.txt", dialog_id);
+        let key = format!("dialogs/{}/file\0.txt", dialog_id);
         assert!(validate_s3_key(&key, dialog_id).is_err());
     }
 }

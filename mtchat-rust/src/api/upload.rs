@@ -68,10 +68,10 @@ pub async fn presign_upload(
         .ok_or_else(|| ApiError::new(ErrorCode::DialogNotFound, "Dialog not found"))?;
 
     // Generate S3 key
-    // Format: dialogs/{dialog_id}/pending/{uuid}.{ext}
+    // Format: dialogs/{dialog_id}/{uuid}.{ext}
     let ext = req.filename.rsplit('.').next().unwrap_or("bin");
     let file_uuid = Uuid::now_v7();
-    let s3_key = format!("dialogs/{}/pending/{}.{}", req.dialog_id, file_uuid, ext);
+    let s3_key = format!("dialogs/{}/{}.{}", req.dialog_id, file_uuid, ext);
 
     // Generate presigned URL
     let upload_url = state
