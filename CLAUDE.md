@@ -458,7 +458,7 @@ docker-compose up -d
 
 ## Changelog
 
-### 2026-03-16 (v0.5.0) - Scope Level 0 (tenant_uid to scope_level0)
+### 2026-03-16 (v0.4.1) - Scope Level 0 (tenant_uid to scope_level0)
 - **Breaking change**: `tenant_uid` replaced with `scope_level0[]` array
 - Consistent OR logic across all scope levels: `(ANY scope0) AND (ANY scope1) AND (ANY scope2)`
 - Empty array at any level = wildcard (matches all values)
