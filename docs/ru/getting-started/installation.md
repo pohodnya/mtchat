@@ -44,7 +44,7 @@ docker run -d \
   -p 8080:8080 \
   -e DATABASE_URL=postgres://user:pass@your-db:5432/mtchat \
   -e ADMIN_API_TOKEN=your-admin-token \
-  ghcr.io/nicenemo/mtchat:latest
+  pohodnya/mtchat:latest
 ```
 
 ### Helm Chart (Kubernetes)

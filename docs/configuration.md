@@ -91,7 +91,7 @@ Configure the apalis background job queue (requires Redis).
 ```yaml
 services:
   api:
-    image: ghcr.io/nicenemo/mtchat:latest
+    image: pohodnya/mtchat:latest
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/multitenancy_chat
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-demo-admin-token}
