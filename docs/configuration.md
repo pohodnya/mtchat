@@ -66,12 +66,64 @@ Configure the apalis background job queue (requires Redis).
 | `ARCHIVE_CRON` | `0 */5 * * * *` | Cron schedule for auto-archive check |
 | `ARCHIVE_AFTER_SECS` | `259200` | Seconds of inactivity before auto-archiving (default: 3 days) |
 
-## Authentication
+## CORS
+
+Configure cross-origin resource sharing for the API.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `JWT_SECRET` | -- | Secret for JWT token signing (reserved for future use) |
+| `CORS_ALLOWED_ORIGINS` | `*` | Comma-separated origins or `*` for all |
+| `CORS_ALLOWED_METHODS` | `GET,POST,PUT,DELETE,OPTIONS` | Allowed HTTP methods |
+| `CORS_ALLOWED_HEADERS` | `*` | Allowed headers or `*` for all |
+| `CORS_ALLOW_CREDENTIALS` | `false` | Allow credentials (`true`/`false`) |
+| `CORS_MAX_AGE` | `3600` | Preflight cache duration (seconds) |
+
+**Examples:**
+
+```bash
+# Development (default - fully open)
+# No configuration needed
+
+# Production (specific domains)
+CORS_ALLOWED_ORIGINS="https://app.example.com,https://admin.example.com"
+CORS_ALLOW_CREDENTIALS="true"
+```
+
+## Authentication
+
+### Management API
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `ADMIN_API_TOKEN` | required | Bearer token for Management API |
+
+### Chat API (JWT)
+
+Optional JWT authentication for the Chat API. When enabled, validates token signature (HS256) without expiration check.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_AUTH_ENABLED` | `false` | Enable JWT authentication for Chat API |
+| `JWT_SECRET` | -- | Secret key for HS256 signature verification (required if JWT enabled) |
+
+**How it works:**
+
+- REST API: Token passed in `Authorization: Bearer <token>` header
+- WebSocket: Token passed as `?token=<token>` query parameter
+- User ID extracted from JWT `sub` claim
+- When disabled, falls back to `?user_id=<id>` query parameter (legacy mode)
+
+**Token format (HS256):**
+
+```json
+{
+  "sub": "user-id-here",
+  "iat": 1234567890
+}
+```
+
+!!! tip "Token reuse"
+    MTChat does not validate token expiration. The token is expected to be reused from your host application's authentication system.
 
 ## Monitoring (Optional)
 

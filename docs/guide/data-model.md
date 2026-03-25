@@ -9,11 +9,11 @@ A dialog is a conversation bound to a business object in your system.
 | Field | Type | Description |
 |-------|------|-------------|
 | id | UUID (v7) | Time-ordered unique identifier |
-| object_id | UUID | Reference to business object (required) |
+| object_id | STRING | Reference to business object (max 255 chars) |
 | object_type | STRING | Type of business object (required) |
-| title | STRING | Dialog title |
+| title | STRING | Dialog title (max 500 chars) |
 | object_url | STRING | Link to object in host app (optional) |
-| created_by | UUID | User who created the dialog |
+| created_by | STRING | External user ID who created the dialog (max 255 chars) |
 | created_at | TIMESTAMP | Creation timestamp |
 
 - **object_id** + **object_type** link the dialog to an entity in your system (e.g., an order, tender, or route)
@@ -27,11 +27,11 @@ A direct member of a dialog. Participants receive notifications and see the dial
 | Field | Type | Description |
 |-------|------|-------------|
 | dialog_id | UUID | Reference to dialog |
-| user_id | UUID | External user identifier |
-| display_name | STRING | User's display name |
-| company | STRING | User's company |
-| email | STRING | Contact email (optional) |
-| phone | STRING | Contact phone (optional) |
+| user_id | STRING | External user identifier (max 255 chars) |
+| display_name | STRING | User's display name (max 200 chars) |
+| company | STRING | User's company (max 200 chars) |
+| email | STRING | Contact email (max 254 chars, optional) |
+| phone | STRING | Contact phone (max 50 chars, optional) |
 | joined_at | TIMESTAMP | When user joined |
 | joined_as | ENUM | "creator" or "member" |
 | notifications_enabled | BOOLEAN | Whether notifications are on |
@@ -40,7 +40,7 @@ A direct member of a dialog. Participants receive notifications and see the dial
 | is_archived | BOOLEAN | Archived by this user |
 | is_pinned | BOOLEAN | Pinned by this user |
 
-- **user_id** is an external identifier from your system (not managed by MTChat)
+- **user_id** is an external string identifier from your system (e.g., `user-123`, `ORG_001`)
 - **display_name** and **company** are set when the user joins
 - **unread_count** is tracked per participant
 - **is_archived** and **is_pinned** are per-user states
@@ -64,9 +64,9 @@ A dialog can have multiple access scopes. See [Scope Matching](scope-matching.md
 |-------|------|-------------|
 | id | UUID (v7) | Time-ordered unique identifier |
 | dialog_id | UUID | Reference to dialog |
-| sender_id | UUID | Sender (nullable for system messages) |
+| sender_id | STRING | Sender's external user ID (nullable for system messages) |
 | message_type | ENUM | "user" or "system" |
-| content | STRING | Message content (HTML) |
+| content | STRING | Message content (HTML, max 50,000 chars) |
 | reply_to_id | UUID | Referenced message (nullable) |
 | is_edited | BOOLEAN | Whether message was edited |
 | is_deleted | BOOLEAN | Whether message was deleted |

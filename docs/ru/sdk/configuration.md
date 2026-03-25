@@ -10,8 +10,11 @@ interface MTChatConfig {
   /** URL WebSocket (авто-определяется из baseUrl) */
   wsUrl?: string
 
-  /** UUID текущего пользователя */
+  /** ID текущего пользователя */
   userId: string
+
+  /** JWT-токен для аутентификации (если JWT_AUTH_ENABLED=true на сервере) */
+  token?: string
 
   /** Scope-конфигурация для контроля доступа */
   scopeConfig: ScopeConfig
@@ -85,6 +88,7 @@ interface UserProfile {
 const config: MTChatConfig = {
   baseUrl: 'https://chat.example.com',
   userId: user.id,
+  token: jwtToken,  // JWT из вашей системы аутентификации (если JWT включён)
   scopeConfig: {
     scopeLevel0: [user.tenantId],
     scopeLevel1: user.departments,

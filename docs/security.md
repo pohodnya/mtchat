@@ -22,18 +22,44 @@ Authorization: Bearer <ADMIN_API_TOKEN>
 !!! warning "Keep the admin token secret"
     The admin token grants full access to create/delete dialogs and manage participants. Never expose it to frontend clients.
 
-### Chat API (Host App Responsibility)
+### Chat API (JWT Authentication)
 
-The Chat API identifies users via the `user_id` query parameter. **MTChat does not authenticate end users directly.** This is by design:
+The Chat API supports optional JWT authentication. When enabled (`JWT_AUTH_ENABLED=true`), MTChat validates user tokens server-side:
 
-- Your host application manages user authentication (login, sessions, JWT)
-- Your host application passes the authenticated `user_id` to the MTChat SDK
-- MTChat trusts the `user_id` provided by the SDK
+**How it works:**
 
-This architecture means your host application is responsible for ensuring that only authenticated users can access the chat SDK with their correct `user_id`.
+- REST API: Token passed in `Authorization: Bearer <token>` header
+- WebSocket: Token passed as `?token=<token>` query parameter
+- User ID extracted from JWT `sub` claim
+- Signature validated using HS256 with `JWT_SECRET`
+- Expiration (`exp`) is NOT validated -- token lifetime is managed by your host application
+
+**Token format:**
+
+```json
+{
+  "sub": "user-id-here",
+  "iat": 1234567890
+}
+```
+
+**SDK configuration:**
+
+```typescript
+const config: MTChatConfig = {
+  baseUrl: 'https://chat.example.com',
+  userId: user.id,
+  token: jwtToken,  // JWT from your auth system
+  // ...
+}
+```
 
 !!! tip "Production recommendation"
-    In production, place MTChat behind an API gateway or reverse proxy that validates user tokens before forwarding requests. This ensures that unauthenticated requests never reach MTChat.
+    Enable JWT authentication in production (`JWT_AUTH_ENABLED=true`) to ensure that only authenticated users can access the chat. Set a strong `JWT_SECRET` (minimum 32 characters).
+
+**Legacy mode (JWT disabled):**
+
+When `JWT_AUTH_ENABLED=false` (default), the Chat API identifies users via the `user_id` query parameter. In this mode, your host application is responsible for ensuring that only authenticated users can access the chat SDK with their correct `user_id`.
 
 ## Access Control
 
@@ -48,6 +74,31 @@ This architecture means your host application is responsible for ensuring that o
 - The "Available" dialog list is filtered by [scope matching](guide/scope-matching.md)
 - Users only see dialogs matching their `scope_level0`, `scope_level1`, and `scope_level2`
 - Scope configuration is passed via the `X-Scope-Config` header (base64-encoded JSON)
+
+## Input Validation
+
+All text inputs are validated for length to prevent abuse:
+
+| Field | Max Length | Description |
+|-------|------------|-------------|
+| Message content | 50,000 chars | HTML message body |
+| Dialog title | 500 chars | Dialog title |
+| Display name | 200 chars | Participant display name |
+| Company | 200 chars | Company name |
+| Email | 254 chars | Contact email |
+| Phone | 50 chars | Contact phone |
+| Object ID | 255 chars | External object identifier |
+| User ID | 255 chars | External user identifier |
+
+Requests exceeding these limits return `400 Bad Request` with error code `InvalidInput`.
+
+### S3 Key Validation
+
+File attachment S3 keys are validated to prevent path traversal attacks:
+
+- Blocks `..` sequences and URL-encoded variants (`%2e%2e`)
+- Blocks null byte injection (`%00`)
+- Verifies file belongs to the correct dialog
 
 ## Input Sanitization
 
@@ -96,11 +147,11 @@ Access-Control-Allow-Origin: *
 ## Production Checklist
 
 - [ ] Set a strong, unique `ADMIN_API_TOKEN` (minimum 32 characters)
+- [ ] Enable JWT authentication (`JWT_AUTH_ENABLED=true`) and set a strong `JWT_SECRET` (minimum 32 characters)
 - [ ] Set a strong `WEBHOOK_SECRET` for webhook signature verification
 - [ ] Place MTChat behind a reverse proxy with TLS (HTTPS)
 - [ ] Restrict CORS to your application's domains
-- [ ] Ensure your host application authenticates users before providing the chat SDK
-- [ ] Use the `user_id` from your authentication system (not user-supplied input)
+- [ ] Generate JWT tokens server-side and pass them to the SDK via the `token` config property
 - [ ] Set appropriate `RUST_LOG` level for production (avoid `debug`)
 - [ ] Configure `S3_PUBLIC_ENDPOINT` to use HTTPS in production
 - [ ] Monitor the `/health` and `/health/ready` endpoints
@@ -111,7 +162,6 @@ Access-Control-Allow-Origin: *
 
 The following security features are planned for future releases:
 
-- **JWT authentication** for the Chat API (validate user tokens server-side)
 - **WebSocket subscription filtering** (users only receive events for their dialogs)
 - **Built-in rate limiting** per user and per endpoint
 - **CSRF protection** for non-API endpoints
