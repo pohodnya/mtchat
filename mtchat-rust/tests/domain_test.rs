@@ -518,19 +518,11 @@ fn test_scope_nonempty_vs_empty_user_no_match() {
 fn test_scope_mixed_empty_levels() {
     // scope0 and level1 are empty (matches any), level2 is not
     let scope1 = DialogAccessScope::new(Uuid::new_v4(), vec![], vec![], vec!["admin".into()]);
-    assert!(scope1.matches(
-        &vec!["any".into()],
-        &vec!["anything".into()],
-        &vec!["admin".into()]
-    ));
-    assert!(!scope1.matches(
-        &vec!["any".into()],
-        &vec!["anything".into()],
-        &vec!["viewer".into()]
-    ));
+    assert!(scope1.matches(&["any".into()], &["anything".into()], &["admin".into()]));
+    assert!(!scope1.matches(&["any".into()], &["anything".into()], &["viewer".into()]));
 
     // level1 is not empty, level2 is empty (matches any)
     let scope2 = DialogAccessScope::new(Uuid::new_v4(), vec![], vec!["dept_a".into()], vec![]);
-    assert!(scope2.matches(&vec!["any".into()], &vec!["dept_a".into()], &vec![]));
-    assert!(!scope2.matches(&vec!["any".into()], &vec!["dept_b".into()], &vec![]));
+    assert!(scope2.matches(&["any".into()], &["dept_a".into()], &[]));
+    assert!(!scope2.matches(&["any".into()], &["dept_b".into()], &[]));
 }

@@ -130,7 +130,7 @@ async fn test_dialogs_multiple_per_object() {
 
     // Cleanup
     sqlx::query("DELETE FROM dialogs WHERE id = ANY($1)")
-        .bind(&vec![dialog1_id, dialog2_id, dialog3_id])
+        .bind(vec![dialog1_id, dialog2_id, dialog3_id])
         .execute(&pool)
         .await
         .unwrap();
@@ -294,9 +294,9 @@ async fn test_scope_matching_with_array_overlap() {
            VALUES ($1, $2, $3, $4)"#,
     )
     .bind(dialog_id)
-    .bind(&vec!["X", "Y"])
-    .bind(&vec!["A", "B"])
-    .bind(&vec!["mgr", "admin"])
+    .bind(vec!["X", "Y"])
+    .bind(vec!["A", "B"])
+    .bind(vec!["mgr", "admin"])
     .execute(&mut *tx)
     .await
     .unwrap();
@@ -416,9 +416,9 @@ async fn test_available_dialogs_excludes_participants() {
            VALUES ($1, $2, $3, $4)"#,
     )
     .bind(dialog_id)
-    .bind(&vec!["tenant"])
-    .bind(&vec!["dept"])
-    .bind(&vec!["perm"])
+    .bind(vec!["tenant"])
+    .bind(vec!["dept"])
+    .bind(vec!["perm"])
     .execute(&mut *tx)
     .await
     .unwrap();
@@ -435,9 +435,9 @@ async fn test_available_dialogs_excludes_participants() {
                WHERE dp.dialog_id = d.id AND dp.user_id = $4
              )"#,
     )
-    .bind(&vec!["tenant"])
-    .bind(&vec!["dept"])
-    .bind(&vec!["perm"])
+    .bind(vec!["tenant"])
+    .bind(vec!["dept"])
+    .bind(vec!["perm"])
     .bind(user_id)
     .fetch_optional(&mut *tx)
     .await
@@ -470,9 +470,9 @@ async fn test_available_dialogs_excludes_participants() {
                WHERE dp.dialog_id = d.id AND dp.user_id = $4
              )"#,
     )
-    .bind(&vec!["tenant"])
-    .bind(&vec!["dept"])
-    .bind(&vec!["perm"])
+    .bind(vec!["tenant"])
+    .bind(vec!["dept"])
+    .bind(vec!["perm"])
     .bind(user_id)
     .fetch_optional(&mut *tx)
     .await
@@ -589,9 +589,9 @@ async fn test_cascade_delete_dialog() {
            VALUES ($1, $2, $3, $4)"#,
     )
     .bind(dialog_id)
-    .bind(&vec!["tenant"])
-    .bind(&vec!["dept"])
-    .bind(&vec!["perm"])
+    .bind(vec!["tenant"])
+    .bind(vec!["dept"])
+    .bind(vec!["perm"])
     .execute(&mut *tx)
     .await
     .unwrap();

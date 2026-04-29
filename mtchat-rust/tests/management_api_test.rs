@@ -35,7 +35,7 @@ async fn test_admin_auth_rejects_missing_header() {
     }
 
     let resp = client
-        .post(&format!("{}/api/v1/management/dialogs", base_url))
+        .post(format!("{}/api/v1/management/dialogs", base_url))
         .json(&json!({
             "object_id": Uuid::new_v4(),
             "object_type": "test",
@@ -62,7 +62,7 @@ async fn test_admin_auth_rejects_invalid_token() {
     }
 
     let resp = client
-        .post(&format!("{}/api/v1/management/dialogs", base_url))
+        .post(format!("{}/api/v1/management/dialogs", base_url))
         .header("Authorization", "Bearer invalid-token")
         .json(&json!({
             "object_id": Uuid::new_v4(),
@@ -91,7 +91,7 @@ async fn test_admin_auth_accepts_valid_token() {
     };
 
     let resp = client
-        .post(&format!("{}/api/v1/management/dialogs", base_url))
+        .post(format!("{}/api/v1/management/dialogs", base_url))
         .header("Authorization", format!("Bearer {}", token))
         .json(&json!({
             "object_id": Uuid::new_v4(),
@@ -124,7 +124,7 @@ async fn test_create_dialog_with_participants() {
     let tenant_uid = Uuid::new_v4();
 
     let resp = client
-        .post(&format!("{}/api/v1/management/dialogs", base_url))
+        .post(format!("{}/api/v1/management/dialogs", base_url))
         .header("Authorization", &auth_header)
         .json(&json!({
             "object_id": object_id,
@@ -152,7 +152,7 @@ async fn test_create_dialog_with_participants() {
 
     // Cleanup
     client
-        .delete(&format!(
+        .delete(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -177,7 +177,7 @@ async fn test_get_dialog_with_details() {
 
     // Create dialog
     let create_resp = client
-        .post(&format!("{}/api/v1/management/dialogs", base_url))
+        .post(format!("{}/api/v1/management/dialogs", base_url))
         .header("Authorization", &auth_header)
         .json(&json!({
             "object_id": object_id,
@@ -199,7 +199,7 @@ async fn test_get_dialog_with_details() {
 
     // Get dialog with details
     let get_resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -212,12 +212,12 @@ async fn test_get_dialog_with_details() {
 
     let body: Value = get_resp.json().await.unwrap();
     assert_eq!(body["data"]["object_type"], "order");
-    assert!(body["data"]["participants"].as_array().unwrap().len() >= 1);
-    assert!(body["data"]["access_scopes"].as_array().unwrap().len() >= 1);
+    assert!(!body["data"]["participants"].as_array().unwrap().is_empty());
+    assert!(!body["data"]["access_scopes"].as_array().unwrap().is_empty());
 
     // Cleanup
     client
-        .delete(&format!(
+        .delete(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -238,7 +238,7 @@ async fn test_delete_dialog() {
 
     // Create dialog
     let create_resp = client
-        .post(&format!("{}/api/v1/management/dialogs", base_url))
+        .post(format!("{}/api/v1/management/dialogs", base_url))
         .header("Authorization", &auth_header)
         .json(&json!({
             "object_id": Uuid::new_v4(),
@@ -254,7 +254,7 @@ async fn test_delete_dialog() {
 
     // Delete dialog
     let delete_resp = client
-        .delete(&format!(
+        .delete(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -267,7 +267,7 @@ async fn test_delete_dialog() {
 
     // Verify deleted
     let get_resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -292,7 +292,7 @@ async fn test_add_and_remove_participant() {
 
     // Create dialog
     let create_resp = client
-        .post(&format!("{}/api/v1/management/dialogs", base_url))
+        .post(format!("{}/api/v1/management/dialogs", base_url))
         .header("Authorization", &auth_header)
         .json(&json!({
             "object_id": Uuid::new_v4(),
@@ -309,7 +309,7 @@ async fn test_add_and_remove_participant() {
 
     // Add participant
     let add_resp = client
-        .post(&format!(
+        .post(format!(
             "{}/api/v1/management/dialogs/{}/participants",
             base_url, dialog_id
         ))
@@ -323,7 +323,7 @@ async fn test_add_and_remove_participant() {
 
     // Verify added
     let get_resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -340,7 +340,7 @@ async fn test_add_and_remove_participant() {
 
     // Remove participant
     let remove_resp = client
-        .delete(&format!(
+        .delete(format!(
             "{}/api/v1/management/dialogs/{}/participants/{}",
             base_url, dialog_id, new_user
         ))
@@ -353,7 +353,7 @@ async fn test_add_and_remove_participant() {
 
     // Cleanup
     client
-        .delete(&format!(
+        .delete(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -379,7 +379,7 @@ async fn test_update_access_scopes() {
 
     // Create dialog with initial scopes
     let create_resp = client
-        .post(&format!("{}/api/v1/management/dialogs", base_url))
+        .post(format!("{}/api/v1/management/dialogs", base_url))
         .header("Authorization", &auth_header)
         .json(&json!({
             "object_id": Uuid::new_v4(),
@@ -400,7 +400,7 @@ async fn test_update_access_scopes() {
 
     // Update access scopes (replace all)
     let update_resp = client
-        .put(&format!(
+        .put(format!(
             "{}/api/v1/management/dialogs/{}/access-scopes",
             base_url, dialog_id
         ))
@@ -427,7 +427,7 @@ async fn test_update_access_scopes() {
 
     // Verify via GET
     let get_resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -448,7 +448,7 @@ async fn test_update_access_scopes() {
 
     // Cleanup
     client
-        .delete(&format!(
+        .delete(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -472,7 +472,7 @@ async fn test_get_nonexistent_dialog_returns_404() {
     let fake_id = Uuid::new_v4();
 
     let resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, fake_id
         ))
@@ -497,7 +497,7 @@ async fn test_add_participant_to_nonexistent_dialog() {
     let user_id = Uuid::new_v4();
 
     let resp = client
-        .post(&format!(
+        .post(format!(
             "{}/api/v1/management/dialogs/{}/participants",
             base_url, fake_dialog_id
         ))
