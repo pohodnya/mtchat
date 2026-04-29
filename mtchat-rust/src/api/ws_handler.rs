@@ -48,7 +48,16 @@ fn extract_user_id(params: &HashMap<String, String>) -> Result<String, Response>
                 (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
             })?;
 
-        return Ok(token_data.claims.sub);
+        return token_data
+            .claims
+            .user_id(&config.user_id_claim)
+            .ok_or_else(|| {
+                tracing::debug!(
+                    "WebSocket JWT validation failed: missing claim '{}'",
+                    config.user_id_claim
+                );
+                (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
+            });
     }
 
     // JWT disabled - use user_id query parameter

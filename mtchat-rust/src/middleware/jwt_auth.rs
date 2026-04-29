@@ -1,7 +1,8 @@
 //! JWT Authentication Middleware for Chat API
 //!
-//! Validates JWT tokens and extracts user_id from the `sub` claim.
-//! When JWT auth is disabled, falls back to query parameter extraction.
+//! Validates JWT tokens and extracts the user identifier from a configurable
+//! claim (default `sub`). When JWT auth is disabled, falls back to query
+//! parameter extraction.
 
 use axum::{
     extract::{FromRequestParts, Request},
@@ -11,22 +12,38 @@ use axum::{
 };
 use jsonwebtoken::decode;
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 
 use crate::config::JwtConfig;
 
-/// JWT claims structure
-/// Only `sub` (subject = user_id) is used, other claims are ignored
-#[derive(Debug, Serialize, Deserialize)]
-pub struct JwtClaims {
-    /// User ID (subject claim) - external identifier string
-    pub sub: String,
+/// JWT claims as a flexible map.
+///
+/// The token payload is deserialized as an arbitrary JSON object so that the
+/// user identifier can be read from any configured claim name (`sub`,
+/// `user_id`, `userId`, `id`, ...). String and numeric values are accepted —
+/// numbers are stringified to keep MTChat's `String`-typed identifiers.
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct JwtClaims(pub Map<String, Value>);
+
+impl JwtClaims {
+    /// Extract the user identifier from the named claim.
+    /// Returns `None` if the claim is missing or its value is not string/number.
+    pub fn user_id(&self, claim: &str) -> Option<String> {
+        match self.0.get(claim)? {
+            Value::String(s) => Some(s.clone()),
+            Value::Number(n) => Some(n.to_string()),
+            _ => None,
+        }
+    }
 }
 
 /// Middleware for JWT authentication on Chat API routes
 ///
 /// If JWT auth is enabled:
 /// - Validates the Bearer token from Authorization header
-/// - Returns 401 if token is missing or invalid
+/// - Verifies the configured user-id claim is present and is a string/number
+/// - Returns 401 if token is missing, invalid, or claim is absent
 ///
 /// If JWT auth is disabled:
 /// - Passes request through without validation
@@ -50,9 +67,18 @@ pub async fn jwt_auth(request: Request, next: Next) -> Response {
         }
     };
 
-    // Validate token signature
+    // Validate signature and ensure the configured user-id claim exists
     match decode::<JwtClaims>(token, &config.decoding_key, &config.validation) {
-        Ok(_) => next.run(request).await,
+        Ok(data) => {
+            if data.claims.user_id(&config.user_id_claim).is_none() {
+                tracing::debug!(
+                    "JWT validation failed: missing or non-string claim '{}'",
+                    config.user_id_claim
+                );
+                return (StatusCode::UNAUTHORIZED, "Invalid token").into_response();
+            }
+            next.run(request).await
+        }
         Err(e) => {
             tracing::debug!("JWT validation failed: {}", e);
             (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
@@ -63,7 +89,7 @@ pub async fn jwt_auth(request: Request, next: Next) -> Response {
 /// Extractor for getting user_id from JWT token or query parameter
 ///
 /// When JWT auth is enabled:
-/// - Extracts user_id from JWT `sub` claim
+/// - Extracts user_id from the configured JWT claim (default `sub`)
 ///
 /// When JWT auth is disabled:
 /// - Falls back to `user_id` or `sender_id` query parameter
@@ -96,9 +122,12 @@ where
             }
         };
 
-        // Decode and extract user_id from claims
+        // Decode and extract user_id from the configured claim
         match decode::<JwtClaims>(token, &config.decoding_key, &config.validation) {
-            Ok(data) => Ok(JwtUserId(data.claims.sub)),
+            Ok(data) => match data.claims.user_id(&config.user_id_claim) {
+                Some(id) => Ok(JwtUserId(id)),
+                None => Err((StatusCode::UNAUTHORIZED, "Invalid token").into_response()),
+            },
             Err(_) => Err((StatusCode::UNAUTHORIZED, "Invalid token").into_response()),
         }
     }
@@ -132,52 +161,48 @@ fn extract_user_id_from_query(parts: &Parts) -> Result<JwtUserId, Response> {
 mod tests {
     use super::*;
     use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header};
+    use serde_json::json;
 
-    fn create_test_token(user_id: &str, secret: &str) -> String {
-        let claims = JwtClaims {
-            sub: user_id.to_string(),
-        };
+    fn build_token(payload: Value, secret: &str) -> String {
         encode(
             &Header::default(),
-            &claims,
+            &payload,
             &EncodingKey::from_secret(secret.as_bytes()),
         )
         .unwrap()
+    }
+
+    fn permissive_validation() -> jsonwebtoken::Validation {
+        let mut v = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
+        v.validate_exp = false;
+        v.required_spec_claims.clear();
+        v
     }
 
     #[test]
     fn test_valid_jwt_token() {
         let secret = "test-secret-key-32-characters-long";
         let user_id = "user-123";
-        let token = create_test_token(user_id, secret);
-
-        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
-        validation.validate_exp = false;
-        validation.required_spec_claims.clear();
+        let token = build_token(json!({ "sub": user_id }), secret);
 
         let decoded = decode::<JwtClaims>(
             &token,
             &DecodingKey::from_secret(secret.as_bytes()),
-            &validation,
+            &permissive_validation(),
         )
         .expect("Token should be valid");
 
-        assert_eq!(decoded.claims.sub, user_id);
+        assert_eq!(decoded.claims.user_id("sub").as_deref(), Some(user_id));
     }
 
     #[test]
     fn test_invalid_signature() {
-        let user_id = "user-456";
-        let token = create_test_token(user_id, "secret1");
-
-        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
-        validation.validate_exp = false;
-        validation.required_spec_claims.clear();
+        let token = build_token(json!({ "sub": "user-456" }), "secret1");
 
         let result = decode::<JwtClaims>(
             &token,
             &DecodingKey::from_secret("secret2".as_bytes()),
-            &validation,
+            &permissive_validation(),
         );
 
         assert!(result.is_err());
@@ -189,43 +214,71 @@ mod tests {
 
         let secret = "test-secret";
         let user_id = "user-789";
-
-        // Create expired token
-        #[derive(Serialize)]
-        struct ExpiredClaims {
-            sub: String,
-            exp: u64,
-        }
-
-        let claims = ExpiredClaims {
-            sub: user_id.to_string(),
-            // Expired 1 hour ago
-            exp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-                - 3600,
-        };
-
-        let token = encode(
-            &Header::default(),
-            &claims,
-            &EncodingKey::from_secret(secret.as_bytes()),
-        )
-        .unwrap();
-
-        // With validate_exp = false, expired token should be accepted
-        let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256);
-        validation.validate_exp = false;
-        validation.required_spec_claims.clear();
+        let exp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            - 3600;
+        let token = build_token(json!({ "sub": user_id, "exp": exp }), secret);
 
         let result = decode::<JwtClaims>(
             &token,
             &DecodingKey::from_secret(secret.as_bytes()),
-            &validation,
+            &permissive_validation(),
         );
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().claims.sub, user_id);
+        assert_eq!(
+            result.unwrap().claims.user_id("sub").as_deref(),
+            Some(user_id)
+        );
+    }
+
+    #[test]
+    fn test_custom_claim_name() {
+        let secret = "test-secret-key-32-characters-long";
+        let user_id = "794a8653-53ce-4b32-865a-4118a8038e3f";
+        let token = build_token(json!({ "user_id": user_id }), secret);
+
+        let decoded = decode::<JwtClaims>(
+            &token,
+            &DecodingKey::from_secret(secret.as_bytes()),
+            &permissive_validation(),
+        )
+        .expect("Token should be valid");
+
+        assert_eq!(decoded.claims.user_id("user_id").as_deref(), Some(user_id));
+        // Default `sub` lookup must miss when ID lives under a custom claim.
+        assert!(decoded.claims.user_id("sub").is_none());
+    }
+
+    #[test]
+    fn test_numeric_claim_stringified() {
+        let secret = "test-secret-key-32-characters-long";
+        let token = build_token(json!({ "id": 42 }), secret);
+
+        let decoded = decode::<JwtClaims>(
+            &token,
+            &DecodingKey::from_secret(secret.as_bytes()),
+            &permissive_validation(),
+        )
+        .expect("Token should be valid");
+
+        assert_eq!(decoded.claims.user_id("id").as_deref(), Some("42"));
+    }
+
+    #[test]
+    fn test_missing_claim_returns_none() {
+        let secret = "test-secret-key-32-characters-long";
+        let token = build_token(json!({ "sub": "user-1" }), secret);
+
+        let decoded = decode::<JwtClaims>(
+            &token,
+            &DecodingKey::from_secret(secret.as_bytes()),
+            &permissive_validation(),
+        )
+        .expect("Token should decode");
+
+        assert!(decoded.claims.user_id("user_id").is_none());
     }
 }

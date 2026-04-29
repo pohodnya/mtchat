@@ -30,7 +30,7 @@ The Chat API supports optional JWT authentication. When enabled (`JWT_AUTH_ENABL
 
 - REST API: Token passed in `Authorization: Bearer <token>` header
 - WebSocket: Token passed as `?token=<token>` query parameter
-- User ID extracted from JWT `sub` claim
+- User ID extracted from the JWT claim configured via `JWT_USER_ID_CLAIM` (default: `sub`)
 - Signature validated using HS256 with `JWT_SECRET`
 - Expiration (`exp`) is NOT validated -- token lifetime is managed by your host application
 

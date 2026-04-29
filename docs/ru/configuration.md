@@ -95,19 +95,34 @@ CORS_ALLOW_CREDENTIALS="true"
 |------------|--------------|----------|
 | `JWT_AUTH_ENABLED` | `false` | Включить JWT-аутентификацию для Chat API |
 | `JWT_SECRET` | -- | Секретный ключ для HS256 (обязателен если JWT включён) |
+| `JWT_USER_ID_CLAIM` | `sub` | Имя claim, из которого читается ID пользователя |
 
 **Как работает:**
 
 - REST API: токен передаётся в заголовке `Authorization: Bearer <token>`
 - WebSocket: токен передаётся как query-параметр `?token=<token>`
-- ID пользователя извлекается из JWT claim `sub`
+- ID пользователя извлекается из claim, указанного в `JWT_USER_ID_CLAIM` (по умолчанию `sub`)
+- Числовые значения claim приводятся к строке, чтобы соответствовать `String`-идентификаторам MTChat
 - При выключении используется `?user_id=<id>` (legacy-режим)
 
-**Формат токена (HS256):**
+**Формат токена (HS256), стандартный claim:**
 
 ```json
 {
   "sub": "user-id-here",
+  "iat": 1234567890
+}
+```
+
+**Кастомный claim** — если хост-приложение кладёт ID под нестандартным именем:
+
+```bash
+JWT_USER_ID_CLAIM=user_id
+```
+
+```json
+{
+  "user_id": "user-id-here",
   "iat": 1234567890
 }
 ```

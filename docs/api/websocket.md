@@ -12,7 +12,7 @@ The connection URL depends on whether JWT authentication is enabled (`JWT_AUTH_E
 WS /api/v1/ws?token={jwt}
 ```
 
-When `JWT_AUTH_ENABLED=true`, the server validates the HS256 signature of the token using `JWT_SECRET` and extracts the user identifier from the `sub` claim. Token expiration is **not** checked — the same token issued by the host application is reused. If the `token` parameter is missing or the signature is invalid, the handshake fails with `401 Unauthorized` before the WebSocket upgrade.
+When `JWT_AUTH_ENABLED=true`, the server validates the HS256 signature of the token using `JWT_SECRET` and extracts the user identifier from the claim configured via `JWT_USER_ID_CLAIM` (default: `sub`). Token expiration is **not** checked — the same token issued by the host application is reused. If the `token` parameter is missing, the signature is invalid, or the configured claim is absent, the handshake fails with `401 Unauthorized` before the WebSocket upgrade.
 
 ### Legacy mode (JWT disabled)
 

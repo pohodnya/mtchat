@@ -105,19 +105,34 @@ Optional JWT authentication for the Chat API. When enabled, validates token sign
 |----------|---------|-------------|
 | `JWT_AUTH_ENABLED` | `false` | Enable JWT authentication for Chat API |
 | `JWT_SECRET` | -- | Secret key for HS256 signature verification (required if JWT enabled) |
+| `JWT_USER_ID_CLAIM` | `sub` | Claim name to read the user identifier from |
 
 **How it works:**
 
 - REST API: Token passed in `Authorization: Bearer <token>` header
 - WebSocket: Token passed as `?token=<token>` query parameter
-- User ID extracted from JWT `sub` claim
+- User ID extracted from the claim configured via `JWT_USER_ID_CLAIM` (default: `sub`)
+- Numeric claim values are stringified to match MTChat's `String` user identifiers
 - When disabled, falls back to `?user_id=<id>` query parameter (legacy mode)
 
-**Token format (HS256):**
+**Token format (HS256), default claim:**
 
 ```json
 {
   "sub": "user-id-here",
+  "iat": 1234567890
+}
+```
+
+**Custom claim name** — when your host application encodes the user ID under a non-standard claim:
+
+```bash
+JWT_USER_ID_CLAIM=user_id
+```
+
+```json
+{
+  "user_id": "user-id-here",
   "iat": 1234567890
 }
 ```
