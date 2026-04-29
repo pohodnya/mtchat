@@ -4,16 +4,30 @@ MTChat uses WebSocket for real-time communication. The Vue SDK manages the conne
 
 ## Connection
 
+The connection URL depends on whether JWT authentication is enabled (`JWT_AUTH_ENABLED`). Browsers cannot set custom headers on WebSocket handshakes, so authentication is always passed as a query parameter.
+
+### JWT mode (recommended for production)
+
 ```
-WS /api/v1/ws?user_id={uuid}
+WS /api/v1/ws?token={jwt}
 ```
 
-The `user_id` query parameter identifies the connected user. Upon connection, the server sends a `connected` event and sets the user's online status.
+When `JWT_AUTH_ENABLED=true`, the server validates the HS256 signature of the token using `JWT_SECRET` and extracts the user identifier from the `sub` claim. Token expiration is **not** checked — the same token issued by the host application is reused. If the `token` parameter is missing or the signature is invalid, the handshake fails with `401 Unauthorized` before the WebSocket upgrade.
+
+### Legacy mode (JWT disabled)
+
+```
+WS /api/v1/ws?user_id={id}
+```
+
+When `JWT_AUTH_ENABLED=false` (default), the user identifier is taken directly from the `user_id` query parameter. In this mode the host application is responsible for ensuring the value cannot be tampered with on the client. An empty `user_id` is rejected with `400 Bad Request`.
+
+Upon successful connection, the server sends a `connected` event and sets the user's online status.
 
 ### Connection Lifecycle
 
-1. Client connects with `user_id`
-2. Server registers the connection and sets user as online
+1. Client connects with `token` (JWT mode) or `user_id` (legacy mode)
+2. Server validates auth and registers the connection, setting the user online
 3. Server broadcasts `presence.update` to other users in shared dialogs
 4. Client sends `ping` messages every 30 seconds to maintain presence
 5. On disconnect, server removes the connection and broadcasts offline status
@@ -219,13 +233,16 @@ The Vue SDK manages the WebSocket connection automatically:
 ```typescript
 const config: MTChatConfig = {
   baseUrl: 'http://localhost:8080',
-  userId: 'user-uuid',
+  userId: 'user-id',
+  token: jwtToken,              // optional — used as ?token= when JWT auth is enabled
   // ...
   reconnect: true,              // auto-reconnect (default: true)
   reconnectInterval: 3000,      // reconnect delay in ms (default: 3000)
   heartbeatInterval: 30000,     // ping interval in ms (default: 30000)
 }
 ```
+
+If `token` is provided, the SDK appends `?token=<jwt>` to the WebSocket URL; otherwise it falls back to `?user_id=<id>`.
 
 To listen for events in your application:
 
