@@ -8,9 +8,9 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/mtchat-vue.js",
-      "require": "./dist/mtchat-vue.umd.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/mtchat-vue.umd.cjs"
     }
   },
   "files": [
