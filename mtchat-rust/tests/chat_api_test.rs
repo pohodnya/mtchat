@@ -31,6 +31,7 @@ fn encode_scope_config(tenant_uid: Uuid, scope_level1: &[&str], scope_level2: &[
 }
 
 // Helper to create a dialog for tests
+#[allow(clippy::too_many_arguments)]
 async fn create_test_dialog(
     client: &Client,
     base_url: &str,
@@ -43,7 +44,7 @@ async fn create_test_dialog(
     scope_level2: &[&str],
 ) -> String {
     let resp = client
-        .post(&format!("{}/api/v1/management/dialogs", base_url))
+        .post(format!("{}/api/v1/management/dialogs", base_url))
         .header("Authorization", auth_header)
         .json(&json!({
             "object_id": object_id,
@@ -67,7 +68,7 @@ async fn create_test_dialog(
 // Helper to delete a dialog
 async fn delete_test_dialog(client: &Client, base_url: &str, auth_header: &str, dialog_id: &str) {
     client
-        .delete(&format!(
+        .delete(format!(
             "{}/api/v1/management/dialogs/{}",
             base_url, dialog_id
         ))
@@ -108,7 +109,7 @@ async fn test_list_participating_dialogs() {
 
     // List participating dialogs
     let resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/dialogs?type=participating&user_id={}",
             base_url, user_id
         ))
@@ -155,7 +156,7 @@ async fn test_list_available_dialogs() {
     // List available dialogs with matching scope
     let scope_header = encode_scope_config(tenant_uid, &["sales"], &["manager"]);
     let resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/dialogs?type=available&user_id={}",
             base_url, user_id
         ))
@@ -185,7 +186,7 @@ async fn test_list_available_requires_scope_header() {
 
     // Request without X-Scope-Config header
     let resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/dialogs?type=available&user_id={}",
             base_url, user_id
         ))
@@ -227,7 +228,7 @@ async fn test_available_dialogs_scope_mismatch() {
     // List with different tenant - should not see dialog
     let scope_header = encode_scope_config(user_tenant, &["dept_a"], &["role_a"]);
     let resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/dialogs?type=available&user_id={}",
             base_url, user_id
         ))
@@ -278,7 +279,7 @@ async fn test_get_dialog_by_object_as_participant() {
 
     // Get by object
     let resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/dialogs/by-object/route/{}?user_id={}",
             base_url, object_id, user_id
         ))
@@ -326,7 +327,7 @@ async fn test_get_dialog_by_object_as_potential() {
     // Get by object with matching scope
     let scope_header = encode_scope_config(tenant_uid, &["logistics"], &["driver"]);
     let resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/dialogs/by-object/delivery/{}?user_id={}",
             base_url, object_id, user_id
         ))
@@ -376,7 +377,7 @@ async fn test_get_dialog_by_object_forbidden() {
     // Try to access with non-matching scope
     let scope_header = encode_scope_config(user_tenant, &["sales"], &["manager"]);
     let resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/dialogs/by-object/invoice/{}?user_id={}",
             base_url, object_id, user_id
         ))
@@ -423,7 +424,7 @@ async fn test_join_dialog() {
     // Join with matching scope
     let scope_header = encode_scope_config(tenant_uid, &["procurement"], &["buyer"]);
     let resp = client
-        .post(&format!(
+        .post(format!(
             "{}/api/v1/dialogs/{}/join?user_id={}",
             base_url, dialog_id, user_id
         ))
@@ -438,7 +439,7 @@ async fn test_join_dialog() {
 
     // Verify now in participating list
     let list_resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/dialogs?type=participating&user_id={}",
             base_url, user_id
         ))
@@ -485,7 +486,7 @@ async fn test_join_dialog_forbidden() {
     // Try to join with non-matching scope
     let scope_header = encode_scope_config(user_tenant, &["support"], &["agent"]);
     let resp = client
-        .post(&format!(
+        .post(format!(
             "{}/api/v1/dialogs/{}/join?user_id={}",
             base_url, dialog_id, user_id
         ))
@@ -530,7 +531,7 @@ async fn test_join_already_participant() {
     // Try to join again
     let scope_header = encode_scope_config(tenant_uid, &["dev"], &["engineer"]);
     let resp = client
-        .post(&format!(
+        .post(format!(
             "{}/api/v1/dialogs/{}/join?user_id={}",
             base_url, dialog_id, user_id
         ))
@@ -574,7 +575,7 @@ async fn test_leave_dialog() {
 
     // Leave
     let resp = client
-        .post(&format!(
+        .post(format!(
             "{}/api/v1/dialogs/{}/leave?user_id={}",
             base_url, dialog_id, user_id
         ))
@@ -588,7 +589,7 @@ async fn test_leave_dialog() {
 
     // Verify no longer in participating list
     let list_resp = client
-        .get(&format!(
+        .get(format!(
             "{}/api/v1/dialogs?type=participating&user_id={}",
             base_url, user_id
         ))
@@ -613,7 +614,7 @@ async fn test_missing_user_id_returns_error() {
     let base_url = get_base_url();
 
     let resp = client
-        .get(&format!("{}/api/v1/dialogs?type=participating", base_url))
+        .get(format!("{}/api/v1/dialogs?type=participating", base_url))
         .send()
         .await
         .unwrap();

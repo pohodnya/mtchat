@@ -232,17 +232,29 @@ Optional JWT authentication for Chat API. When enabled, validates token signatur
 |----------|---------|-------------|
 | `JWT_AUTH_ENABLED` | `false` | Enable JWT authentication for Chat API |
 | `JWT_SECRET` | (required if enabled) | Secret key for HS256 signature verification |
+| `JWT_USER_ID_CLAIM` | `sub` | Claim name to read the user identifier from |
 
 **How it works:**
 - REST API: Token passed in `Authorization: Bearer <token>` header
 - WebSocket: Token passed as `?token=<token>` query parameter
-- User ID extracted from JWT `sub` claim
+- User ID extracted from the claim configured via `JWT_USER_ID_CLAIM` (default `sub`); numeric values are stringified
 - When disabled, falls back to `?user_id=<uuid>` query parameter (legacy mode)
 
 **Token format (HS256):**
 ```json
 {
   "sub": "user-uuid-here",
+  "iat": 1234567890
+}
+```
+
+**Custom claim name** (e.g. when the host app encodes the user ID under `user_id`):
+```bash
+JWT_USER_ID_CLAIM=user_id
+```
+```json
+{
+  "user_id": "user-uuid-here",
   "iat": 1234567890
 }
 ```

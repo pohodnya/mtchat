@@ -22,9 +22,11 @@ GET /api/v1/dialogs?type=available&user_id={uuid}
 | Параметр | Тип | По умолчанию | Описание |
 |----------|-----|--------------|----------|
 | `type` | string | `participating` | `participating` (мои чаты) или `available` (доступные) |
-| `user_id` | UUID | обязателен | ID текущего пользователя |
+| `user_id` | string | обязателен | ID текущего пользователя |
 | `search` | string | -- | Поиск по заголовку диалога или компании участника |
 | `archived` | boolean | -- | Фильтр архивных диалогов |
+| `limit` | integer | 50 | Количество диалогов (макс. 100) |
+| `offset` | integer | 0 | Пропустить N диалогов |
 
 ### Поля ответа
 
@@ -194,9 +196,28 @@ DELETE /api/v1/dialogs/{dialog_id}/messages/{id}?user_id={uuid}
 
 ## Ошибки
 
-| HTTP статус | Код | Описание |
-|-------------|-----|----------|
-| 400 | `BAD_REQUEST` | Невалидный запрос |
-| 403 | `FORBIDDEN` | Пользователь не является участником |
-| 404 | `NOT_FOUND` | Диалог или сообщение не найдено |
-| 500 | `INTERNAL_ERROR` | Ошибка сервера |
+```json
+{
+  "error": {
+    "code": "NotParticipant",
+    "message": "Not a participant. Join the dialog first."
+  }
+}
+```
+
+### Коды ошибок
+
+| Код | HTTP статус | Описание |
+|-----|-------------|----------|
+| `DialogNotFound` | 404 | Диалог не существует |
+| `MessageNotFound` | 404 | Сообщение не существует |
+| `ParticipantNotFound` | 404 | Участник не найден в диалоге |
+| `AttachmentNotFound` | 404 | Вложение не существует |
+| `InvalidInput` | 400 | Невалидные данные или превышение лимитов |
+| `FileTooLarge` | 400 | Файл превышает лимит 100 МБ |
+| `UnsupportedFileType` | 400 | MIME-тип файла не разрешён |
+| `TooManyAttachments` | 400 | Более 10 вложений на сообщение |
+| `NotParticipant` | 403 | Пользователь должен сначала присоединиться |
+| `NotMessageAuthor` | 403 | Только автор может редактировать/удалять |
+| `ScopeMismatch` | 403 | Scope пользователя не соответствует правилам доступа |
+| `InternalError` | 500 | Ошибка сервера |

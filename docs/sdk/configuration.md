@@ -22,6 +22,7 @@ const config: MTChatConfig = {
   },
 
   // Optional
+  token: 'eyJhbGciOiJIUzI1NiIs...', // JWT token (if JWT_AUTH_ENABLED=true on server)
   locale: 'en',
   wsUrl: 'wss://chat.example.com/api/v1/ws',
   reconnect: true,
@@ -39,9 +40,10 @@ const config: MTChatConfig = {
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `baseUrl` | `string` | **required** | MTChat API base URL |
-| `userId` | `string` | **required** | Current user's UUID |
+| `userId` | `string` | **required** | Current user's ID |
 | `scopeConfig` | `ScopeConfig` | **required** | Access control scopes |
 | `userProfile` | `UserProfile` | **required** | User display profile |
+| `token` | `string` | -- | JWT token for authentication (required if `JWT_AUTH_ENABLED=true` on server) |
 | `wsUrl` | `string` | derived from `baseUrl` | WebSocket endpoint URL |
 | `locale` | `'ru' \| 'en' \| 'zh'` | `'ru'` | UI language |
 | `reconnect` | `boolean` | `true` | Auto-reconnect on disconnect |

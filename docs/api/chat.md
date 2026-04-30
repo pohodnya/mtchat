@@ -24,9 +24,11 @@ GET /api/v1/dialogs?type=available&user_id={uuid}
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `type` | string | `participating` | `participating` (my chats) or `available` (can join) |
-| `user_id` | UUID | required | Current user's ID |
+| `user_id` | string | required | Current user's ID |
 | `search` | string | -- | Search by dialog title or participant company |
 | `archived` | boolean | -- | Filter archived dialogs (`true` for archived only) |
+| `limit` | integer | 50 | Number of dialogs to return (max 100) |
+| `offset` | integer | 0 | Number of dialogs to skip |
 
 ### Response
 
@@ -366,15 +368,25 @@ Sets `is_deleted = true` and broadcasts a `message.deleted` WebSocket event.
 ```json
 {
   "error": {
-    "code": "FORBIDDEN",
+    "code": "NotParticipant",
     "message": "Not a participant. Join the dialog first."
   }
 }
 ```
 
-| HTTP Status | Code | Description |
-|-------------|------|-------------|
-| 400 | `BAD_REQUEST` | Invalid request |
-| 403 | `FORBIDDEN` | User is not a participant (message endpoints) |
-| 404 | `NOT_FOUND` | Dialog or message not found |
-| 500 | `INTERNAL_ERROR` | Server error |
+### Error Codes
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `DialogNotFound` | 404 | Dialog does not exist |
+| `MessageNotFound` | 404 | Message does not exist |
+| `ParticipantNotFound` | 404 | Participant not found in dialog |
+| `AttachmentNotFound` | 404 | Attachment does not exist |
+| `InvalidInput` | 400 | Invalid request data or exceeds length limits |
+| `FileTooLarge` | 400 | File exceeds 100 MB limit |
+| `UnsupportedFileType` | 400 | File MIME type not allowed |
+| `TooManyAttachments` | 400 | More than 10 attachments per message |
+| `NotParticipant` | 403 | User must join dialog first |
+| `NotMessageAuthor` | 403 | Only message author can edit/delete |
+| `ScopeMismatch` | 403 | User's scope doesn't match dialog access rules |
+| `InternalError` | 500 | Server error |

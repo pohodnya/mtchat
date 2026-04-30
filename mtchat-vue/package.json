@@ -1,6 +1,6 @@
 {
   "name": "@mtchat/vue",
-  "version": "1.0.0",
+  "version": "0.4.3",
   "description": "MultitenancyChat Vue.js SDK - embeddable chat component",
   "type": "module",
   "main": "./dist/mtchat-vue.umd.cjs",
@@ -8,9 +8,9 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/mtchat-vue.js",
-      "require": "./dist/mtchat-vue.umd.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/mtchat-vue.umd.cjs"
     }
   },
   "files": [

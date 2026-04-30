@@ -15,6 +15,8 @@ pub struct JwtConfig {
     pub decoding_key: DecodingKey,
     /// Validation settings (HS256, no expiration check)
     pub validation: Validation,
+    /// JWT claim name that holds the user identifier (default: "sub")
+    pub user_id_claim: String,
 }
 
 impl JwtConfig {
@@ -24,6 +26,9 @@ impl JwtConfig {
     /// Environment variables:
     /// - `JWT_AUTH_ENABLED`: Set to "true" or "1" to enable JWT auth
     /// - `JWT_SECRET`: Secret key for HS256 signature verification (required if enabled)
+    /// - `JWT_USER_ID_CLAIM`: Claim name to read user ID from (default: `sub`).
+    ///   Use this when your host application encodes the user identifier under
+    ///   a non-standard claim like `user_id`, `userId`, `id`, etc.
     pub fn init() {
         JWT_CONFIG.get_or_init(|| {
             let enabled = std::env::var("JWT_AUTH_ENABLED")
@@ -38,16 +43,23 @@ impl JwtConfig {
             let secret = std::env::var("JWT_SECRET")
                 .expect("JWT_SECRET required when JWT_AUTH_ENABLED=true");
 
+            let user_id_claim =
+                std::env::var("JWT_USER_ID_CLAIM").unwrap_or_else(|_| "sub".to_string());
+
             let mut validation = Validation::new(Algorithm::HS256);
             // Don't validate expiration - token is reused from host application
             validation.validate_exp = false;
             // Don't require any specific claims
             validation.required_spec_claims.clear();
 
-            tracing::info!("JWT auth enabled for Chat API");
+            tracing::info!(
+                "JWT auth enabled for Chat API (user_id claim: {})",
+                user_id_claim
+            );
             Some(JwtConfig {
                 decoding_key: DecodingKey::from_secret(secret.as_bytes()),
                 validation,
+                user_id_claim,
             })
         });
     }
