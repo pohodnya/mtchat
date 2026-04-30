@@ -25,6 +25,10 @@ use multitenancy_chat_api::webhooks::{WebhookConfig, WebhookSender};
 
 #[tokio::main]
 async fn main() {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     dotenvy::dotenv().ok();
 
     tracing_subscriber::registry()

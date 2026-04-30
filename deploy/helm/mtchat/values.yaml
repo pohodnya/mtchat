@@ -44,7 +44,7 @@ api:
 
 # -- Ingress
 ingress:
-  enabled: false
+  enabled: true
   className: ""  # e.g. "nginx"
   annotations: {}
     # nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
@@ -57,14 +57,14 @@ ingress:
         - path: /
           pathType: Prefix
   tls: []
-  #  - secretName: mtchat-tls
-  #    hosts:
-  #      - chat.example.com
+    #- secretName: mtchat-tls
+     # hosts:
+     #   - chat.example.com
 
 # -- PostgreSQL
 postgresql:
   # Set to false to use an external database
-  enabled: true
+  enabled: false
 
   image:
     repository: postgres
@@ -106,7 +106,7 @@ postgresql:
 # -- Redis
 redis:
   # Set to false to use an external Redis
-  enabled: true
+  enabled: false
 
   image:
     repository: redis
@@ -136,7 +136,7 @@ redis:
 # -- MinIO (S3-compatible storage)
 minio:
   # Set to false to use external S3
-  enabled: true
+  enabled: false
 
   image:
     repository: minio/minio
@@ -173,16 +173,31 @@ minio:
       secretAccessKey: secret-access-key
 
 # -- Application secrets
-secrets:
-  # JWT secret for user token validation (min 32 chars)
-  jwtSecret: ""
-  # Admin API token for Management API
-  adminApiToken: ""
-  # Use an existing secret instead of creating one
+# -- Unified secret input for CI/Vault
+secret:
+  # Use existing k8s secret instead of creating a new one
   existingSecret: ""
-  secretKeys:
-    jwtSecretKey: jwt-secret
-    adminApiTokenKey: admin-api-token
+  # Full connection URLs for app
+  databaseUrl: ""
+  redisUrl: ""
+  # App secrets
+  jwtSecret: ""
+  adminApiToken: ""
+  webhookSecret: ""
+  # S3 credentials for app and/or embedded minio
+  s3AccessKeyId: ""
+  s3SecretAccessKey: ""
+  # Password for embedded PostgreSQL
+  postgresql:
+    password: ""
+  keys:
+    databaseUrl: DATABASE_URL
+    redisUrl: REDIS_URL
+    jwtSecret: JWT_SECRET
+    adminApiToken: ADMIN_API_TOKEN
+    webhookSecret: WEBHOOK_SECRET
+    s3AccessKeyId: S3_ACCESS_KEY_ID
+    s3SecretAccessKey: S3_SECRET_ACCESS_KEY
 
 # -- CORS settings
 cors:
