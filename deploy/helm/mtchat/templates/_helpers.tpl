@@ -58,11 +58,27 @@ Service account name
 {{- end }}
 
 {{/*
-Secret name for application secrets
+Secret name for application secrets (legacy `secrets.*` block).
+Kept for backward compatibility with chart consumers that still
+populate `.Values.secrets.jwtSecret` / `.Values.secrets.adminApiToken`.
 */}}
 {{- define "mtchat.secretName" -}}
 {{- if .Values.secrets.existingSecret }}
 {{- .Values.secrets.existingSecret }}
+{{- else }}
+{{- include "mtchat.fullname" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+Secret name for the unified `secret.*` block (CI/Vault-friendly).
+Resolves to `.Values.secret.existingSecret` when the user wants to
+reference an externally managed secret (e.g. produced by ESO/Vault),
+otherwise falls back to the chart's own generated secret.
+*/}}
+{{- define "mtchat.appSecretName" -}}
+{{- if .Values.secret.existingSecret }}
+{{- .Values.secret.existingSecret }}
 {{- else }}
 {{- include "mtchat.fullname" . }}
 {{- end }}

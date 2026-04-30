@@ -44,7 +44,7 @@ api:
 
 # -- Ingress
 ingress:
-  enabled: true
+  enabled: false
   className: ""  # e.g. "nginx"
   annotations: {}
     # nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
@@ -57,14 +57,14 @@ ingress:
         - path: /
           pathType: Prefix
   tls: []
-    #- secretName: mtchat-tls
-     # hosts:
-     #   - chat.example.com
+  #  - secretName: mtchat-tls
+  #    hosts:
+  #      - chat.example.com
 
 # -- PostgreSQL
 postgresql:
   # Set to false to use an external database
-  enabled: false
+  enabled: true
 
   image:
     repository: postgres
@@ -106,7 +106,7 @@ postgresql:
 # -- Redis
 redis:
   # Set to false to use an external Redis
-  enabled: false
+  enabled: true
 
   image:
     repository: redis
@@ -136,7 +136,7 @@ redis:
 # -- MinIO (S3-compatible storage)
 minio:
   # Set to false to use external S3
-  enabled: false
+  enabled: true
 
   image:
     repository: minio/minio
@@ -172,22 +172,38 @@ minio:
       accessKeyId: access-key-id
       secretAccessKey: secret-access-key
 
-# -- Application secrets
-# -- Unified secret input for CI/Vault
-secret:
-  # Use existing k8s secret instead of creating a new one
+# -- Application secrets (legacy block, kept for backward compatibility).
+#    Prefer the unified `secret:` block below for CI/Vault-driven deployments.
+secrets:
+  # JWT secret for user token validation (min 32 chars)
+  jwtSecret: ""
+  # Admin API token for Management API
+  adminApiToken: ""
+  # Use an existing secret instead of creating one
   existingSecret: ""
-  # Full connection URLs for app
+  secretKeys:
+    jwtSecretKey: jwt-secret
+    adminApiTokenKey: admin-api-token
+
+# -- Unified secret input for CI/Vault.
+#    When any field is set, it takes precedence over the legacy `secrets:` block above
+#    and over chart-managed credentials for PostgreSQL/Redis/MinIO.
+secret:
+  # Use an existing k8s secret instead of creating a new one
+  existingSecret: ""
+  # Full connection URLs (when set, override the chart-built DATABASE_URL/REDIS_URL)
   databaseUrl: ""
   redisUrl: ""
-  # App secrets
+  # App secrets (override the legacy `secrets.*` block when set)
   jwtSecret: ""
   adminApiToken: ""
   webhookSecret: ""
-  # S3 credentials for app and/or embedded minio
+  # S3 credentials used by the app for external S3 (e.g. Yandex Object Storage).
+  # Note: these do NOT replace embedded MinIO root credentials — set
+  # `minio.rootUser` / `minio.rootPassword` for the bundled MinIO admin user.
   s3AccessKeyId: ""
   s3SecretAccessKey: ""
-  # Password for embedded PostgreSQL
+  # Password for the embedded PostgreSQL chart (when postgresql.enabled=true)
   postgresql:
     password: ""
   keys:

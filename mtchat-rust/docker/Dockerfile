@@ -29,17 +29,11 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
-    wget \
     && rm -rf /var/lib/apt/lists/*
-
-# Add Yandex Cloud root CA to system trust store
-RUN wget -O /usr/local/share/ca-certificates/yandex-cloud-ca.crt \
-    https://storage.yandexcloud.net/cloud-certs/CA.pem \
-    && update-ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/multitenancy-chat-api ./
+COPY --from=builder /app/target/release/multitenancy-chat-api .
 COPY --from=builder /app/migrations ./migrations
 
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
