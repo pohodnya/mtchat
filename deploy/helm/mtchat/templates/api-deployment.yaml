@@ -46,7 +46,14 @@ spec:
             - configMapRef:
                 name: {{ include "mtchat.fullname" . }}
           env:
-            # Database URL (constructed from components)
+            # Database URL
+            {{- if .Values.secret.databaseUrl }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mtchat.secretName" . }}
+                  key: {{ .Values.secret.keys.databaseUrl }}
+            {{- else }}
             - name: PG_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -54,8 +61,15 @@ spec:
                   key: {{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.secretKeys.userPasswordKey }}{{ else }}{{ .Values.postgresql.external.secretKeys.passwordKey }}{{ end }}
             - name: DATABASE_URL
               value: "postgres://{{ include "mtchat.postgresql.username" . }}:$(PG_PASSWORD)@{{ include "mtchat.postgresql.host" . }}:{{ include "mtchat.postgresql.port" . }}/{{ include "mtchat.postgresql.database" . }}"
+            {{- end }}
             # Redis URL
-            {{- if .Values.redis.enabled }}
+            {{- if .Values.secret.redisUrl }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mtchat.secretName" . }}
+                  key: {{ .Values.secret.keys.redisUrl }}
+            {{- else if .Values.redis.enabled }}
             - name: REDIS_URL
               value: "redis://{{ include "mtchat.redis.host" . }}:{{ include "mtchat.redis.port" . }}"
             {{- else if .Values.redis.external.existingSecret }}
@@ -69,17 +83,21 @@ spec:
               value: "redis://{{ include "mtchat.redis.host" . }}:{{ include "mtchat.redis.port" . }}"
             {{- end }}
             # JWT Secret
+            {{- if or .Values.secret.jwtSecret .Values.secret.existingSecret }}
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mtchat.secretName" . }}
-                  key: {{ .Values.secrets.secretKeys.jwtSecretKey }}
+                  key: {{ .Values.secret.keys.jwtSecret }}
+            {{- end }}
             # Admin API Token
+            {{- if or .Values.secret.adminApiToken .Values.secret.existingSecret }}
             - name: ADMIN_API_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mtchat.secretName" . }}
-                  key: {{ .Values.secrets.secretKeys.adminApiTokenKey }}
+                  key: {{ .Values.secret.keys.adminApiToken }}
+            {{- end }}
             # S3 configuration
             - name: S3_ENDPOINT
               value: {{ include "mtchat.minio.endpoint" . | quote }}
@@ -90,7 +108,19 @@ spec:
             - name: S3_PUBLIC_ENDPOINT
               value: {{ .Values.minio.external.publicEndpoint | quote }}
             {{- end }}
-            {{- if .Values.minio.enabled }}
+            # S3 credentials
+            {{- if and .Values.secret.s3AccessKeyId .Values.secret.s3SecretAccessKey }}
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mtchat.secretName" . }}
+                  key: {{ .Values.secret.keys.s3AccessKeyId }}
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mtchat.secretName" . }}
+                  key: {{ .Values.secret.keys.s3SecretAccessKey }}
+            {{- else if .Values.minio.enabled }}
             - name: S3_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
@@ -114,7 +144,13 @@ spec:
                   key: {{ .Values.minio.external.secretKeys.secretAccessKey }}
             {{- end }}
             # Webhook secret
-            {{- if .Values.webhooks.secret }}
+            {{- if .Values.secret.webhookSecret }}
+            - name: WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mtchat.secretName" . }}
+                  key: {{ .Values.secret.keys.webhookSecret }}
+            {{- else if .Values.webhooks.secret }}
             - name: WEBHOOK_SECRET
               value: {{ .Values.webhooks.secret | quote }}
             {{- end }}

@@ -172,17 +172,47 @@ minio:
       accessKeyId: access-key-id
       secretAccessKey: secret-access-key
 
-# -- Application secrets
-secrets:
-  # JWT secret for user token validation (min 32 chars)
-  jwtSecret: ""
-  # Admin API token for Management API
-  adminApiToken: ""
-  # Use an existing secret instead of creating one
+# -- Application secret.
+#    Three ways to provide values:
+#      1. Inline values below (dev/demo) — the chart creates a Secret.
+#      2. `existingSecret: my-secret` — chart references an externally
+#         managed Secret (ESO / Vault Agent Injector / sealed-secrets).
+#      3. CI injection — pipelines pass the whole block via
+#         `helm upgrade --set-json secret="${VAULT_JSON}"`.
+secret:
+  # Use an existing k8s Secret instead of creating one. When set, the
+  # chart emits no Secret and reads all keys (see `keys:` below) from it.
   existingSecret: ""
-  secretKeys:
-    jwtSecretKey: jwt-secret
-    adminApiTokenKey: admin-api-token
+
+  # Full connection URLs (when set, override the chart-built DATABASE_URL/REDIS_URL)
+  databaseUrl: ""
+  redisUrl: ""
+
+  # App secrets
+  jwtSecret: ""
+  adminApiToken: ""
+  webhookSecret: ""
+
+  # S3 credentials for an external S3 bucket (e.g. Yandex Object Storage).
+  # NOTE: these are client credentials only. The embedded MinIO admin user
+  # is configured via `minio.rootUser` / `minio.rootPassword`.
+  s3AccessKeyId: ""
+  s3SecretAccessKey: ""
+
+  # Password for the embedded PostgreSQL chart (when postgresql.enabled=true)
+  postgresql:
+    password: ""
+
+  # Keys inside the Secret. Override these to match an externally managed
+  # Secret's key naming when using `existingSecret`.
+  keys:
+    databaseUrl: DATABASE_URL
+    redisUrl: REDIS_URL
+    jwtSecret: JWT_SECRET
+    adminApiToken: ADMIN_API_TOKEN
+    webhookSecret: WEBHOOK_SECRET
+    s3AccessKeyId: S3_ACCESS_KEY_ID
+    s3SecretAccessKey: S3_SECRET_ACCESS_KEY
 
 # -- CORS settings
 cors:
