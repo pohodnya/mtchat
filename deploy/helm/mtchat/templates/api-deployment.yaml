@@ -59,9 +59,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "mtchat.postgresql.secretName" . }}
                   key: {{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.secretKeys.userPasswordKey }}{{ else }}{{ .Values.postgresql.external.secretKeys.passwordKey }}{{ end }}
-              {{- if not .Values.postgresql.enabled }}
-                  optional: {{ if .Values.postgresql.external.existingSecret }}false{{ else }}true{{ end }}
-              {{- end }}
             - name: DATABASE_URL
               value: "postgres://{{ include "mtchat.postgresql.username" . }}:$(PG_PASSWORD)@{{ include "mtchat.postgresql.host" . }}:{{ include "mtchat.postgresql.port" . }}/{{ include "mtchat.postgresql.database" . }}"
             {{- end }}
@@ -152,13 +149,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.minio.external.existingSecret }}
                   key: {{ .Values.minio.external.secretKeys.accessKeyId }}
-                  optional: {{ if .Values.minio.external.existingSecret }}false{{ else }}true{{ end }}
             - name: S3_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.minio.external.existingSecret }}
                   key: {{ .Values.minio.external.secretKeys.secretAccessKey }}
-                  optional: {{ if .Values.minio.external.existingSecret }}false{{ else }}true{{ end }}
             {{- end }}
             # Webhook secret
             {{- if .Values.secret.webhookSecret }}
