@@ -51,7 +51,7 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "mtchat.appSecretName" . }}
+                  name: {{ include "mtchat.secretName" . }}
                   key: {{ .Values.secret.keys.databaseUrl }}
             {{- else }}
             - name: PG_PASSWORD
@@ -67,7 +67,7 @@ spec:
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "mtchat.appSecretName" . }}
+                  name: {{ include "mtchat.secretName" . }}
                   key: {{ .Values.secret.keys.redisUrl }}
             {{- else if .Values.redis.enabled }}
             - name: REDIS_URL
@@ -83,32 +83,20 @@ spec:
               value: "redis://{{ include "mtchat.redis.host" . }}:{{ include "mtchat.redis.port" . }}"
             {{- end }}
             # JWT Secret
-            {{- if .Values.secret.jwtSecret }}
-            - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mtchat.appSecretName" . }}
-                  key: {{ .Values.secret.keys.jwtSecret }}
-            {{- else if or .Values.secrets.jwtSecret .Values.secrets.existingSecret }}
+            {{- if or .Values.secret.jwtSecret .Values.secret.existingSecret }}
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mtchat.secretName" . }}
-                  key: {{ .Values.secrets.secretKeys.jwtSecretKey }}
+                  key: {{ .Values.secret.keys.jwtSecret }}
             {{- end }}
             # Admin API Token
-            {{- if .Values.secret.adminApiToken }}
-            - name: ADMIN_API_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mtchat.appSecretName" . }}
-                  key: {{ .Values.secret.keys.adminApiToken }}
-            {{- else if or .Values.secrets.adminApiToken .Values.secrets.existingSecret }}
+            {{- if or .Values.secret.adminApiToken .Values.secret.existingSecret }}
             - name: ADMIN_API_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mtchat.secretName" . }}
-                  key: {{ .Values.secrets.secretKeys.adminApiTokenKey }}
+                  key: {{ .Values.secret.keys.adminApiToken }}
             {{- end }}
             # S3 configuration
             - name: S3_ENDPOINT
@@ -125,12 +113,12 @@ spec:
             - name: S3_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "mtchat.appSecretName" . }}
+                  name: {{ include "mtchat.secretName" . }}
                   key: {{ .Values.secret.keys.s3AccessKeyId }}
             - name: S3_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "mtchat.appSecretName" . }}
+                  name: {{ include "mtchat.secretName" . }}
                   key: {{ .Values.secret.keys.s3SecretAccessKey }}
             {{- else if .Values.minio.enabled }}
             - name: S3_ACCESS_KEY_ID
@@ -160,7 +148,7 @@ spec:
             - name: WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "mtchat.appSecretName" . }}
+                  name: {{ include "mtchat.secretName" . }}
                   key: {{ .Values.secret.keys.webhookSecret }}
             {{- else if .Values.webhooks.secret }}
             - name: WEBHOOK_SECRET
