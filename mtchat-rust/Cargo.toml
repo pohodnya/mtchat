@@ -1,6 +1,6 @@
 [package]
 name = "multitenancy-chat-api"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2021"
 rust-version = "1.78"
 authors = ["MultitenancyChat Team"]
@@ -81,10 +81,17 @@ fake = { version = "3.0", features = ["derive", "uuid", "chrono"] }
 wiremock = "0.6"
 
 [profile.release]
-lto = true
-codegen-units = 1
+lto = "thin"
+codegen-units = 16
 opt-level = 3
 strip = true
+
+# Профиль для финального дистрибутива с агрессивной оптимизацией.
+# Использовать вручную: `cargo build --profile release-dist`.
+[profile.release-dist]
+inherits = "release"
+lto = true
+codegen-units = 1
 
 [profile.dev]
 opt-level = 0

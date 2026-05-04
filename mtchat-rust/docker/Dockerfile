@@ -1,6 +1,5 @@
-# Stage 1: Install cargo-chef on pinned Rust image
-FROM rust:1.93-bookworm AS chef
-RUN cargo install cargo-chef
+# Stage 1: Base image with cargo-chef preinstalled
+FROM lukemathwalker/cargo-chef:latest-rust-1.93-bookworm AS chef
 WORKDIR /app
 
 # Stage 2: Analyze dependencies
@@ -21,7 +20,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 
 # Stage 4: Build application (only this layer rebuilds on source changes)
 COPY . .
-RUN cargo build --release
+RUN cargo build --release --bin multitenancy-chat-api
 
 # Stage 5: Runtime (minimal image)
 FROM debian:bookworm-slim

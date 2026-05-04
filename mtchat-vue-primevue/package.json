@@ -1,6 +1,6 @@
 {
   "name": "@mtchat/vue-primevue",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "MTChat Vue.js SDK - PrimeVue UI integration",
   "type": "module",
   "main": "./dist/mtchat-vue-primevue.umd.cjs",
