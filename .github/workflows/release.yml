@@ -136,9 +136,7 @@ jobs:
           file: ./mtchat-rust/docker/Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: |
-            type=image,name=${{ env.DOCKER_IMAGE }},push-by-digest=true,name-canonical=true,push=true
-            type=image,name=ghcr.io/${{ github.repository }}/backend,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=${{ env.DOCKER_IMAGE }},ghcr.io/${{ github.repository }}/backend",push-by-digest=true,name-canonical=true,push=true
           cache-from: |
             type=gha,scope=docker-${{ matrix.arch }}
             type=registry,ref=ghcr.io/${{ github.repository }}/backend:cache-${{ matrix.arch }}
