@@ -82,7 +82,11 @@ spec:
             - name: REDIS_URL
               value: "redis://{{ include "mtchat.redis.host" . }}:{{ include "mtchat.redis.port" . }}"
             {{- end }}
-            # JWT Secret
+            # JWT authentication for Chat API
+            - name: JWT_AUTH_ENABLED
+              value: {{ .Values.jwt.enabled | quote }}
+            - name: JWT_USER_ID_CLAIM
+              value: {{ .Values.jwt.userIdClaim | quote }}
             {{- if or .Values.secret.jwtSecret .Values.secret.existingSecret }}
             - name: JWT_SECRET
               valueFrom:
