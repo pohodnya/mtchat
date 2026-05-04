@@ -214,6 +214,17 @@ secret:
     s3AccessKeyId: S3_ACCESS_KEY_ID
     s3SecretAccessKey: S3_SECRET_ACCESS_KEY
 
+# -- JWT authentication for Chat API
+jwt:
+  # Enable JWT validation on Chat API routes. When false, the Chat API
+  # falls back to identifying users via the ?user_id=<id> query parameter.
+  enabled: false
+  # Claim name in the JWT payload that holds the user identifier.
+  # Default `sub` matches the JWT-standard subject claim. Override when
+  # the host application encodes the user id under a different claim,
+  # e.g. `user_id`, `userId`, `id`.
+  userIdClaim: "sub"
+
 # -- CORS settings
 cors:
   # Allowed origins (comma-separated or "*" for all)

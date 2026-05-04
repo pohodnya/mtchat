@@ -83,7 +83,9 @@ services:
       RUST_LOG: multitenancy_chat_api=info,tower_http=info
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/multitenancy_chat
       REDIS_URL: redis://redis:6379
+      JWT_AUTH_ENABLED: ${JWT_AUTH_ENABLED:-false}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production-at-least-32-characters}
+      JWT_USER_ID_CLAIM: ${JWT_USER_ID_CLAIM:-sub}
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-demo-admin-token}
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: http://localhost:9000

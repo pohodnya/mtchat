@@ -101,7 +101,9 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
+      JWT_AUTH_ENABLED: ${JWT_AUTH_ENABLED:-false}
       JWT_SECRET: ${JWT_SECRET}
+      JWT_USER_ID_CLAIM: ${JWT_USER_ID_CLAIM:-sub}
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN}
       RUST_LOG: ${RUST_LOG:-multitenancy_chat_api=info,tower_http=info}
       PORT: ${PORT:-8080}
