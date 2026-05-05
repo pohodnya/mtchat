@@ -54,9 +54,11 @@ spec:
                 name: {{ .Values.postgresql.external.existingSecret }}
                 optional: true
             {{- end }}
+            {{- if or .Values.minio.enabled .Values.minio.existingSecret }}
             - secretRef:
                 name: {{ if .Values.minio.existingSecret }}{{ .Values.minio.existingSecret }}{{ else }}{{ include "mtchat.fullname" . }}-minio{{ end }}
                 optional: true
+            {{- end }}
             - secretRef:
                 name: {{ include "mtchat.secretName" . }}
                 optional: true
