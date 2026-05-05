@@ -2,8 +2,10 @@ apiVersion: v2
 name: mtchat
 description: MTChat - Embeddable B2B/B2C Chat Service
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.4.7
+appVersion: "0.4.7"
+sources:
+  - https://github.com/pohodnya/mtchat
 keywords:
   - chat
   - messaging

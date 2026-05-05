@@ -1,0 +1,74 @@
+# =============================================================================
+# Production overlay — copy to values-prod.yaml and adjust.
+# Combined with values.yaml on deploy:
+#   helm upgrade --install mtchat . -f values.yaml -f values-prod.yaml
+# =============================================================================
+
+mtchat:
+  api:
+    replicaCount: 4
+    autoscaling:
+      enabled: true
+      minReplicas: 4
+      maxReplicas: 12
+      targetCPUUtilization: 65
+    extraEnv:
+      - name: SENTRY_RELEASE
+        value: "0.4.7"
+      - name: DEPLOYMENT_TIER
+        value: "production"
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: "2"
+        memory: 2Gi
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+      nginx.ingress.kubernetes.io/websocket-services: mtchat-api
+    hosts:
+      - host: chat.production.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: mtchat-tls
+        hosts:
+          - chat.production.example.com
+
+  secret:
+    existingSecret: mtchat-secrets
+
+  postgresql:
+    enabled: false
+    external:
+      host: postgres-primary.databases.svc.cluster.local
+      database: mtchat
+      username: mtchat
+      existingSecret: mtchat-postgres
+
+  redis:
+    enabled: false
+    external:
+      host: redis-master.cache.svc.cluster.local
+      existingSecret: mtchat-redis
+
+  minio:
+    enabled: false
+    external:
+      endpoint: https://s3.yandexcloud.net
+      publicEndpoint: https://s3.production.example.com
+      bucket: mtchat-prod-attachments
+      region: ru-central1
+      existingSecret: mtchat-s3
+
+networkPolicy:
+  enabled: true
+  allowedNamespace: ingress-nginx

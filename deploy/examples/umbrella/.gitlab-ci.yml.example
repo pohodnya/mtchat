@@ -1,0 +1,65 @@
+# =============================================================================
+# Example GitLab CI pipeline for the umbrella chart.
+# Copy to your GitLab repo as `.gitlab-ci.yml` and adjust paths/registries.
+#
+# Required CI/CD variables (Settings → CI/CD → Variables):
+#   GHCR_USER  — GitHub username with read:packages scope (e.g. a bot user)
+#   GHCR_TOKEN — GitHub PAT or fine-grained token with read:packages
+#   KUBE_CONTEXT — name of the kubeconfig context configured in GitLab
+# =============================================================================
+
+variables:
+  HELM_VERSION: "3.16.4"
+  CHART_DIR: "."
+  RELEASE_NAME: "mtchat"
+  NAMESPACE: "mtchat"
+
+stages:
+  - validate
+  - deploy
+
+.helm:
+  image:
+    name: alpine/helm:${HELM_VERSION}
+    entrypoint: [""]
+  before_script:
+    # GHCR allows anonymous pull for public OCI artifacts, but a token is
+    # required if the chart package is private.
+    - helm registry login ghcr.io -u "${GHCR_USER}" -p "${GHCR_TOKEN}"
+    - helm dependency update "${CHART_DIR}"
+
+helm:lint:
+  extends: .helm
+  stage: validate
+  script:
+    - helm lint "${CHART_DIR}" -f "${CHART_DIR}/values.yaml"
+    - |
+      if [ -f "${CHART_DIR}/values-prod.yaml" ]; then
+        helm lint "${CHART_DIR}" -f "${CHART_DIR}/values.yaml" -f "${CHART_DIR}/values-prod.yaml"
+      fi
+
+helm:template:
+  extends: .helm
+  stage: validate
+  script:
+    - helm template "${RELEASE_NAME}" "${CHART_DIR}" -f "${CHART_DIR}/values.yaml"
+  artifacts:
+    paths:
+      - rendered.yaml
+    expire_in: 1 day
+
+helm:deploy:prod:
+  extends: .helm
+  stage: deploy
+  environment:
+    name: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+  script:
+    - helm upgrade --install "${RELEASE_NAME}" "${CHART_DIR}"
+        --namespace "${NAMESPACE}" --create-namespace
+        --kube-context "${KUBE_CONTEXT}"
+        -f "${CHART_DIR}/values.yaml"
+        -f "${CHART_DIR}/values-prod.yaml"
+        --wait --timeout 5m

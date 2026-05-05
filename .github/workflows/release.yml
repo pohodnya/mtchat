@@ -223,6 +223,54 @@ jobs:
         run: docker buildx imagetools inspect ${{ env.DOCKER_IMAGE }}:${{ steps.meta.outputs.version }}
 
   # ===========================================================================
+  # Helm: package the chart and push to GHCR as an OCI artifact
+  # ===========================================================================
+  helm-publish:
+    name: Publish Helm Chart
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Set chart version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/^version:.*/version: ${VERSION}/" deploy/helm/mtchat/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" deploy/helm/mtchat/Chart.yaml
+          echo "--- Chart.yaml ---"
+          cat deploy/helm/mtchat/Chart.yaml
+
+      - name: Helm lint
+        run: helm lint deploy/helm/mtchat
+
+      - name: Helm package
+        run: |
+          mkdir -p /tmp/helm-charts
+          helm package deploy/helm/mtchat -d /tmp/helm-charts
+
+      - name: Login to GHCR (Helm OCI)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Push chart to GHCR
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          OWNER="${{ github.repository_owner }}"
+          OWNER_LOWER="${OWNER,,}"
+          helm push "/tmp/helm-charts/mtchat-${VERSION}.tgz" "oci://ghcr.io/${OWNER_LOWER}/charts"
+
+      - name: Upload chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: /tmp/helm-charts/mtchat-*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  # ===========================================================================
   # npm: publish @mtchat/vue
   # ===========================================================================
   npm-vue:
@@ -315,7 +363,7 @@ jobs:
   # ===========================================================================
   github-release:
     name: GitHub Release
-    needs: [docker, npm-vue, npm-primevue]
+    needs: [docker, helm-publish, npm-vue, npm-primevue]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -325,6 +373,12 @@ jobs:
       - name: Extract version
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download Helm chart artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-chart
+          path: /tmp/helm-charts
 
       - name: Generate changelog
         id: changelog
@@ -373,6 +427,7 @@ jobs:
             echo ""
             echo "### Packages"
             echo "- Docker: \`docker pull ${{ env.DOCKER_IMAGE }}:${{ steps.version.outputs.version }}\`"
+            echo "- Helm: \`helm pull oci://ghcr.io/${{ github.repository_owner }}/charts/mtchat --version ${{ steps.version.outputs.version }}\`"
             echo "- npm: \`npm install @mtchat/vue@${{ steps.version.outputs.version }}\`"
             echo "- npm: \`npm install @mtchat/vue-primevue@${{ steps.version.outputs.version }}\`"
             echo "CHANGELOG_EOF"
@@ -386,6 +441,7 @@ jobs:
           body: ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+          files: /tmp/helm-charts/mtchat-*.tgz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

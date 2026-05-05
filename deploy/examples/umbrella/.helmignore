@@ -1,0 +1,10 @@
+.DS_Store
+.git/
+.gitignore
+.gitlab-ci.yml.example
+README.md
+values-*.yaml.example
+*.swp
+*.bak
+*.tmp
+*~

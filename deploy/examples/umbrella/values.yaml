@@ -1,0 +1,100 @@
+# =============================================================================
+# Umbrella chart values
+# =============================================================================
+# Everything under the `mtchat:` key is forwarded to the upstream mtchat
+# chart and overrides its `values.yaml`. See the upstream chart for the
+# full list of options.
+# =============================================================================
+
+mtchat:
+  api:
+    replicaCount: 2
+    image:
+      # Defaults to mtchat chart's appVersion. Override only if you mirror
+      # the image into a private registry.
+      # repository: registry.internal.gitlab.com/team/mtchat
+      tag: ""
+    extraEnv: []
+      # - name: SENTRY_RELEASE
+      #   value: "0.4.7"
+      # - name: DEPLOYMENT_TIER
+      #   value: "production"
+
+    podAnnotations: {}
+      # vault.hashicorp.com/agent-inject: "true"
+      # prometheus.io/scrape: "true"
+      # prometheus.io/port: "8080"
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+  # ---------------------------------------------------------------------------
+  # Ingress — disabled by default. Enable and customise per environment.
+  # ---------------------------------------------------------------------------
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+      # cert-manager.io/cluster-issuer: letsencrypt-prod
+      # nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+      # nginx.ingress.kubernetes.io/websocket-services: mtchat-api
+    hosts: []
+      # - host: chat.example.internal
+      #   paths:
+      #     - path: /
+      #       pathType: Prefix
+    tls: []
+      # - secretName: mtchat-tls
+      #   hosts:
+      #     - chat.example.internal
+
+  # ---------------------------------------------------------------------------
+  # Secrets — recommended pattern: external secret manager
+  # ---------------------------------------------------------------------------
+  # Use ESO (External Secrets Operator) / Vault Agent / sealed-secrets to
+  # provision a Secret named below; the chart will read all keys from it.
+  secret:
+    existingSecret: ""
+    # keys: { ... }   # only override if the external Secret uses
+    #                  different key names than the chart defaults.
+
+  # ---------------------------------------------------------------------------
+  # Datastores — by default the chart ships embedded PostgreSQL/Redis/MinIO.
+  # In production you almost always want to disable these and point at
+  # managed services.
+  # ---------------------------------------------------------------------------
+  postgresql:
+    enabled: true
+    # external:
+    #   host: postgres.databases.svc.cluster.local
+    #   database: mtchat
+    #   username: mtchat
+    #   existingSecret: mtchat-postgres
+
+  redis:
+    enabled: true
+    # external:
+    #   host: redis.cache.svc.cluster.local
+    #   existingSecret: mtchat-redis
+
+  minio:
+    enabled: true
+    # external:
+    #   endpoint: https://s3.yandexcloud.net
+    #   bucket: my-mtchat-attachments
+    #   region: ru-central1
+    #   existingSecret: mtchat-s3
+
+# =============================================================================
+# Extras provided by THIS umbrella chart (not by upstream mtchat).
+# These flags drive the templates under ./templates/.
+# =============================================================================
+networkPolicy:
+  enabled: false
+  # Allow ingress to the API only from pods in this namespace.
+  allowedNamespace: ingress-nginx

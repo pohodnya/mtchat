@@ -1,0 +1,22 @@
+apiVersion: v2
+name: mtchat-deployment
+description: Umbrella chart that deploys MTChat with organization-specific overrides and extra resources.
+type: application
+
+# Version of THIS umbrella chart (independent of upstream mtchat).
+# Bump this when your overrides or extra templates change.
+version: 0.1.0
+
+# Pin the appVersion to the upstream mtchat version you depend on.
+appVersion: "0.4.7"
+
+dependencies:
+  - name: mtchat
+    # Pin to a specific upstream version. Bump together with `appVersion`
+    # above and run `helm dependency update` to refresh the .tgz under
+    # `charts/`.
+    version: "0.4.7"
+    repository: "oci://ghcr.io/pohodnya/charts"
+    # `condition` lets you disable the upstream chart entirely if you
+    # ever want to render only your own templates (rarely useful).
+    # condition: mtchat.enabled
