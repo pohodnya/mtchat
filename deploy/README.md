@@ -49,16 +49,16 @@ To use external PostgreSQL, Redis, or S3 instead of bundled services, remove the
 
 ```bash
 helm install mtchat ./helm/mtchat \
-  --set secrets.jwtSecret="your-jwt-secret-min-32-chars" \
-  --set secrets.adminApiToken="your-admin-api-token"
+  --set secret.jwtSecret="your-jwt-secret-min-32-chars" \
+  --set secret.adminApiToken="your-admin-api-token"
 ```
 
 ### With Ingress
 
 ```bash
 helm install mtchat ./helm/mtchat \
-  --set secrets.jwtSecret="your-jwt-secret-min-32-chars" \
-  --set secrets.adminApiToken="your-admin-api-token" \
+  --set secret.jwtSecret="your-jwt-secret-min-32-chars" \
+  --set secret.adminApiToken="your-admin-api-token" \
   --set ingress.enabled=true \
   --set ingress.className=nginx \
   --set "ingress.hosts[0].host=chat.example.com" \
@@ -103,8 +103,7 @@ helm install mtchat ./helm/mtchat \
 ```bash
 # Create a values override file
 cat > my-values.yaml << EOF
-secrets:
-  existingSecret: mtchat-secrets
+existingSecret: mtchat-secrets
 
 ingress:
   enabled: true

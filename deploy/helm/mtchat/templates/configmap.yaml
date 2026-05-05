@@ -9,6 +9,17 @@ data:
   PORT: "8080"
   S3_REGION: {{ if .Values.minio.enabled }}"us-east-1"{{ else }}{{ .Values.minio.external.region | default "us-east-1" | quote }}{{ end }}
   S3_BUCKET: {{ include "mtchat.s3.bucket" . | quote }}
+  S3_ENDPOINT: {{ include "mtchat.minio.endpoint" . | quote }}
+  {{- if .Values.minio.enabled }}
+  S3_PUBLIC_ENDPOINT: {{ include "mtchat.minio.endpoint" . | quote }}
+  {{- else if .Values.minio.external.publicEndpoint }}
+  S3_PUBLIC_ENDPOINT: {{ .Values.minio.external.publicEndpoint | quote }}
+  {{- end }}
+  JWT_AUTH_ENABLED: {{ .Values.jwt.enabled | quote }}
+  JWT_USER_ID_CLAIM: {{ .Values.jwt.userIdClaim | quote }}
+  {{- if or .Values.redis.enabled .Values.redis.external.host }}
+  REDIS_URL: "redis://{{ include "mtchat.redis.host" . }}:{{ include "mtchat.redis.port" . }}"
+  {{- end }}
   CORS_ALLOWED_ORIGINS: {{ .Values.cors.allowedOrigins | quote }}
   CORS_ALLOWED_METHODS: {{ .Values.cors.allowedMethods | quote }}
   CORS_ALLOWED_HEADERS: {{ .Values.cors.allowedHeaders | quote }}

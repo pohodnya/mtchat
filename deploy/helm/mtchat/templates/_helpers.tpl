@@ -59,14 +59,14 @@ Service account name
 
 {{/*
 Secret name for application secrets.
-When `.Values.secret.existingSecret` is set, the chart references that
+When `.Values.existingSecret` is set, the chart references that
 externally managed Secret (e.g. produced by ESO / Vault Agent Injector
 / injected into CI via `--set-json secret=${VAULT_JSON}`). Otherwise it
 falls back to the chart-generated Secret.
 */}}
 {{- define "mtchat.secretName" -}}
-{{- if .Values.secret.existingSecret }}
-{{- .Values.secret.existingSecret }}
+{{- if .Values.existingSecret }}
+{{- .Values.existingSecret }}
 {{- else }}
 {{- include "mtchat.fullname" . }}
 {{- end }}

@@ -172,47 +172,26 @@ minio:
       accessKeyId: access-key-id
       secretAccessKey: secret-access-key
 
-# -- Application secret.
-#    Three ways to provide values:
-#      1. Inline values below (dev/demo) — the chart creates a Secret.
-#      2. `existingSecret: my-secret` — chart references an externally
-#         managed Secret (ESO / Vault Agent Injector / sealed-secrets).
-#      3. CI injection — pipelines pass the whole block via
-#         `helm upgrade --set-json secret="${VAULT_JSON}"`.
+# -- Application secrets. All keys are injected into a Secret with the
+# same capitalised names (DATABASE_URL, JWT_SECRET, etc.).
+# Pass the whole block via:
+#   helm upgrade --set-json secret='{"databaseUrl":"...","jwtSecret":"..."}' ...
 secret:
-  # Use an existing k8s Secret instead of creating one. When set, the
-  # chart emits no Secret and reads all keys (see `keys:` below) from it.
-  existingSecret: ""
-
-  # Full connection URLs (when set, override the chart-built DATABASE_URL/REDIS_URL)
   databaseUrl: ""
   redisUrl: ""
-
-  # App secrets
   jwtSecret: ""
   adminApiToken: ""
   webhookSecret: ""
-
-  # S3 credentials for an external S3 bucket (e.g. Yandex Object Storage).
-  # NOTE: these are client credentials only. The embedded MinIO admin user
-  # is configured via `minio.rootUser` / `minio.rootPassword`.
   s3AccessKeyId: ""
   s3SecretAccessKey: ""
 
-  # Password for the embedded PostgreSQL chart (when postgresql.enabled=true)
-  postgresql:
-    password: ""
+# -- Reference an existing Secret instead of creating one.
+# When set, the chart reads all secret values from that Secret
+# (e.g. produced by External Secrets Operator / Vault Agent).
+existingSecret: ""
 
-  # Keys inside the Secret. Override these to match an externally managed
-  # Secret's key naming when using `existingSecret`.
-  keys:
-    databaseUrl: DATABASE_URL
-    redisUrl: REDIS_URL
-    jwtSecret: JWT_SECRET
-    adminApiToken: ADMIN_API_TOKEN
-    webhookSecret: WEBHOOK_SECRET
-    s3AccessKeyId: S3_ACCESS_KEY_ID
-    s3SecretAccessKey: S3_SECRET_ACCESS_KEY
+# -- Password for the embedded PostgreSQL (used when postgresql.enabled=true).
+postgresqlPassword: ""
 
 # -- JWT authentication for Chat API
 jwt:
