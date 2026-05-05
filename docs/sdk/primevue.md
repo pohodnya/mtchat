@@ -5,7 +5,7 @@ The `@mtchat/vue-primevue` package provides seamless integration with [PrimeVue]
 ## Installation
 
 ```bash
-npm install @mtchat/vue @mtchat/vue-primevue
+npm install @mtchat/vue @mtchat/vue-primevue primevue
 ```
 
 ### Peer Dependencies
@@ -14,7 +14,7 @@ npm install @mtchat/vue @mtchat/vue-primevue
 |---------|---------|
 | `vue` | `^3.4.0` |
 | `primevue` | `^4.0.0` |
-| `@mtchat/vue` | `^1.0.0` |
+| `@mtchat/vue` | `^0.4.0` |
 
 ## Quick Start
 
@@ -82,6 +82,8 @@ The PrimeVue integration automatically maps your PrimeVue preset tokens to MTCha
 --p-surface-border   →  --mtchat-border
 ```
 
+`MTChatPrime` already imports the bundled token mapping theme internally. If you use the manual registry path instead, import `@mtchat/vue-primevue/theme/aura.css` yourself.
+
 ### Custom Overrides
 
 Override MTChat-specific variables on the `.mtchat-prime` wrapper:
@@ -101,7 +103,7 @@ If you need more control, use the base `MTChat` component with `provideRegistry`
 <script setup lang="ts">
 import { MTChat, provideRegistry } from '@mtchat/vue'
 import { primevueRegistry } from '@mtchat/vue-primevue'
-import '@mtchat/vue/style.css'
+import '@mtchat/vue-primevue/theme/aura.css'
 
 // Register PrimeVue components as UI primitives
 provideRegistry(primevueRegistry)

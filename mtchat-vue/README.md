@@ -1,6 +1,8 @@
 # @mtchat/vue
 
-Vue.js SDK for MultitenancyChat - embeddable chat component and TypeScript API client.
+Embeddable Vue 3 chat SDK for MTChat.
+
+Use `@mtchat/vue` when you want a ready-made chat UI, reactive composables, and low-level SDK access from a single package.
 
 ## Installation
 
@@ -8,216 +10,138 @@ Vue.js SDK for MultitenancyChat - embeddable chat component and TypeScript API c
 npm install @mtchat/vue
 ```
 
+Peer dependencies:
+
+- `vue` `^3.4.0`
+
 ## Quick Start
 
-### Using the Chat Component
+```vue
+<script setup lang="ts">
+import { MTChat, type MTChatConfig } from '@mtchat/vue'
+
+const config: MTChatConfig = {
+  baseUrl: 'https://chat.example.com',
+  userId: currentUser.id,
+  scopeConfig: {
+    scopeLevel0: [currentUser.tenantId],
+    scopeLevel1: currentUser.departments,
+    scopeLevel2: currentUser.permissions,
+  },
+  userProfile: {
+    displayName: currentUser.name,
+    company: currentUser.company,
+  },
+  locale: 'en',
+}
+</script>
+
+<template>
+  <div style="height: 600px;">
+    <MTChat :config="config" mode="full" />
+  </div>
+</template>
+```
+
+Styles are injected by the package bundle. No separate `@mtchat/vue/style.css` import is required.
+
+## Required Config
+
+`MTChatConfig` requires:
+
+- `baseUrl` - MTChat backend URL
+- `userId` - current user identifier
+- `scopeConfig` - access scopes used for "Available" dialogs
+- `userProfile` - display profile used when the user joins dialogs
+
+Optional fields include `token`, `locale`, `wsUrl`, reconnect settings, and WebSocket callbacks.
+
+## Authentication Model
+
+The host application is responsible for authentication and identity.
+
+- If your backend enables JWT auth, pass `token` in `MTChatConfig`.
+- If JWT auth is disabled, the SDK still requires `userId` and scope data from the host app.
+- The SDK does not create users, tenants, or sessions for you.
+
+## Main Usage Patterns
+
+### Component
 
 ```vue
 <template>
   <MTChat
-    :config="chatConfig"
-    :show-header="true"
-    :show-sidebar="true"
-    theme="light"
-    @connected="onConnected"
-    @message-sent="onMessageSent"
+    :config="config"
+    mode="inline"
+    :object-id="order.id"
+    object-type="order"
+    @message-sent="handleMessageSent"
   />
 </template>
-
-<script setup>
-import { MTChat } from '@mtchat/vue'
-import '@mtchat/vue/style.css'
-
-const chatConfig = {
-  baseUrl: 'http://localhost:8080',
-  employeeId: 'employee-uuid',
-}
-
-const onConnected = () => console.log('Connected!')
-const onMessageSent = (msg) => console.log('Sent:', msg)
-</script>
 ```
 
-### Using the SDK Directly
+### Composable
 
-```typescript
-import { MTChatClient } from '@mtchat/vue'
-
-const client = new MTChatClient({
-  baseUrl: 'http://localhost:8080',
-  employeeId: 'employee-uuid',
-  onMessage: (event) => console.log('Event:', event),
-})
-
-// Connect to WebSocket
-client.connect()
-
-// Use REST API
-const dialogs = await client.api.getDialogs()
-const messages = await client.api.getMessages(dialogId)
-
-// Subscribe to dialog updates
-client.subscribe(dialogId)
-
-// Send a message
-await client.sendMessage(dialogId, 'Hello!')
-
-// Disconnect
-client.disconnect()
-```
-
-### Using the Composable
-
-```vue
-<script setup>
+```ts
 import { useChat } from '@mtchat/vue'
 
-const {
-  messages,
-  dialogs,
-  isConnected,
-  sendMessage,
-  loadMessages,
-  selectDialog,
-} = useChat({
-  baseUrl: 'http://localhost:8080',
-  employeeId: 'employee-uuid',
+const chat = useChat({
+  config,
+  autoConnect: true,
+  objectId: order.id,
+  objectType: 'order',
 })
 
-// Send a message
-await sendMessage('Hello!')
-
-// Select a dialog
-await selectDialog(dialogId)
-</script>
+await chat.loadParticipatingDialogs()
 ```
 
-## API Reference
+### SDK Client
 
-### MTChatClient
+```ts
+import { MTChatClient } from '@mtchat/vue'
 
-Main SDK client combining REST API and WebSocket.
+const client = new MTChatClient(config)
 
-```typescript
-const client = new MTChatClient({
-  baseUrl: string,           // Backend URL
-  employeeId: string,        // Current employee UUID
-  wsUrl?: string,            // WebSocket URL (auto-derived if not set)
-  onConnect?: () => void,
-  onDisconnect?: () => void,
-  onError?: (error: Error) => void,
-  onMessage?: (event: WsEvent) => void,
-  reconnect?: boolean,       // Auto-reconnect (default: true)
-  reconnectInterval?: number, // Reconnect delay ms (default: 3000)
-  heartbeatInterval?: number, // Ping interval ms (default: 30000)
-})
-
-// Methods
 client.connect()
-client.disconnect()
-client.subscribe(dialogId)
-client.unsubscribe(dialogId)
-client.on(event, handler)    // Returns unsubscribe function
-client.off(event, handler)
-await client.sendMessage(dialogId, content)
 
-// Properties
-client.api                   // MTChatApi instance
-client.isConnected          // boolean
-client.employeeId           // string
+const dialogs = await client.api.getDialogs()
+const messages = await client.api.getMessages(dialogs[0].id, { limit: 50 })
+
+client.subscribe(dialogs[0].id)
 ```
 
-### MTChatApi
+## Package Contents
 
-REST API client.
+- `MTChat` - ready-to-use chat component
+- `useChat`, `useFileUpload` - Vue composables
+- `MTChatClient`, `MTChatApi`, `MTChatWebSocket` - lower-level SDK
+- exported types for dialogs, messages, attachments, events, and config
 
-```typescript
-const api = new MTChatApi(baseUrl)
+## PrimeVue
 
-// Tenants
-await api.getTenants()
-await api.getTenant(id)
-await api.createTenant(name, externalId)
+If your app uses PrimeVue, install the companion wrapper:
 
-// Employees
-await api.getEmployees(tenantId?)
-await api.getEmployee(id)
-await api.getEmployeeByExternalId(externalId)
-await api.createEmployee(tenantId, externalId, fullName, hasAccessToAnyDialog?)
-
-// Dialogs
-await api.getDialogs(tenantId?)
-await api.getDialog(id)
-await api.createDialog(tenantAId, tenantBId, contextId?)
-
-// Messages
-await api.getMessages(dialogId, { limit?, after?, before? })
-await api.getMessage(dialogId, messageId)
-await api.sendMessage(dialogId, senderId, content)
-await api.editMessage(dialogId, messageId, content)
-await api.deleteMessage(dialogId, messageId)
-
-// Health
-await api.healthCheck()
+```bash
+npm install @mtchat/vue @mtchat/vue-primevue
 ```
 
-### MTChat Component Props
+See the PrimeVue integration guide in [`docs/sdk/primevue.md`](../docs/sdk/primevue.md).
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| config | MTChatConfig | required | SDK configuration |
-| dialogId | string | - | Initial dialog to open |
-| showHeader | boolean | true | Show chat header |
-| showSidebar | boolean | true | Show dialogs sidebar |
-| theme | 'light' \| 'dark' | 'light' | Color theme |
+## Documentation
 
-### MTChat Component Events
+- SDK installation: [`docs/sdk/installation.md`](../docs/sdk/installation.md)
+- SDK configuration: [`docs/sdk/configuration.md`](../docs/sdk/configuration.md)
+- Full mode: [`docs/sdk/full-mode.md`](../docs/sdk/full-mode.md)
+- Inline mode: [`docs/sdk/inline-mode.md`](../docs/sdk/inline-mode.md)
 
-| Event | Payload | Description |
-|-------|---------|-------------|
-| connected | - | WebSocket connected |
-| disconnected | - | WebSocket disconnected |
-| error | Error | Error occurred |
-| message-sent | Message | Message was sent |
-| dialog-selected | Dialog | Dialog was selected |
+## Publishing Checklist
 
-## Types
+Before publishing:
 
-```typescript
-interface Tenant {
-  id: string
-  name: string
-  external_id: string
-  created_at: string
-}
-
-interface Employee {
-  id: string
-  tenant_id: string
-  external_id: string
-  full_name: string
-  has_access_to_any_dialog: boolean
-  created_at: string
-}
-
-interface Dialog {
-  id: string
-  chat_key: string
-  tenant_a_id: string
-  tenant_b_id: string
-  context_id?: string
-  created_at: string
-}
-
-interface Message {
-  id: string
-  dialog_id: string
-  sender_id: string
-  content: string
-  sent_at: string
-  last_edited_at?: string
-}
-```
+- `npm run typecheck`
+- `npm test`
+- `npm run build`
+- `npm pack --dry-run`
 
 ## License
 

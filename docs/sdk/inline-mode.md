@@ -7,7 +7,6 @@ Inline mode displays a single chat bound to a business object. Use this to embed
 ```vue
 <script setup lang="ts">
 import { MTChat } from '@mtchat/vue'
-import '@mtchat/vue/style.css'
 import type { MTChatConfig } from '@mtchat/vue'
 
 const config: MTChatConfig = {

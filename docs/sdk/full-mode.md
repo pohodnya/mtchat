@@ -7,7 +7,6 @@ Full mode displays a sidebar with dialog lists alongside the chat area. This is 
 ```vue
 <script setup lang="ts">
 import { MTChat } from '@mtchat/vue'
-import '@mtchat/vue/style.css'
 import type { MTChatConfig } from '@mtchat/vue'
 
 const config: MTChatConfig = {
@@ -32,6 +31,8 @@ const config: MTChatConfig = {
   </div>
 </template>
 ```
+
+`@mtchat/vue` injects its styles from the package bundle. You only need to provide a container height.
 
 !!! important "Container Height"
     The `<MTChat>` component fills its parent container. You must set a height on the parent element (e.g., `height: 600px`, `height: 100vh`, or `flex: 1` in a flex layout).

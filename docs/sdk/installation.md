@@ -36,12 +36,11 @@ npm install vue@^3.4
 
 ## Basic Setup
 
-Import the component and its styles in your Vue application:
+Import the component in your Vue application:
 
 ```vue
 <script setup lang="ts">
 import { MTChat } from '@mtchat/vue'
-import '@mtchat/vue/style.css'
 import type { MTChatConfig } from '@mtchat/vue'
 
 const config: MTChatConfig = {
@@ -65,7 +64,7 @@ const config: MTChatConfig = {
 ```
 
 !!! note "Style Import"
-    The `@mtchat/vue/style.css` import is required. It contains all component styles. Without it, the chat UI will not render correctly.
+    `@mtchat/vue` injects its styles from the package bundle. No separate CSS import is required.
 
 ## PrimeVue Integration
 

@@ -69,7 +69,6 @@ npm install @mtchat/vue
 
 <script setup lang="ts">
 import { MTChat } from '@mtchat/vue'
-import '@mtchat/vue/style.css'
 
 const chatConfig = {
   baseUrl: 'http://localhost:8080',
@@ -86,6 +85,8 @@ const chatConfig = {
 }
 </script>
 ```
+
+`@mtchat/vue` injects its styles from the package bundle, so no extra CSS import is required.
 
 ### Inline Mode (Single Chat on an Object Page)
 
