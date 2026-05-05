@@ -165,6 +165,26 @@ npm run build
 npm pack --dry-run
 ```
 
+### Repository Hygiene
+
+Do not commit local or generated workspace artifacts:
+
+- `.DS_Store`
+- `node_modules/`
+- `target/`
+- `site/`
+- package `dist/` outputs
+
+The repository includes a lightweight hygiene check in `scripts/check-hygiene.sh`, and the pre-commit hook runs it automatically.
+
+If your workspace gets noisy, clean ignored artifacts before review. For example:
+
+```bash
+git clean -fdX
+```
+
+Use that carefully: it removes ignored files from your working tree.
+
 ## Pull Requests
 
 1. Ensure your branch is up to date with `master`

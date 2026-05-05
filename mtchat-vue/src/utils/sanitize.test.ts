@@ -51,16 +51,18 @@ describe('sanitizeHtml', () => {
   })
 
   it('removes iframe tags', () => {
-    const input = '<iframe src="https://evil.com"></iframe>'
+    const input = '<iframe>embedded content</iframe>'
     const result = sanitizeHtml(input)
     expect(result).not.toContain('<iframe')
+    expect(result).toBe('')
   })
 
   it('removes img tags with onerror', () => {
-    const input = '<img src="x" onerror="alert(1)">'
+    const input = '<img onerror="alert(1)" alt="preview">'
     const result = sanitizeHtml(input)
     expect(result).not.toContain('onerror')
     expect(result).not.toContain('alert')
+    expect(result).not.toContain('<img')
   })
 
   it('removes style tags', () => {

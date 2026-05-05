@@ -12,6 +12,12 @@ set -e
 
 echo "🔍 Running pre-commit checks..."
 
+# === Repository hygiene ===
+if [ -f "scripts/check-hygiene.sh" ]; then
+    echo "  Checking repository hygiene..."
+    ./scripts/check-hygiene.sh
+fi
+
 # === Rust Checks ===
 if [ -d "mtchat-rust" ]; then
     cd mtchat-rust
