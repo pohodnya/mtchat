@@ -33,9 +33,9 @@
 | email | STRING | Контактный email (макс. 254 символа, опционально) |
 | phone | STRING | Контактный телефон (макс. 50 символов, опционально) |
 | joined_at | TIMESTAMP | Время присоединения |
-| joined_as | ENUM | "creator" или "member" |
+| joined_as | ENUM | "creator", "participant" или "joined" |
 | notifications_enabled | BOOLEAN | Включены ли уведомления |
-| last_read_msg_id | UUID | Последнее прочитанное сообщение (nullable) |
+| last_read_message_id | UUID | Последнее прочитанное сообщение (nullable) |
 | unread_count | INTEGER | Количество непрочитанных сообщений |
 | is_archived | BOOLEAN | Архивирован этим пользователем |
 | is_pinned | BOOLEAN | Закреплён этим пользователем |
@@ -68,15 +68,13 @@
 | message_type | ENUM | "user" или "system" |
 | content | STRING | Содержимое сообщения (HTML, макс. 50 000 символов) |
 | reply_to_id | UUID | Ссылка на цитируемое сообщение (nullable) |
-| is_edited | BOOLEAN | Было ли сообщение отредактировано |
-| is_deleted | BOOLEAN | Было ли сообщение удалено |
-| created_at | TIMESTAMP | Время создания |
-| updated_at | TIMESTAMP | Время последнего обновления |
+| sent_at | TIMESTAMP | Время отправки |
+| last_edited_at | TIMESTAMP | Время последнего редактирования (nullable) |
 
 - Пользовательские сообщения содержат санитизированный HTML (разрешенные теги: `p`, `br`, `strong`, `em`, `u`, `s`, `a`, `ul`, `ol`, `li`, `blockquote`, `code`, `pre`, `span`)
 - Системные сообщения (присоединение, выход, создание) имеют `message_type = "system"` и `sender_id = NULL`
 - Системные сообщения хранят JSON-контент для i18n-рендеринга на фронтенде
-- Отредактированные сообщения имеют `is_edited = true`; удаленные -- `is_deleted = true`
+- У отредактированных сообщений заполнен `last_edited_at`. Удаленные сообщения удаляются из таблицы `messages`.
 
 ### Вложение (Attachment)
 

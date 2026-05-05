@@ -23,6 +23,9 @@
 | 016 | [Apalis Job Queue](./016-apalis-job-queue.md) | ✅ Завершено | 2026-02-11 |
 | 017 | [Virtual Scroll](./017-virtual-scroll.md) | ✅ Завершено | 2026-02-13 |
 | 018 | [Jump to Message](./018-jump-to-message.md) | ✅ Завершено | 2026-02-13 |
+| 019 | [SDK Documentation and Package Alignment](./019-sdk-docs-alignment.md) | ✅ Завершено | 2026-05-05 |
+| 020 | [Quality Gates and Release Parity](./020-quality-gates-and-release-parity.md) | ✅ Завершено | 2026-05-05 |
+| 021 | [Repository Hygiene and Test Stability](./021-repository-hygiene-and-test-stability.md) | ✅ Завершено | 2026-05-05 |
 
 ## Структура плана
 

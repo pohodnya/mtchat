@@ -16,7 +16,9 @@ The MTChat Vue SDK provides a ready-to-use chat component for Vue 3 applications
 A complete chat interface with a sidebar dialog list and chat area. Suitable for dedicated chat pages.
 
 ```vue
-<MTChat :config="config" mode="full" />
+<div style="height: 600px;">
+  <MTChat :config="config" mode="full" />
+</div>
 ```
 
 See [Full Mode](full-mode.md) for details.

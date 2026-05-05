@@ -187,7 +187,7 @@ Server-side error.
 
 ## Client Messages
 
-Messages sent from the client to the server.
+Messages sent from the client to the server. The backend currently accepts only heartbeat messages.
 
 ### ping
 
@@ -201,30 +201,8 @@ Heartbeat message. Should be sent every 30 seconds to maintain online status (60
 
 The server responds with a `pong` message and refreshes the user's online status TTL.
 
-### subscribe
-
-Subscribe to events for a specific dialog.
-
-```json
-{
-  "type": "subscribe",
-  "dialog_id": "019481a2-..."
-}
-```
-
-### unsubscribe
-
-Unsubscribe from events for a specific dialog.
-
-```json
-{
-  "type": "unsubscribe",
-  "dialog_id": "019481a2-..."
-}
-```
-
 !!! note
-    Currently, all connected users receive all events regardless of subscriptions. Subscription-based filtering is planned for a future release.
+    Currently, server-side subscription filtering is not implemented. Connected clients receive broadcast events and the SDK filters/updates local state by dialog where needed.
 
 ## Vue SDK Usage
 

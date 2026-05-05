@@ -10,18 +10,19 @@
 
 ```vue
 <template>
-  <MTChat
-    :config="config"
-    mode="full"
-    theme="light"
-    @connected="onConnected"
-    @message-sent="onMessageSent"
-  />
+  <div style="height: 600px;">
+    <MTChat
+      :config="config"
+      mode="full"
+      theme="light"
+      @connected="onConnected"
+      @message-sent="onMessageSent"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { MTChat } from '@mtchat/vue'
-import '@mtchat/vue/style.css'
 
 const config = {
   baseUrl: 'https://chat.example.com',
@@ -39,6 +40,8 @@ const config = {
 }
 </script>
 ```
+
+`@mtchat/vue` инжектит стили из package bundle. Отдельный CSS-импорт не требуется.
 
 ### Inline-режим
 
@@ -118,10 +121,18 @@ Drag-and-drop или клик для прикрепления. Изображе�
 import { useChat } from '@mtchat/vue'
 
 const {
-  dialogs, messages, currentDialog, isConnected,
-  sendMessage, joinDialog, leaveDialog, selectDialog,
-  loadOlderMessages, jumpToMessage,
-  destroy,
+  participatingDialogs,
+  availableDialogs,
+  messages,
+  currentDialog,
+  isConnected,
+  sendMessage,
+  joinDialog,
+  leaveDialog,
+  selectDialog,
+  loadOlderMessages,
+  loadNewerMessages,
+  jumpToMessage,
 } = useChat({ config, objectId: 'order-123', objectType: 'order' })
 ```
 

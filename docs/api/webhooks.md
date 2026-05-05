@@ -31,6 +31,7 @@ X-Webhook-Event: message.new
 | `Content-Type` | Always `application/json` |
 | `X-Webhook-Signature` | HMAC-SHA256 signature of the request body |
 | `X-Webhook-Event` | Event type (e.g., `message.new`) |
+| `X-Webhook-Id` | Unique event ID (same as `id` in the event envelope) |
 
 ### Signature Verification
 
@@ -127,7 +128,7 @@ A user joined a dialog.
     "object_id": "550e8400-...",
     "object_type": "order",
     "user_id": "33333333-...",
-    "joined_as": "member",
+    "joined_as": "joined",
     "joined_at": "2026-02-17T12:05:00Z"
   }
 }
@@ -154,7 +155,7 @@ A user left a dialog.
 
 ### notification.pending
 
-Sent when a message has not been read by a recipient after a configurable delay (default: 30 seconds). Your application should send a push notification or email to the recipient.
+Sent when a message has not been read by a recipient after a short server-side delay. Your application should send a push notification or email to the recipient.
 
 ```json
 {
@@ -180,9 +181,9 @@ Sent when a message has not been read by a recipient after a configurable delay 
 
 **Smart notification behavior:**
 
-- Notifications are delayed (default 30 seconds, configurable via `NOTIFICATION_DELAY_SECS`)
+- Notification jobs wait briefly before checking whether the recipient has read the message
 - If the message is read before the delay expires, no notification is sent
-- Multiple messages to the same recipient within the delay window are debounced into a single notification
+- Each unread message/recipient pair can produce a `notification.pending` webhook
 - Notifications are skipped if the user has disabled notifications for that dialog
 
 ## Retry Policy

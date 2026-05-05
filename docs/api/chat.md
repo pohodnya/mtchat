@@ -4,9 +4,9 @@ The Chat API is used by the Vue SDK (or any frontend client) to interact with di
 
 ## User Identity
 
-The current user is identified by the `user_id` query parameter passed with each request. The scope configuration is passed via the `X-Scope-Config` header (base64-encoded JSON).
+When `JWT_AUTH_ENABLED=true`, the current user is extracted from the Bearer token claim configured by `JWT_USER_ID_CLAIM`. When JWT auth is disabled, the API falls back to the `user_id` query parameter. The scope configuration is passed via the `X-Scope-Config` header (base64-encoded JSON).
 
-The Vue SDK handles this automatically based on the `config.userId` and `config.scopeConfig` values.
+The Vue SDK handles this automatically based on `config.token`, `config.userId`, and `config.scopeConfig`.
 
 ---
 
@@ -24,7 +24,7 @@ GET /api/v1/dialogs?type=available&user_id={uuid}
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `type` | string | `participating` | `participating` (my chats) or `available` (can join) |
-| `user_id` | string | required | Current user's ID |
+| `user_id` | string | required in legacy mode | Current user's ID when JWT auth is disabled |
 | `search` | string | -- | Search by dialog title or participant company |
 | `archived` | boolean | -- | Filter archived dialogs (`true` for archived only) |
 | `limit` | integer | 50 | Number of dialogs to return (max 100) |
@@ -72,7 +72,23 @@ GET /api/v1/dialogs?type=available&user_id={uuid}
 GET /api/v1/dialogs/{id}?user_id={uuid}
 ```
 
-Returns a single dialog with the same fields as the list response.
+Returns the dialog metadata.
+
+### Response
+
+```json
+{
+  "data": {
+    "id": "019481a2-...",
+    "object_id": "550e8400-...",
+    "object_type": "order",
+    "title": "Order #1234 Discussion",
+    "object_url": "https://app.example.com/orders/1234",
+    "created_by": "11111111-...",
+    "created_at": "2026-02-17T12:00:00Z"
+  }
+}
+```
 
 ---
 
@@ -116,13 +132,8 @@ POST /api/v1/dialogs/{id}/join?user_id={uuid}
 
 ```json
 {
-  "data": {
-    "user_id": "...",
-    "display_name": "John Doe",
-    "company": "Acme Inc",
-    "joined_as": "member",
-    "joined_at": "2026-02-17T12:05:00Z"
-  }
+  "status": "joined",
+  "dialog_id": "019481a2-..."
 }
 ```
 
@@ -202,7 +213,7 @@ POST /api/v1/dialogs/{id}/notifications?user_id={uuid}
 
 ## List Participants
 
-Returns all participants of a dialog. Requires the user to be a participant.
+Returns all participants of a dialog. Direct participants can see contact details; potential participants with matching scope can see the participant list without email and phone values.
 
 ```
 GET /api/v1/dialogs/{id}/participants?user_id={uuid}
@@ -214,12 +225,18 @@ GET /api/v1/dialogs/{id}/participants?user_id={uuid}
 {
   "data": [
     {
+      "dialog_id": "019481a2-...",
       "user_id": "11111111-...",
       "display_name": "Alice",
       "company": "Acme Inc",
       "email": "alice@acme.com",
-      "joined_as": "creator",
+      "joined_as": "participant",
       "joined_at": "2026-02-17T12:00:00Z",
+      "notifications_enabled": true,
+      "last_read_message_id": null,
+      "unread_count": 0,
+      "is_archived": false,
+      "is_pinned": false,
       "is_online": true
     }
   ]
@@ -258,9 +275,8 @@ GET /api/v1/dialogs/{dialog_id}/messages?user_id={uuid}
         "message_type": "user",
         "content": "<p>Hello!</p>",
         "reply_to_id": null,
-        "is_edited": false,
-        "is_deleted": false,
         "sent_at": "2026-02-17T12:10:00Z",
+        "last_edited_at": null,
         "attachments": [
           {
             "id": "019481c4-...",
@@ -304,7 +320,7 @@ POST /api/v1/dialogs/{dialog_id}/messages?user_id={uuid}
   "reply_to": "019481b3-...",
   "attachments": [
     {
-      "s3_key": "dialogs/019481a2-.../pending/019481d5-....pdf",
+      "s3_key": "dialogs/019481a2-.../019481d5-....pdf",
       "filename": "report.pdf",
       "content_type": "application/pdf",
       "size": 245760
@@ -315,7 +331,7 @@ POST /api/v1/dialogs/{dialog_id}/messages?user_id={uuid}
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `content` | string | Yes | Message content (HTML, sanitized server-side) |
+| `content` | string | Yes (unless attachments provided) | Message content (HTML, sanitized server-side) |
 | `reply_to` | UUID | No | ID of the message being replied to |
 | `attachments` | array | No | Files previously uploaded via presigned URL |
 
@@ -347,19 +363,25 @@ PUT /api/v1/dialogs/{dialog_id}/messages/{id}?user_id={uuid}
 }
 ```
 
-Sets `is_edited = true` and broadcasts a `message.edited` WebSocket event. The original content is saved in the edit history table.
+Sets `last_edited_at` and broadcasts a `message.edited` WebSocket event. The original content is saved in the edit history table.
 
 ---
 
 ## Delete Message
 
-Soft-deletes a message. Only the message author can delete. System messages cannot be deleted.
+Deletes a message. Only the message author can delete it.
 
 ```
 DELETE /api/v1/dialogs/{dialog_id}/messages/{id}?user_id={uuid}
 ```
 
-Sets `is_deleted = true` and broadcasts a `message.deleted` WebSocket event.
+Removes the row and broadcasts a `message.deleted` WebSocket event.
+
+### Response
+
+```
+204 No Content
+```
 
 ---
 
@@ -368,7 +390,7 @@ Sets `is_deleted = true` and broadcasts a `message.deleted` WebSocket event.
 ```json
 {
   "error": {
-    "code": "NotParticipant",
+    "code": "NOT_PARTICIPANT",
     "message": "Not a participant. Join the dialog first."
   }
 }
@@ -378,15 +400,15 @@ Sets `is_deleted = true` and broadcasts a `message.deleted` WebSocket event.
 
 | Code | HTTP Status | Description |
 |------|-------------|-------------|
-| `DialogNotFound` | 404 | Dialog does not exist |
-| `MessageNotFound` | 404 | Message does not exist |
-| `ParticipantNotFound` | 404 | Participant not found in dialog |
-| `AttachmentNotFound` | 404 | Attachment does not exist |
-| `InvalidInput` | 400 | Invalid request data or exceeds length limits |
-| `FileTooLarge` | 400 | File exceeds 100 MB limit |
-| `UnsupportedFileType` | 400 | File MIME type not allowed |
-| `TooManyAttachments` | 400 | More than 10 attachments per message |
-| `NotParticipant` | 403 | User must join dialog first |
-| `NotMessageAuthor` | 403 | Only message author can edit/delete |
-| `ScopeMismatch` | 403 | User's scope doesn't match dialog access rules |
-| `InternalError` | 500 | Server error |
+| `DIALOG_NOT_FOUND` | 404 | Dialog does not exist |
+| `MESSAGE_NOT_FOUND` | 404 | Message does not exist |
+| `PARTICIPANT_NOT_FOUND` | 404 | Participant not found in dialog |
+| `ATTACHMENT_NOT_FOUND` | 404 | Attachment does not exist |
+| `INVALID_INPUT` | 400 | Invalid request data or exceeds length limits |
+| `FILE_TOO_LARGE` | 400 | File exceeds 100 MB limit |
+| `UNSUPPORTED_FILE_TYPE` | 400 | File MIME type not allowed |
+| `TOO_MANY_ATTACHMENTS` | 400 | More than 10 attachments per message |
+| `NOT_PARTICIPANT` | 403 | User must join dialog first |
+| `NOT_MESSAGE_AUTHOR` | 403 | Only message author can edit/delete |
+| `SCOPE_MISMATCH` | 403 | User's scope doesn't match dialog access rules |
+| `INTERNAL_ERROR` | 500 | Server error |

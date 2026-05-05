@@ -108,7 +108,7 @@ The Vue SDK maintains a persistent WebSocket connection with automatic reconnect
 
 MTChat uses **apalis** with a Redis backend for background task processing:
 
-- **Smart notifications** -- delayed notifications (default 30s) with debouncing. If a user receives multiple messages before the delay expires, only one notification webhook is sent.
+- **Smart notifications** -- notification jobs wait briefly, then send a webhook only if the message is still unread and notifications are enabled for the recipient.
 - **Auto-archive** -- periodic job (default: every 5 minutes) archives dialogs inactive for a configurable period (default: 3 days).
 
 ## Outgoing Webhooks
@@ -117,6 +117,6 @@ When configured, MTChat sends HTTP POST requests to your backend for key events:
 
 - `message.new` -- a new message was sent
 - `participant.joined` / `participant.left` -- someone joined or left a dialog
-- `notification.pending` -- an unread message notification is ready (after debounce delay)
+- `notification.pending` -- an unread message notification is ready after the read-state check
 
 Webhooks are signed with HMAC-SHA256 for verification. See [Webhooks](../api/webhooks.md) for details.

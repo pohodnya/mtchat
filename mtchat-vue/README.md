@@ -107,7 +107,9 @@ client.connect()
 const dialogs = await client.api.getDialogs()
 const messages = await client.api.getMessages(dialogs[0].id, { limit: 50 })
 
-client.subscribe(dialogs[0].id)
+client.on('message.new', (event) => {
+  console.log('new message', event)
+})
 ```
 
 ## Package Contents
@@ -122,7 +124,7 @@ client.subscribe(dialogs[0].id)
 If your app uses PrimeVue, install the companion wrapper:
 
 ```bash
-npm install @mtchat/vue @mtchat/vue-primevue
+npm install @mtchat/vue @mtchat/vue-primevue primevue
 ```
 
 See the PrimeVue integration guide in [`docs/sdk/primevue.md`](../docs/sdk/primevue.md).

@@ -71,7 +71,7 @@
 │  joined_at          │        │                                 │
 │  joined_as          │        │                                 │
 │  notifications      │        │                                 │
-│  last_read_msg_id   │        │                                 │
+│  last_read_message_id │      │                                 │
 │  unread_count       │        │                                 │
 │  is_archived        │        │                                 │
 │  is_pinned          │        │                                 │
@@ -109,7 +109,7 @@ Empty array at any level = wildcard (matches all values)
 | Database | PostgreSQL 17 |
 | Cache/PubSub | Redis 7 |
 | Storage | MinIO (S3) |
-| Job Queue | apalis 0.6 (Redis backend) |
+| Job Queue | apalis 0.7 (Redis backend) |
 
 ## Project Structure
 
@@ -200,7 +200,7 @@ POST {configured_url}
 Events: message.new, participant.joined, participant.left, notification.pending
 ```
 
-**notification.pending** - Sent after delay (default 30s) if message was not read by recipient. Supports debouncing: multiple messages to same recipient trigger only one notification.
+**notification.pending** - Sent after a short unread-state check if the message was not read by the recipient and notifications are enabled for that dialog.
 
 ### CORS Configuration
 
@@ -398,7 +398,7 @@ interface JoinDialogRequest {
 ## Quick Start
 
 ```bash
-docker-compose up -d
+docker compose up -d
 
 # App: http://localhost
 # API: http://localhost:8080
@@ -458,7 +458,7 @@ docker-compose up -d
 | Multiple dialogs per object | ✅ |
 | Read receipts | ✅ |
 | Background job queue (apalis) | ✅ |
-| Smart notifications (debounce) | ✅ |
+| Smart notifications (unread check) | ✅ |
 | Auto-archive inactive chats | ✅ |
 | Jump to unloaded reply | ✅ |
 | CORS configuration | ✅ |
@@ -513,9 +513,9 @@ docker-compose up -d
   - `offset`: skip N dialogs (default 0)
 - **pg_trgm indexes** for efficient ILIKE search on dialog title and participant company
 - **Structured error codes** - new `ErrorCode` enum for machine-readable errors:
-  - `DialogNotFound`, `MessageNotFound`, `ParticipantNotFound`, `AttachmentNotFound`
-  - `InvalidInput`, `FileTooLarge`, `UnsupportedFileType`, `TooManyAttachments`
-  - `NotParticipant`, `NotMessageAuthor`, `ScopeMismatch`
+  - `DIALOG_NOT_FOUND`, `MESSAGE_NOT_FOUND`, `PARTICIPANT_NOT_FOUND`, `ATTACHMENT_NOT_FOUND`
+  - `INVALID_INPUT`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `TOO_MANY_ATTACHMENTS`
+  - `NOT_PARTICIPANT`, `NOT_MESSAGE_AUTHOR`, `SCOPE_MISMATCH`
 - **WebSocket broadcast optimization** - extracted common logic, serialize JSON once
 - **Presence TTL alignment** - 60s TTL with 30s heartbeat (was mismatched)
 - **Parallelized send_message** - broadcast, webhook, and notifications run concurrently
@@ -580,9 +580,8 @@ docker-compose up -d
 - i18n: added `chat.messageLoading` and `chat.loadingOlder` translations
 
 ### 2026-02-11 (v0.3.18) - Background Job Queue & Auto-Archive
-- **apalis 0.6** integration for background task processing with Redis backend
-- **Smart notifications** with 30s delay and debounce (configurable via env vars)
-- Debounce logic: multiple messages to same recipient trigger only one notification
+- **apalis 0.7** integration for background task processing with Redis backend
+- **Smart notifications** with a short unread-state check before webhook delivery
 - Notification skipped if message already read before delay expires
 - Notification skipped if user has notifications disabled for the chat
 - **Auto-archive job** runs on cron schedule (default: every 5 mins)
@@ -591,13 +590,13 @@ docker-compose up -d
 - **Real-time archive/unarchive** via WebSocket events (`dialog.archived`, `dialog.unarchived`)
 - Frontend reactively moves dialogs between active and archived lists
 - `notification.pending` webhook event for unread message notifications
-- New `jobs/` module: types, handlers, producer, worker, middleware
+- New `jobs/` module: types, handlers, producer, worker
 - `JobProducer` integrated into AppState for enqueueing from handlers
 - `find_inactive_since()` in DialogRepository for auto-archive queries
 - `archive_all_for_dialog()` and `unarchive_all_for_dialog()` in ParticipantRepository
-- Environment variables: `NOTIFICATION_DELAY_SECS`, `ARCHIVE_CRON`, `ARCHIVE_AFTER_SECS`, `NOTIFICATION_CONCURRENCY`
+- Environment variables: `ARCHIVE_CRON`, `ARCHIVE_AFTER_SECS`, `NOTIFICATION_CONCURRENCY`
 - Graceful degradation: job queue disabled if Redis not configured
-- Unit tests for job types, handlers, worker config, debounce logic
+- Unit tests for job types and worker config
 - **SVG icons extracted** to separate files in `mtchat-vue/src/icons/` (33 icons)
 - Icon component dynamically loads icons via Vite `?raw` import
 - Icons use `currentColor` for easy theming, viewBox 24x24

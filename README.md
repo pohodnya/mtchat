@@ -23,7 +23,7 @@ Add real-time chat to your application in minutes. MTChat handles messaging, del
       <a href="https://hub.docker.com/r/pohodnya/mtchat"><img src="https://img.shields.io/docker/v/pohodnya/mtchat?label=docker&sort=semver&color=blue" alt="Docker"></a>
     </td>
     <td>
-      <img src="https://img.shields.io/badge/rust-1.75+-orange?logo=rust" alt="Rust 1.75+"><br>
+      <img src="https://img.shields.io/badge/rust-1.78+-orange?logo=rust" alt="Rust 1.78+"><br>
       <img src="https://img.shields.io/badge/vue-3.4+-green?logo=vue.js" alt="Vue 3.4+"><br>
       <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
     </td>
@@ -44,7 +44,7 @@ Add real-time chat to your application in minutes. MTChat handles messaging, del
 - **Rich text** -- Tiptap editor with formatting, @mentions, and link support
 - **File attachments** -- S3-compatible storage with presigned uploads (images, documents, archives)
 - **i18n** -- Russian, English, and Chinese out of the box
-- **Smart notifications** -- background job queue with debounced webhook delivery
+- **Smart notifications** -- background job queue with unread-check webhook delivery
 - **Self-hosted** -- deploy with Docker Compose or Helm chart, no external dependencies
 
 ## Architecture
@@ -77,6 +77,7 @@ cd mtchat
 
 # Start all services (PostgreSQL, Redis, MinIO, API)
 docker compose up -d
+export ADMIN_TOKEN=demo-admin-token
 
 # Demo app: http://localhost
 # API:      http://localhost:8080
@@ -107,7 +108,18 @@ curl -X POST http://localhost:8080/api/v1/management/dialogs \
     "object_id": "order-uuid-123",
     "object_type": "order",
     "title": "Order #1234 Discussion",
-    "participants": ["user-1", "user-2"],
+    "participants": [
+      {
+        "user_id": "user-1",
+        "display_name": "Alice",
+        "company": "Acme Inc"
+      },
+      {
+        "user_id": "user-2",
+        "display_name": "Bob",
+        "company": "Partner Ltd"
+      }
+    ],
     "access_scopes": [{
       "scope_level0": ["tenant-abc"],
       "scope_level1": ["logistics"],
@@ -128,12 +140,13 @@ Add the component:
 
 ```vue
 <template>
-  <MTChat :config="chatConfig" mode="full" />
+  <div style="height: 600px;">
+    <MTChat :config="chatConfig" mode="full" />
+  </div>
 </template>
 
 <script setup>
 import { MTChat } from '@mtchat/vue'
-import '@mtchat/vue/style.css'
 
 const chatConfig = {
   baseUrl: 'https://chat.example.com',
@@ -153,6 +166,8 @@ const chatConfig = {
 </script>
 ```
 
+`@mtchat/vue` injects its styles from the package bundle. No separate CSS import is required.
+
 #### Inline Mode
 
 Embed a chat directly inside a page (e.g., an order detail card):
@@ -171,12 +186,14 @@ Embed a chat directly inside a page (e.g., an order detail card):
 For projects using PrimeVue:
 
 ```bash
-npm install @mtchat/vue-primevue
+npm install @mtchat/vue @mtchat/vue-primevue primevue
 ```
 
 ```vue
 <template>
-  <MTChatPrime :config="chatConfig" mode="full" theme="dark" />
+  <div style="height: 600px;">
+    <MTChatPrime :config="chatConfig" mode="full" theme="dark" />
+  </div>
 </template>
 
 <script setup>
@@ -191,18 +208,18 @@ MTChat sends outgoing webhooks for chat events:
 ```javascript
 // POST /webhooks/mtchat
 app.post('/webhooks/mtchat', (req, res) => {
-  const { event, data } = req.body
+  const event = req.body
 
-  switch (event) {
-    case 'message.new':
+  switch (event.type) {
+    case 'message_new':
       // New message sent
       break
-    case 'notification.pending':
-      // Unread message after delay -- send push notification
-      sendPushNotification(data.user_id, data.dialog_title, data.message)
+    case 'notification_pending':
+      // Message is still unread after the notification check delay
+      sendPushNotification(event.payload.recipient_id, event.payload.message)
       break
-    case 'participant.joined':
-    case 'participant.left':
+    case 'participant_joined':
+    case 'participant_left':
       // Participant change
       break
   }
@@ -234,7 +251,7 @@ app.post('/webhooks/mtchat', (req, res) => {
 | Chat archiving (per-user) | Done |
 | Chat pinning | Done |
 | Per-chat notification toggle | Done |
-| Smart notifications (debounced webhooks) | Done |
+| Smart notifications (unread-check webhooks) | Done |
 | Auto-archive inactive chats | Done |
 | Infinite scroll + jump to message | Done |
 | i18n (Russian, English, Chinese) | Done |
@@ -252,7 +269,7 @@ app.post('/webhooks/mtchat', (req, res) => {
 | Database | PostgreSQL 17 |
 | Cache / PubSub | Redis 7 |
 | File Storage | S3-compatible (MinIO) |
-| Job Queue | apalis 0.6 (Redis) |
+| Job Queue | apalis 0.7 (Redis) |
 | Rich Text | Tiptap (ProseMirror) |
 
 ## Project Structure
@@ -292,7 +309,7 @@ Authenticated with `Authorization: Bearer <admin_token>`. Used by your backend.
 
 ### Chat API
 
-Authenticated with user token (passed via header). Used by the Vue SDK.
+Authenticated with a JWT bearer token when `JWT_AUTH_ENABLED=true`, or with the legacy `user_id` query parameter when JWT auth is disabled. Used by the Vue SDK.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -329,7 +346,7 @@ Authenticated with user token (passed via header). Used by the Vue SDK.
 | `message.new` | New message sent |
 | `participant.joined` | User joined dialog |
 | `participant.left` | User left dialog |
-| `notification.pending` | Unread message after delay (for push notifications) |
+| `notification.pending` | Message still unread after the notification check (for push notifications) |
 
 ## Configuration
 
@@ -337,20 +354,30 @@ Authenticated with user token (passed via header). Used by the Vue SDK.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
+| `DATABASE_URL` | No | local PostgreSQL URL | PostgreSQL connection string; set explicitly outside local development |
 | `REDIS_URL` | No | -- | Redis URL (enables presence, jobs) |
 | `ADMIN_API_TOKEN` | No | -- | Management API auth token |
+| `JWT_AUTH_ENABLED` | No | `false` | Enable JWT authentication for Chat API |
+| `JWT_SECRET` | No | -- | HS256 secret, required when JWT auth is enabled |
+| `JWT_USER_ID_CLAIM` | No | `sub` | JWT claim used as the MTChat user ID |
 | `WEBHOOK_URL` | No | -- | Outgoing webhook endpoint |
 | `WEBHOOK_SECRET` | No | -- | Webhook HMAC signing secret |
 | `S3_ENDPOINT` | No | -- | S3-compatible endpoint URL |
+| `S3_PUBLIC_ENDPOINT` | No | `S3_ENDPOINT` | Public S3 URL used in presigned links |
 | `S3_BUCKET` | No | -- | S3 bucket name |
-| `S3_ACCESS_KEY` | No | -- | S3 access key |
-| `S3_SECRET_KEY` | No | -- | S3 secret key |
+| `S3_ACCESS_KEY_ID` | No | -- | S3 access key |
+| `S3_SECRET_ACCESS_KEY` | No | -- | S3 secret key |
 | `S3_REGION` | No | `us-east-1` | S3 region |
+| `S3_PRESIGN_UPLOAD_EXPIRY` | No | `300` | Upload URL lifetime in seconds |
+| `S3_PRESIGN_DOWNLOAD_EXPIRY` | No | `3600` | Download URL lifetime in seconds |
 | `PORT` | No | `8080` | Server listen port |
 | `RUST_LOG` | No | `info` | Log level |
-| `NOTIFICATION_DELAY_SECS` | No | `30` | Delay before sending notification webhook |
+| `NOTIFICATION_CONCURRENCY` | No | `4` | Number of concurrent notification workers |
+| `ARCHIVE_CRON` | No | `0 */5 * * * *` | Auto-archive cron schedule |
 | `ARCHIVE_AFTER_SECS` | No | `259200` | Auto-archive inactive chats (default: 3 days) |
+| `RATE_LIMIT_ENABLED` | No | `false` | Enable built-in request rate limiting |
+| `RATE_LIMIT_RPS` | No | `100` | Rate limit refill rate |
+| `RATE_LIMIT_BURST` | No | `50` | Rate limit burst size |
 
 ## Scope Matching
 

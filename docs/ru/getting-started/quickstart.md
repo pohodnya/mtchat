@@ -12,7 +12,13 @@
 ```bash
 git clone https://github.com/pohodnya/mtchat.git
 cd mtchat
-docker-compose up -d
+docker compose up -d
+```
+
+Корневой compose-файл по умолчанию использует `demo-admin-token` для локальной разработки:
+
+```bash
+export ADMIN_TOKEN=demo-admin-token
 ```
 
 Проверьте, что API работает:
@@ -28,7 +34,7 @@ curl http://localhost:8080/health
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/management/dialogs \
-  -H "Authorization: Bearer demo-admin-token" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "object_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -38,8 +44,7 @@ curl -X POST http://localhost:8080/api/v1/management/dialogs \
       {
         "user_id": "11111111-1111-1111-1111-111111111111",
         "display_name": "Алиса",
-        "company": "ООО Логистика",
-        "joined_as": "creator"
+        "company": "ООО Логистика"
       }
     ],
     "access_scopes": [
@@ -64,12 +69,13 @@ npm install @mtchat/vue
 
 ```vue
 <template>
-  <MTChat :config="chatConfig" mode="full" theme="light" />
+  <div style="height: 600px;">
+    <MTChat :config="chatConfig" mode="full" theme="light" />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { MTChat } from '@mtchat/vue'
-import '@mtchat/vue/style.css'
 
 const chatConfig = {
   baseUrl: 'http://localhost:8080',
@@ -87,6 +93,8 @@ const chatConfig = {
 }
 </script>
 ```
+
+`@mtchat/vue` инжектит стили из package bundle, поэтому отдельный CSS-импорт не нужен.
 
 ### Inline-режим (один чат на странице объекта)
 

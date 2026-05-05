@@ -1,165 +1,105 @@
-# MultitenancyChat API
+# MTChat Rust Backend
 
-B2B/B2C Chat Platform Backend built with Rust.
+Rust backend for MTChat.
+
+This crate provides:
+
+- Chat API for end users
+- Management API for your backend
+- WebSocket real-time delivery
+- PostgreSQL persistence
+- optional Redis-backed presence and jobs
+- optional S3-compatible file storage
 
 ## Requirements
 
-- Rust 1.75+
-- PostgreSQL 17
-- Redis 7+
-- Docker (optional, for local development)
+- Rust `1.78+`
+- PostgreSQL `17`
+- Optional: Redis `7+` for presence and background jobs
+- Optional: S3-compatible storage for attachments
 
-## Quick Start
+## Local Development
 
-### 1. Start Dependencies
+From the repository root:
 
 ```bash
-# Using Docker Compose (recommended)
-cd docker
-docker-compose -f docker-compose.dev.yml up -d
+docker compose up -d postgres redis minio
 ```
 
-### 2. Configure Environment
+Then run the backend:
 
 ```bash
-cp .env.example .env
-# Edit .env with your settings
-```
-
-### 3. Run Migrations
-
-```bash
-# Install sqlx-cli if not installed
-cargo install sqlx-cli
-
-# Run migrations
-sqlx migrate run
-```
-
-### 4. Start the Server
-
-```bash
+cd mtchat-rust
 cargo run
 ```
 
-The server will start at `http://localhost:8080`.
+The server applies database migrations automatically on startup.
 
-## API Documentation
+## Main Endpoints
 
-### Authentication
+### Health
 
-All protected endpoints require a JWT token in the `Authorization` header:
+- `GET /health`
+- `GET /health/ready`
 
-```
-Authorization: Bearer <token>
-```
+### Management API
 
-Get a token by calling:
-```
-POST /api/v1/auth/token
-{ "external_id": "<employee-external-id>" }
-```
+- `POST /api/v1/management/dialogs`
+- `GET /api/v1/management/dialogs/{id}`
+- `DELETE /api/v1/management/dialogs/{id}`
+- `POST /api/v1/management/dialogs/{id}/participants`
+- `DELETE /api/v1/management/dialogs/{id}/participants/{user_id}`
+- `PUT /api/v1/management/dialogs/{id}/access-scopes`
 
-### Endpoints
+### Chat API
 
-#### Health
-- `GET /health` - Health check
-- `GET /health/ready` - Readiness probe
-- `GET /health/live` - Liveness probe
-- `GET /metrics` - Prometheus metrics
-
-#### Tenants
-- `GET /api/v1/tenants/:id` - Get tenant
-- `PUT /api/v1/tenants/:id` - Update tenant
-
-#### Employees
-- `GET /api/v1/employees` - List employees
-- `POST /api/v1/employees` - Create employee
-- `GET /api/v1/employees/me` - Current employee
-- `GET /api/v1/employees/:id` - Get employee
-- `PUT /api/v1/employees/:id` - Update employee
-- `DELETE /api/v1/employees/:id` - Delete employee
-
-#### Dialogs
-- `GET /api/v1/dialogs` - List dialogs
-- `POST /api/v1/dialogs` - Create dialog
-- `GET /api/v1/dialogs/:id` - Get dialog
-- `POST /api/v1/dialogs/:id/participants` - Add participant
-- `DELETE /api/v1/dialogs/:id/participants/:eid` - Remove participant
-- `POST /api/v1/dialogs/:id/archive` - Archive dialog
-- `DELETE /api/v1/dialogs/:id/archive` - Unarchive dialog
-- `PUT /api/v1/dialogs/:id/notifications` - Update notifications
-
-#### Messages
-- `GET /api/v1/dialogs/:id/messages` - List messages
-- `POST /api/v1/dialogs/:id/messages` - Send message
-- `GET /api/v1/dialogs/:id/messages/:mid` - Get message
-- `PUT /api/v1/dialogs/:id/messages/:mid` - Edit message
-- `DELETE /api/v1/dialogs/:id/messages/:mid` - Delete message
-- `GET /api/v1/dialogs/:id/messages/:mid/history` - Edit history
-- `POST /api/v1/dialogs/:id/messages/:mid/read` - Mark read
-
-#### Attachments
-- `POST /api/v1/uploads/presign` - Get presigned upload URL
-- `GET /api/v1/attachments/:id` - Get attachment info
-- `DELETE /api/v1/attachments/:id` - Delete attachment
-
-#### Presence
-- `GET /api/v1/presence/dialog/:id` - Dialog online status
-- `GET /api/v1/presence/tenant/:id` - Tenant online status
+- `GET /api/v1/dialogs`
+- `GET /api/v1/dialogs/{id}`
+- `GET /api/v1/dialogs/by-object/{object_type}/{object_id}`
+- `POST /api/v1/dialogs/{id}/join`
+- `POST /api/v1/dialogs/{id}/leave`
+- `POST /api/v1/dialogs/{id}/archive`
+- `POST /api/v1/dialogs/{id}/unarchive`
+- `POST /api/v1/dialogs/{id}/pin`
+- `POST /api/v1/dialogs/{id}/unpin`
+- `POST /api/v1/dialogs/{id}/notifications`
+- `POST /api/v1/dialogs/{id}/read`
+- `GET /api/v1/dialogs/{id}/participants`
+- `GET /api/v1/dialogs/{dialog_id}/messages`
+- `POST /api/v1/dialogs/{dialog_id}/messages`
+- `GET /api/v1/dialogs/{dialog_id}/messages/{id}`
+- `PUT /api/v1/dialogs/{dialog_id}/messages/{id}`
+- `DELETE /api/v1/dialogs/{dialog_id}/messages/{id}`
+- `POST /api/v1/upload/presign`
+- `GET /api/v1/attachments/{id}/url`
 
 ### WebSocket
 
-Connect to `ws://localhost:8080/api/v1/ws?token=<JWT>`.
+- `GET /api/v1/ws`
 
-#### Client → Server Events
-- `subscribe` - Subscribe to dialog
-- `unsubscribe` - Unsubscribe from dialog
-- `message.send` - Send message
-- `typing.start` / `typing.stop` - Typing indicator
-- `message.read` - Mark message as read
-- `ping` - Keep-alive
+Authentication depends on server configuration:
 
-#### Server → Client Events
-- `connected` - Connection established
-- `message.new` - New message
-- `message.edited` - Message edited
-- `message.deleted` - Message deleted
-- `typing` - Someone is typing
-- `message.read_receipt` - Read receipt
-- `participant.joined` / `participant.left` - Participant changes
-- `presence.changed` - Online status change
-- `notification.mention` - @mention notification
-- `pong` - Keep-alive response
-- `error` - Error message
+- JWT mode: `?token=<jwt>`
+- legacy mode: `?user_id=<id>`
 
-## Development
+## Documentation
+
+- API reference: [`../docs/api/chat.md`](../docs/api/chat.md)
+- Management API: [`../docs/api/management.md`](../docs/api/management.md)
+- WebSocket: [`../docs/api/websocket.md`](../docs/api/websocket.md)
+- File upload: [`../docs/api/file-upload.md`](../docs/api/file-upload.md)
+- Security: [`../docs/security.md`](../docs/security.md)
+- Deployment: [`../deploy/README.md`](../deploy/README.md)
+
+## Verification
 
 ```bash
-# Check code
-cargo check
-
-# Run tests
-cargo test
-
-# Format code
-cargo fmt
-
-# Lint
-cargo clippy
-```
-
-## Docker
-
-```bash
-# Build image
-docker build -f docker/Dockerfile -t multitenancy-chat-api .
-
-# Run with docker-compose
-cd docker
-docker-compose up
+cargo fmt --check
+cargo clippy -- -D warnings
+cargo test --lib
+cargo test --tests
 ```
 
 ## License
 
-Proprietary
+MIT

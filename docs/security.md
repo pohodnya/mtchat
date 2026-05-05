@@ -18,6 +18,7 @@ Authorization: Bearer <ADMIN_API_TOKEN>
 - Used for server-to-server communication between your backend and MTChat
 - Constant-time token comparison prevents timing attacks
 - Token is read once at startup (not from env on every request)
+- If `ADMIN_API_TOKEN` is omitted, the Management API is unprotected; use this only for local development
 
 !!! warning "Keep the admin token secret"
     The admin token grants full access to create/delete dialogs and manage participants. Never expose it to frontend clients.
@@ -90,7 +91,7 @@ All text inputs are validated for length to prevent abuse:
 | Object ID | 255 chars | External object identifier |
 | User ID | 255 chars | External user identifier |
 
-Requests exceeding these limits return `400 Bad Request` with error code `InvalidInput`.
+Requests exceeding these limits return `400 Bad Request` with error code `INVALID_INPUT`.
 
 ### S3 Key Validation
 
@@ -142,7 +143,7 @@ Access-Control-Allow-Origin: *
 ```
 
 !!! warning "Production recommendation"
-    For production deployments, restrict CORS to your application's domains using a reverse proxy or by configuring the `allowed_origins` setting.
+    For production deployments, restrict CORS to your application's domains using a reverse proxy or by configuring `CORS_ALLOWED_ORIGINS`.
 
 ## Production Checklist
 
@@ -155,7 +156,7 @@ Access-Control-Allow-Origin: *
 - [ ] Set appropriate `RUST_LOG` level for production (avoid `debug`)
 - [ ] Configure `S3_PUBLIC_ENDPOINT` to use HTTPS in production
 - [ ] Monitor the `/health` and `/health/ready` endpoints
-- [ ] Consider rate limiting at the reverse proxy level
+- [ ] Enable built-in rate limiting (`RATE_LIMIT_ENABLED=true`) and/or rate limiting at the reverse proxy level
 - [ ] Review S3 bucket permissions (no public access)
 
 ## Future Enhancements
@@ -163,5 +164,5 @@ Access-Control-Allow-Origin: *
 The following security features are planned for future releases:
 
 - **WebSocket subscription filtering** (users only receive events for their dialogs)
-- **Built-in rate limiting** per user and per endpoint
+- **Per-user and per-endpoint rate limiting** beyond the current global token-bucket limiter
 - **CSRF protection** for non-API endpoints

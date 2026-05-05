@@ -42,7 +42,7 @@ POST /api/v1/upload/presign?user_id={uuid}
 {
   "data": {
     "upload_url": "https://s3.example.com/...?X-Amz-...",
-    "s3_key": "dialogs/019481a2-.../pending/019481d5-....pdf",
+    "s3_key": "dialogs/019481a2-.../019481d5-....pdf",
     "expires_in": 300
   }
 }
@@ -52,6 +52,18 @@ POST /api/v1/upload/presign?user_id={uuid}
 
 ```
 GET /api/v1/attachments/{id}/url?user_id={uuid}
+```
+
+### Ответ
+
+```json
+{
+  "data": {
+    "url": "https://s3.example.com/mtchat-attachments/dialogs/...?X-Amz-...",
+    "thumbnail_url": null,
+    "expires_in": 3600
+  }
+}
 ```
 
 ## Поддерживаемые типы файлов
@@ -79,3 +91,13 @@ Vue SDK включает просмотрщик для:
 - **PDF** -- многостраничный просмотр с масштабированием и навигацией
 
 Остальные типы файлов отображаются как ссылка для скачивания с иконкой, именем и размером.
+
+## Ошибки
+
+| HTTP статус | Код | Описание |
+|-------------|-----|----------|
+| 400 | `FILE_TOO_LARGE` | Размер файла вне допустимых лимитов |
+| 400 | `UNSUPPORTED_FILE_TYPE` | MIME-тип файла не разрешён |
+| 404 | `DIALOG_NOT_FOUND` | Диалог не существует |
+| 404 | `ATTACHMENT_NOT_FOUND` | Вложение не существует |
+| 500 | `INTERNAL_ERROR` | S3 не настроен или произошла ошибка S3 |

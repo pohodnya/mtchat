@@ -33,9 +33,9 @@ A direct member of a dialog. Participants receive notifications and see the dial
 | email | STRING | Contact email (max 254 chars, optional) |
 | phone | STRING | Contact phone (max 50 chars, optional) |
 | joined_at | TIMESTAMP | When user joined |
-| joined_as | ENUM | "creator" or "member" |
+| joined_as | ENUM | "creator", "participant", or "joined" |
 | notifications_enabled | BOOLEAN | Whether notifications are on |
-| last_read_msg_id | UUID | Last read message (nullable) |
+| last_read_message_id | UUID | Last read message (nullable) |
 | unread_count | INTEGER | Number of unread messages |
 | is_archived | BOOLEAN | Archived by this user |
 | is_pinned | BOOLEAN | Pinned by this user |
@@ -68,15 +68,13 @@ A dialog can have multiple access scopes. See [Scope Matching](scope-matching.md
 | message_type | ENUM | "user" or "system" |
 | content | STRING | Message content (HTML, max 50,000 chars) |
 | reply_to_id | UUID | Referenced message (nullable) |
-| is_edited | BOOLEAN | Whether message was edited |
-| is_deleted | BOOLEAN | Whether message was deleted |
-| created_at | TIMESTAMP | Creation timestamp |
-| updated_at | TIMESTAMP | Last update timestamp |
+| sent_at | TIMESTAMP | Send timestamp |
+| last_edited_at | TIMESTAMP | Last edit timestamp (nullable) |
 
 - User messages contain sanitized HTML (allowed tags: `p`, `br`, `strong`, `em`, `u`, `s`, `a`, `ul`, `ol`, `li`, `blockquote`, `code`, `pre`, `span`)
 - System messages (joins, leaves, creation) have `message_type = "system"` and `sender_id = NULL`
 - System messages store JSON content for i18n rendering on the frontend
-- Edited messages retain `is_edited = true`; deleted messages retain `is_deleted = true`
+- Edited messages have `last_edited_at` set. Deleted messages are removed from the `messages` table.
 
 ### Attachment
 

@@ -55,8 +55,8 @@ POST /api/v1/upload/presign?user_id={uuid}
 ```json
 {
   "data": {
-    "upload_url": "https://s3.example.com/mtchat-attachments/dialogs/.../pending/...?X-Amz-...",
-    "s3_key": "dialogs/019481a2-.../pending/019481d5-....pdf",
+    "upload_url": "https://s3.example.com/mtchat-attachments/dialogs/.../...?X-Amz-...",
+    "s3_key": "dialogs/019481a2-.../019481d5-....pdf",
     "expires_in": 300
   }
 }
@@ -87,7 +87,7 @@ Include the `s3_key` when sending a message:
   "content": "Here is the report",
   "attachments": [
     {
-      "s3_key": "dialogs/019481a2-.../pending/019481d5-....pdf",
+      "s3_key": "dialogs/019481a2-.../019481d5-....pdf",
       "filename": "report.pdf",
       "content_type": "application/pdf",
       "size": 245760
@@ -112,7 +112,8 @@ GET /api/v1/attachments/{id}/url?user_id={uuid}
 {
   "data": {
     "url": "https://s3.example.com/mtchat-attachments/dialogs/...?X-Amz-...",
-    "thumbnail_url": null
+    "thumbnail_url": null,
+    "expires_in": 3600
   }
 }
 ```
@@ -181,6 +182,8 @@ Other file types display a download link with file icon, name, and size.
 
 | HTTP Status | Code | Description |
 |-------------|------|-------------|
-| 400 | `BAD_REQUEST` | File type not allowed or file too large |
-| 404 | `NOT_FOUND` | Dialog or attachment not found |
+| 400 | `FILE_TOO_LARGE` | File size is outside allowed limits |
+| 400 | `UNSUPPORTED_FILE_TYPE` | File MIME type is not allowed |
+| 404 | `DIALOG_NOT_FOUND` | Dialog does not exist |
+| 404 | `ATTACHMENT_NOT_FOUND` | Attachment does not exist |
 | 500 | `INTERNAL_ERROR` | S3 not configured or S3 error |

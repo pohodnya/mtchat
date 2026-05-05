@@ -6,7 +6,7 @@ Thank you for your interest in contributing to MTChat! This guide will help you 
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) 1.75+
+- [Rust](https://rustup.rs/) 1.78+
 - [Node.js](https://nodejs.org/) 20+
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose
 - Git

@@ -29,6 +29,7 @@ X-Webhook-Event: message.new
 | `Content-Type` | Всегда `application/json` |
 | `X-Webhook-Signature` | HMAC-SHA256 подпись тела запроса |
 | `X-Webhook-Event` | Тип события |
+| `X-Webhook-Id` | Уникальный ID события (тот же, что и `id` в обёртке) |
 
 ### Верификация подписи
 
@@ -52,6 +53,26 @@ function verifyWebhook(body, signature, secret) {
 !!! warning
     Всегда используйте constant-time сравнение для предотвращения timing-атак.
 
+## Обёртка события
+
+Все события имеют общий формат:
+
+```json
+{
+  "id": "019481e5-...",
+  "type": "message_new",
+  "timestamp": "2026-02-17T12:10:00Z",
+  "payload": { }
+}
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `id` | UUID | Уникальный ID события |
+| `type` | string | Тип события в snake_case |
+| `timestamp` | datetime | Время события |
+| `payload` | object | Данные конкретного события |
+
 ## Типы событий
 
 ### message.new
@@ -71,6 +92,7 @@ function verifyWebhook(body, signature, secret) {
       "id": "019481b3-...",
       "sender_id": "11111111-...",
       "content": "<p>Привет!</p>",
+      "reply_to": null,
       "created_at": "2026-02-17T12:10:00Z",
       "message_type": "user"
     }
@@ -78,13 +100,48 @@ function verifyWebhook(body, signature, secret) {
 }
 ```
 
-### participant.joined / participant.left
+### participant.joined
 
-Пользователь присоединился или покинул диалог.
+Пользователь присоединился к диалогу.
+
+```json
+{
+  "id": "019481e6-...",
+  "type": "participant_joined",
+  "timestamp": "2026-02-17T12:05:00Z",
+  "payload": {
+    "dialog_id": "019481a2-...",
+    "object_id": "550e8400-...",
+    "object_type": "order",
+    "user_id": "33333333-...",
+    "joined_as": "joined",
+    "joined_at": "2026-02-17T12:05:00Z"
+  }
+}
+```
+
+### participant.left
+
+Пользователь покинул диалог.
+
+```json
+{
+  "id": "019481e7-...",
+  "type": "participant_left",
+  "timestamp": "2026-02-17T12:20:00Z",
+  "payload": {
+    "dialog_id": "019481a2-...",
+    "object_id": "550e8400-...",
+    "object_type": "order",
+    "user_id": "33333333-...",
+    "left_at": "2026-02-17T12:20:00Z"
+  }
+}
+```
 
 ### notification.pending
 
-Отправляется, когда сообщение не было прочитано получателем после настраиваемой задержки (по умолчанию 30 секунд). Ваше приложение должно отправить push-уведомление или email.
+Отправляется, когда сообщение не было прочитано получателем после короткой серверной задержки. Ваше приложение должно отправить push-уведомление или email.
 
 ```json
 {
@@ -100,6 +157,7 @@ function verifyWebhook(body, signature, secret) {
       "id": "019481b3-...",
       "sender_id": "11111111-...",
       "content": "<p>Привет!</p>",
+      "reply_to": null,
       "created_at": "2026-02-17T12:10:00Z",
       "message_type": "user"
     }
@@ -109,9 +167,9 @@ function verifyWebhook(body, signature, secret) {
 
 **Умные уведомления:**
 
-- Уведомления задерживаются (по умолчанию 30 сек, настраивается через `NOTIFICATION_DELAY_SECS`)
+- Задачи уведомлений коротко ждут перед проверкой, прочитал ли получатель сообщение
 - Если сообщение прочитано до истечения задержки, уведомление не отправляется
-- Несколько сообщений одному получателю дедуплицируются в одно уведомление
+- Каждая непрочитанная пара сообщение/получатель может породить webhook `notification.pending`
 - Уведомления пропускаются, если пользователь отключил уведомления для этого чата
 
 ## Политика повторов

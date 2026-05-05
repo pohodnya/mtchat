@@ -39,7 +39,6 @@ npm install vue@^3.4
 ```vue
 <script setup lang="ts">
 import { MTChat } from '@mtchat/vue'
-import '@mtchat/vue/style.css'
 import type { MTChatConfig } from '@mtchat/vue'
 
 const config: MTChatConfig = {
@@ -58,19 +57,21 @@ const config: MTChatConfig = {
 </script>
 
 <template>
-  <MTChat :config="config" />
+  <div style="height: 600px;">
+    <MTChat :config="config" />
+  </div>
 </template>
 ```
 
 !!! note "Импорт стилей"
-    Импорт `@mtchat/vue/style.css` обязателен. Без него UI не отобразится корректно.
+    `@mtchat/vue` инжектит стили из package bundle. Отдельный CSS-импорт не требуется.
 
 ## Интеграция с PrimeVue
 
 Если ваше приложение использует [PrimeVue](https://primevue.org/), установите пакет-компаньон:
 
 ```bash
-npm install @mtchat/vue @mtchat/vue-primevue
+npm install @mtchat/vue @mtchat/vue-primevue primevue
 ```
 
 Подробнее: [Интеграция PrimeVue](primevue.md).

@@ -110,7 +110,9 @@ provideRegistry(primevueRegistry)
 </script>
 
 <template>
-  <MTChat :config="config" />
+  <div style="height: 600px;">
+    <MTChat :config="config" />
+  </div>
 </template>
 ```
 

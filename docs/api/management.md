@@ -1,6 +1,6 @@
 # Management API
 
-The Management API is used by your backend to create and manage dialogs. All requests require an admin token in the `Authorization` header.
+The Management API is used by your backend to create and manage dialogs. Protected deployments require an admin token in the `Authorization` header.
 
 ## Authentication
 
@@ -8,7 +8,7 @@ The Management API is used by your backend to create and manage dialogs. All req
 Authorization: Bearer <ADMIN_API_TOKEN>
 ```
 
-The admin token is configured via the `ADMIN_API_TOKEN` environment variable on the MTChat server.
+The admin token is configured via the `ADMIN_API_TOKEN` environment variable on the MTChat server. If it is omitted, the Management API runs unprotected for local development only.
 
 ---
 
@@ -109,7 +109,7 @@ GET /api/v1/management/dialogs/{id}
         "user_id": "11111111-...",
         "display_name": "Alice",
         "company": "Acme Inc",
-        "joined_as": "creator",
+        "joined_as": "participant",
         "joined_at": "2026-02-17T12:00:00Z"
       }
     ],
@@ -136,10 +136,8 @@ DELETE /api/v1/management/dialogs/{id}
 
 ### Response
 
-```json
-{
-  "data": null
-}
+```
+204 No Content
 ```
 
 ---
@@ -172,20 +170,12 @@ POST /api/v1/management/dialogs/{id}/participants
 | `email` | string | No | Contact email |
 | `phone` | string | No | Contact phone |
 
-The participant's `joined_as` is set to `"member"` when added via the Management API.
+The participant's `joined_as` is set to `"participant"` when added via the Management API.
 
 ### Response
 
-```json
-{
-  "data": {
-    "user_id": "33333333-...",
-    "display_name": "Bob",
-    "company": "Partner Inc",
-    "joined_as": "member",
-    "joined_at": "2026-02-17T12:05:00Z"
-  }
-}
+```
+201 Created
 ```
 
 ---
@@ -200,10 +190,8 @@ DELETE /api/v1/management/dialogs/{id}/participants/{user_id}
 
 ### Response
 
-```json
-{
-  "data": null
-}
+```
+204 No Content
 ```
 
 ---
@@ -236,7 +224,16 @@ This **replaces** all existing scopes. To remove all scopes, send an empty array
 
 ```json
 {
-  "data": null
+  "data": [
+    {
+      "id": "019481f0-...",
+      "dialog_id": "019481a2-...",
+      "scope_level0": ["22222222-2222-2222-2222-222222222222"],
+      "scope_level1": ["logistics"],
+      "scope_level2": ["admin"],
+      "created_at": "2026-02-17T12:10:00Z"
+    }
+  ]
 }
 ```
 

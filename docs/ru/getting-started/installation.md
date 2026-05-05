@@ -9,7 +9,7 @@
 ```bash
 git clone https://github.com/pohodnya/mtchat.git
 cd mtchat
-docker-compose up -d
+docker compose up -d
 ```
 
 Это запускает PostgreSQL, Redis, MinIO, API-сервер и демо-приложение.
@@ -54,14 +54,14 @@ docker run -d \
 ```bash
 helm install mtchat ./deploy/helm/mtchat \
   --set postgresql.auth.password=your-password \
-  --set config.adminApiToken=your-admin-token
+  --set secret.adminApiToken=your-admin-token
 ```
 
 Все параметры описаны в `deploy/helm/mtchat/values.yaml`.
 
 ### Сборка из исходников
 
-Требования: Rust 1.75+, PostgreSQL 17
+Требования: Rust 1.78+, PostgreSQL 17
 
 ```bash
 cd mtchat-rust

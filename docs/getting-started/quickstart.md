@@ -4,7 +4,7 @@ Get MTChat running in under 5 minutes.
 
 ## Prerequisites
 
-- Docker and Docker Compose
+- Docker and the Docker Compose plugin
 - Node.js 18+ (for the Vue SDK)
 
 ## 1. Start the Backend
@@ -12,7 +12,13 @@ Get MTChat running in under 5 minutes.
 ```bash
 git clone https://github.com/pohodnya/mtchat.git
 cd mtchat
-docker-compose up -d
+docker compose up -d
+```
+
+The root compose file uses `demo-admin-token` by default for local development:
+
+```bash
+export ADMIN_TOKEN=demo-admin-token
 ```
 
 Verify the API is running:
@@ -28,7 +34,7 @@ Use the Management API from your backend to create a dialog:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/management/dialogs \
-  -H "Authorization: Bearer demo-admin-token" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "object_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -38,8 +44,7 @@ curl -X POST http://localhost:8080/api/v1/management/dialogs \
       {
         "user_id": "11111111-1111-1111-1111-111111111111",
         "display_name": "Alice",
-        "company": "Acme Inc",
-        "joined_as": "creator"
+        "company": "Acme Inc"
       }
     ],
     "access_scopes": [
@@ -64,7 +69,9 @@ npm install @mtchat/vue
 
 ```vue
 <template>
-  <MTChat :config="chatConfig" mode="full" theme="light" />
+  <div style="height: 600px;">
+    <MTChat :config="chatConfig" mode="full" theme="light" />
+  </div>
 </template>
 
 <script setup lang="ts">

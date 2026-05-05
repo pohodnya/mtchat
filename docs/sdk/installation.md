@@ -59,7 +59,9 @@ const config: MTChatConfig = {
 </script>
 
 <template>
-  <MTChat :config="config" />
+  <div style="height: 600px;">
+    <MTChat :config="config" />
+  </div>
 </template>
 ```
 
@@ -71,14 +73,10 @@ const config: MTChatConfig = {
 If your application uses [PrimeVue](https://primevue.org/), install the companion package for seamless UI integration:
 
 ```bash
-npm install @mtchat/vue @mtchat/vue-primevue
+npm install @mtchat/vue @mtchat/vue-primevue primevue
 ```
 
-This requires PrimeVue 4.x as a peer dependency:
-
-```bash
-npm install primevue@^4.0
-```
+This requires PrimeVue 4.x as a peer dependency.
 
 See the [PrimeVue Integration](primevue.md) page for detailed setup instructions.
 

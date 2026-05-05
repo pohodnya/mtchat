@@ -133,10 +133,10 @@ const config: MTChatConfig = {
 |------------|--------|-------------|
 | `connected` | -- | WebSocket connection opened |
 | `disconnected` | -- | WebSocket connection closed |
-| `message.new` | `dialog_id`, `message` | New message received |
+| `message.new` | `id`, `dialog_id`, `sender_id`, `content`, `sent_at`, `message_type` | New message received |
 | `message.read` | `dialog_id`, `user_id`, `last_read_message_id` | User read messages |
-| `message.edited` | `dialog_id`, `message` | Message was edited |
-| `message.deleted` | `dialog_id`, `message` | Message was deleted |
+| `message.edited` | `id`, `dialog_id`, `content`, `last_edited_at` | Message was edited |
+| `message.deleted` | `id`, `dialog_id` | Message was deleted |
 | `participant.joined` | `dialog_id`, `user_id` | User joined a dialog |
 | `participant.left` | `dialog_id`, `user_id` | User left a dialog |
 | `dialog.archived` | `dialog_id` | Dialog was archived |

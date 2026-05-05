@@ -9,7 +9,7 @@ The easiest way to run MTChat is with Docker Compose, which starts all required 
 ```bash
 git clone https://github.com/pohodnya/mtchat.git
 cd mtchat
-docker-compose up -d
+docker compose up -d
 ```
 
 This starts PostgreSQL, Redis, MinIO, the API server, and a demo application.
@@ -54,14 +54,14 @@ A Helm chart is available for Kubernetes deployments:
 ```bash
 helm install mtchat ./deploy/helm/mtchat \
   --set postgresql.auth.password=your-password \
-  --set config.adminApiToken=your-admin-token
+  --set secret.adminApiToken=your-admin-token
 ```
 
 See `deploy/helm/mtchat/values.yaml` for all configuration options.
 
 ### Building from Source
 
-Requirements: Rust 1.75+, PostgreSQL 17
+Requirements: Rust 1.78+, PostgreSQL 17
 
 ```bash
 cd mtchat-rust

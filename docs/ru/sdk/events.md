@@ -54,36 +54,42 @@ import { useChat } from '@mtchat/vue'
 
 const {
   // Реактивное состояние
-  dialogs,              // Ref<DialogListItem[]>
-  messages,             // Ref<MessageWithAttachments[]>
+  participatingDialogs, // Ref<DialogListItem[]>
+  availableDialogs,     // Ref<DialogListItem[]>
+  archivedDialogs,      // Ref<DialogListItem[]>
+  messages,             // Ref<Message[]>
   currentDialog,        // Ref<DialogListItem | null>
   participants,         // Ref<DialogParticipant[]>
   isConnected,          // Ref<boolean>
   isLoading,            // Ref<boolean>
+  error,                // Ref<Error | null>
+  firstUnreadMessageId, // Ref<string | null>
   onlineUsers,          // Ref<Set<string>>
   hasMoreMessages,      // Ref<boolean>
   hasMoreAfter,         // Ref<boolean>
 
   // Действия
-  sendMessage,          // (content, replyTo?, attachments?) => Promise
+  sendMessage,          // (content, attachments?) => Promise
+  editMessage,          // (messageId, content) => Promise
+  deleteMessage,        // (messageId) => Promise
   joinDialog,           // (dialogId, profile) => Promise
   leaveDialog,          // (dialogId) => Promise
   selectDialog,         // (dialogId) => Promise
-  markAsRead,           // (dialogId, messageId) => Promise
+  markAsRead,           // (messageId?) => Promise
   archiveDialog,        // (dialogId) => Promise
+  unarchiveDialog,      // (dialogId) => Promise
   pinDialog,            // (dialogId) => Promise
-  editMessage,          // (messageId, content) => Promise
-  deleteMessage,        // (messageId) => Promise
+  unpinDialog,          // (dialogId) => Promise
+  toggleNotifications,  // (dialogId) => Promise
   loadOlderMessages,    // () => Promise
   loadNewerMessages,    // () => Promise
+  resetToLatest,        // () => Promise
   jumpToMessage,        // (messageId) => Promise
+  setSearchQuery,       // (query) => void
 
   // Утилиты
   isUserOnline,         // (userId) => boolean
   getReplyMessage,      // (messageId) => Message | null
-
-  // Очистка
-  destroy,              // () => void
 } = useChat({ config, objectId?, objectType? })
 ```
 
