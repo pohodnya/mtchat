@@ -110,7 +110,7 @@ jobs:
   # Vue SDK (@mtchat/vue)
   # ===========================================================================
   vue-sdk:
-    name: Vue SDK (typecheck + build)
+    name: Vue SDK (typecheck + test + build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -124,7 +124,9 @@ jobs:
           cache-dependency-path: mtchat-vue/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test
       - run: npm run build
+      - run: npm pack --dry-run
       - uses: actions/upload-artifact@v4
         with:
           name: mtchat-vue-dist
@@ -135,7 +137,7 @@ jobs:
   # Vue PrimeVue Wrapper (@mtchat/vue-primevue)
   # ===========================================================================
   vue-primevue:
-    name: Vue PrimeVue (typecheck + build)
+    name: Vue PrimeVue (typecheck + build + pack)
     needs: vue-sdk
     runs-on: ubuntu-latest
     steps:
@@ -157,6 +159,8 @@ jobs:
       - run: npm run typecheck
         working-directory: mtchat-vue-primevue
       - run: npm run build
+        working-directory: mtchat-vue-primevue
+      - run: npm pack --dry-run
         working-directory: mtchat-vue-primevue
 
   # ===========================================================================

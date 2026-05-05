@@ -92,6 +92,7 @@ test: add integration tests for scope matching
 
 **TypeScript/Vue:**
 - Run `npm run typecheck` to verify types
+- Run `npm test` for `@mtchat/vue` before opening a PR
 - Follow existing code patterns and naming conventions
 
 ### Testing
@@ -112,8 +113,56 @@ cargo test --tests
 
 ```bash
 cd mtchat-vue
+npm test
 npm run typecheck
 npm run build
+npm pack --dry-run
+```
+
+**PrimeVue wrapper:**
+
+```bash
+cd mtchat-vue
+npm ci
+npm run build
+
+cd ../mtchat-vue-primevue
+npm ci
+npm run typecheck
+npm run build
+npm pack --dry-run
+```
+
+### Pre-PR / Pre-Release Verification
+
+Run this minimum set before opening a PR or cutting a release:
+
+```bash
+cargo fmt --manifest-path mtchat-rust/Cargo.toml --check
+cargo clippy --manifest-path mtchat-rust/Cargo.toml -- -D warnings
+cargo test --manifest-path mtchat-rust/Cargo.toml --lib
+cargo test --manifest-path mtchat-rust/Cargo.toml --tests
+```
+
+```bash
+cd mtchat-vue
+npm ci
+npm run typecheck
+npm test
+npm run build
+npm pack --dry-run
+```
+
+```bash
+cd mtchat-vue
+npm ci
+npm run build
+
+cd ../mtchat-vue-primevue
+npm ci
+npm run typecheck
+npm run build
+npm pack --dry-run
 ```
 
 ## Pull Requests
@@ -127,6 +176,7 @@ npm run build
 
 - [ ] Code follows existing style conventions
 - [ ] `cargo fmt` and `cargo clippy` pass
+- [ ] `npm test` and package build checks pass for affected frontend packages
 - [ ] New functionality has tests
 - [ ] Documentation updated if applicable
 - [ ] Commit messages follow Conventional Commits format
