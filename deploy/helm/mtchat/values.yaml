@@ -172,18 +172,17 @@ minio:
       accessKeyId: access-key-id
       secretAccessKey: secret-access-key
 
-# -- Application secrets. All keys are injected into a Secret with the
-# same capitalised names (DATABASE_URL, JWT_SECRET, etc.).
-# Pass the whole block via:
-#   helm upgrade --set-json secret='{"databaseUrl":"...","jwtSecret":"..."}' ...
+# -- Application secrets. All keys must match the final env-var name
+# (e.g. DATABASE_URL, JWT_SECRET). Pass the whole block via:
+#   helm upgrade --set-json secret='{"DATABASE_URL":"...","JWT_SECRET":"..."}' ...
 secret:
-  databaseUrl: ""
-  redisUrl: ""
-  jwtSecret: ""
-  adminApiToken: ""
-  webhookSecret: ""
-  s3AccessKeyId: ""
-  s3SecretAccessKey: ""
+  DATABASE_URL: ""
+  REDIS_URL: ""
+  JWT_SECRET: ""
+  ADMIN_API_TOKEN: ""
+  WEBHOOK_SECRET: ""
+  S3_ACCESS_KEY_ID: ""
+  S3_SECRET_ACCESS_KEY: ""
 
 # -- Reference an existing Secret instead of creating one.
 # When set, the chart reads all secret values from that Secret
