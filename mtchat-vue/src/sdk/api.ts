@@ -191,6 +191,18 @@ export class MTChatApi {
   }
 
   /**
+   * Get all dialogs for a business object the user can access
+   * (participant or joinable via scope). Returns an empty array if none.
+   */
+  async getDialogsByObject(objectType: string, objectId: string): Promise<DialogListItem[]> {
+    const response = await this.request<ApiResponse<DialogListItem[]>>(
+      'GET',
+      `/api/v1/dialogs/by-object/${objectType}/${objectId}/list`
+    )
+    return response.data
+  }
+
+  /**
    * Join a dialog (become participant)
    * @param dialogId - Dialog to join
    * @param profile - User profile for this dialog

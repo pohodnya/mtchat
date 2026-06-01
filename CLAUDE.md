@@ -155,7 +155,8 @@ GET  /api/v1/dialogs?type=participating   # My chats (includes unread_count)
 GET  /api/v1/dialogs?type=participating&archived=true  # Archived chats
 GET  /api/v1/dialogs?type=available       # Can join
 # Pagination: &limit=50&offset=0 (limit max 100, default 50)
-GET  /api/v1/dialogs/by-object/{type}/{id}  # Inline mode
+GET  /api/v1/dialogs/by-object/{type}/{id}  # Inline mode (most recent dialog)
+GET  /api/v1/dialogs/by-object/{type}/{id}/list  # All accessible dialogs for object
 POST /api/v1/dialogs/{id}/join            # Join chat
 POST /api/v1/dialogs/{id}/leave           # Leave chat
 POST /api/v1/dialogs/{id}/read            # Mark messages as read
@@ -469,6 +470,20 @@ docker compose up -d
 | String identifiers (user_id, object_id) | ✅ |
 
 ## Changelog
+
+### 2026-05-29 - List Dialogs by Object
+- **New endpoint** `GET /api/v1/dialogs/by-object/{object_type}/{object_id}/list`
+- Returns **all** dialogs for an object the user can access, not just the most recent one
+  (the existing `by-object/{type}/{id}` endpoint is unchanged and still returns the latest)
+- Access rule: a dialog is included if the user is a direct participant **OR** can join via
+  scope matching (same OR-across-levels logic as `available` dialogs)
+- Each item carries the same per-user fields as the dialog list: `i_am_participant`,
+  `can_join`, `participants_count`, `last_message_at`, and (for participant dialogs)
+  `unread_count`, `is_archived`, `is_pinned`, `notifications_enabled`
+- Without an `X-Scope-Config` header only participant dialogs are returned
+- Returns an empty array (not an error) when no accessible dialogs exist
+- New repository method `find_all_by_object_for_user`; batch queries avoid N+1
+- New handler `list_dialogs_by_object` in `mtchat-rust/src/api/dialogs.rs`
 
 ### 2026-03-16 (v0.4.1) - Scope Level 0 (tenant_uid to scope_level0)
 - **Breaking change**: `tenant_uid` replaced with `scope_level0[]` array

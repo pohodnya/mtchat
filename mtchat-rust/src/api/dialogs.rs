@@ -163,6 +163,64 @@ pub async fn list_dialogs(
     Ok(Json(ApiResponse { data: responses }))
 }
 
+pub async fn list_dialogs_by_object(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+    OptionalScopeConfig(scope_config): OptionalScopeConfig,
+    Path((object_type, object_id)): Path<(String, String)>,
+) -> Result<Json<ApiResponse<Vec<DialogResponse>>>, ApiError> {
+    let scope = scope_config.as_ref().map(|s| {
+        (
+            s.scope_level0.as_slice(),
+            s.scope_level1.as_slice(),
+            s.scope_level2.as_slice(),
+        )
+    });
+
+    let dialogs = state
+        .dialogs
+        .find_all_by_object_for_user(&object_type, &object_id, &user_id, scope)
+        .await?;
+
+    // Batch fetch supplementary data in parallel to avoid N+1 queries
+    let dialog_ids: Vec<Uuid> = dialogs.iter().map(|d| d.id).collect();
+    let participants_count_map = state.dialogs.count_participants_batch(&dialog_ids).await?;
+    let last_message_map = state.dialogs.get_last_message_at_batch(&dialog_ids).await?;
+    let participant_map = state
+        .participants
+        .find_by_dialogs_and_user(&dialog_ids, &user_id)
+        .await?;
+
+    let mut responses = Vec::new();
+    for dialog in dialogs {
+        let participants_count = participants_count_map.get(&dialog.id).copied().unwrap_or(0);
+        let last_message_at = last_message_map.get(&dialog.id).copied();
+        let participant = participant_map.get(&dialog.id);
+        let i_am_participant = participant.is_some();
+
+        let (unread_count, is_archived, is_pinned, notifications_enabled) = (
+            participant.map(|p| p.unread_count as i64),
+            participant.map(|p| p.is_archived),
+            participant.map(|p| p.is_pinned),
+            participant.map(|p| p.notifications_enabled),
+        );
+
+        responses.push(DialogResponse {
+            dialog,
+            participants_count,
+            i_am_participant: Some(i_am_participant),
+            can_join: Some(!i_am_participant),
+            unread_count,
+            is_archived,
+            is_pinned,
+            notifications_enabled,
+            last_message_at,
+        });
+    }
+
+    Ok(Json(ApiResponse { data: responses }))
+}
+
 pub async fn get_dialog_by_object(
     State(state): State<AppState>,
     UserId(user_id): UserId,

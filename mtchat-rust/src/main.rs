@@ -189,6 +189,10 @@ async fn main() {
             "/dialogs/by-object/{object_type}/{object_id}",
             get(api::dialogs::get_dialog_by_object),
         )
+        .route(
+            "/dialogs/by-object/{object_type}/{object_id}/list",
+            get(api::dialogs::list_dialogs_by_object),
+        )
         .route("/dialogs/{id}/join", post(api::dialogs::join_dialog))
         .route("/dialogs/{id}/leave", post(api::dialogs::leave_dialog))
         .route("/dialogs/{id}/archive", post(api::dialogs::archive_dialog))

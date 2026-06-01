@@ -150,6 +150,60 @@ impl DialogRepository {
         .await
     }
 
+    /// Find all dialogs for an object that the user can access
+    ///
+    /// Returns every dialog for `(object_type, object_id)` where the user is either:
+    /// - a direct participant, OR
+    /// - able to join via scope matching (same OR-across-levels logic as
+    ///   `find_available`; empty array in DB = wildcard).
+    ///
+    /// When `scope` is `None`, the scope branch is not evaluated and only dialogs
+    /// where the user is a participant are returned — consistent with
+    /// `get_dialog_by_object`, where `can_join` is `false` without a scope header.
+    ///
+    /// Ordered by creation time (newest first). Returns an empty vec when no
+    /// accessible dialogs exist.
+    pub async fn find_all_by_object_for_user(
+        &self,
+        object_type: &str,
+        object_id: &str,
+        user_id: &UserId,
+        scope: Option<(&[String], &[String], &[String])>,
+    ) -> Result<Vec<Dialog>, sqlx::Error> {
+        let (has_scope, scope_level0, scope_level1, scope_level2) = match scope {
+            Some((s0, s1, s2)) => (true, s0, s1, s2),
+            None => (false, &[][..], &[][..], &[][..]),
+        };
+
+        sqlx::query_as::<_, Dialog>(
+            r#"SELECT d.* FROM dialogs d
+               WHERE d.object_type = $1 AND d.object_id = $2
+                 AND (
+                   EXISTS (
+                     SELECT 1 FROM dialog_participants dp
+                     WHERE dp.dialog_id = d.id AND dp.user_id = $3
+                   )
+                   OR ($4 AND EXISTS (
+                     SELECT 1 FROM dialog_access_scopes s
+                     WHERE s.dialog_id = d.id
+                       AND (s.scope_level0 = '{}' OR s.scope_level0 && $5)
+                       AND (s.scope_level1 = '{}' OR s.scope_level1 && $6)
+                       AND (s.scope_level2 = '{}' OR s.scope_level2 && $7)
+                   ))
+                 )
+               ORDER BY d.created_at DESC"#,
+        )
+        .bind(object_type)
+        .bind(object_id)
+        .bind(user_id)
+        .bind(has_scope)
+        .bind(scope_level0)
+        .bind(scope_level1)
+        .bind(scope_level2)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     /// Delete dialog by ID
     pub async fn delete(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dialogs WHERE id = $1")
