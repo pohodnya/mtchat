@@ -392,6 +392,84 @@ async fn test_get_dialog_by_object_forbidden() {
     delete_test_dialog(&client, &base_url, &auth_header, &dialog_id).await;
 }
 
+#[tokio::test]
+#[ignore] // Requires running server
+async fn test_list_dialogs_by_object() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let user_id = Uuid::new_v4();
+    let tenant_uid = Uuid::new_v4();
+    let object_id = Uuid::new_v4();
+
+    // Two dialogs for the same object: one where the user is a participant,
+    // one the user can only join via scope.
+    let participating_id = create_test_dialog(
+        &client,
+        &base_url,
+        &auth_header,
+        object_id,
+        "order",
+        &[user_id],
+        tenant_uid,
+        &["logistics"],
+        &["driver"],
+    )
+    .await;
+    let available_id = create_test_dialog(
+        &client,
+        &base_url,
+        &auth_header,
+        object_id,
+        "order",
+        &[],
+        tenant_uid,
+        &["logistics"],
+        &["driver"],
+    )
+    .await;
+
+    // List all dialogs for the object with matching scope
+    let scope_header = encode_scope_config(tenant_uid, &["logistics"], &["driver"]);
+    let resp = client
+        .get(format!(
+            "{}/api/v1/dialogs/by-object/order/{}/list?user_id={}",
+            base_url, object_id, user_id
+        ))
+        .header("X-Scope-Config", &scope_header)
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp.json().await.unwrap();
+    let dialogs = body["data"].as_array().unwrap();
+
+    // Both dialogs are returned
+    assert!(dialogs.iter().any(|d| d["id"] == participating_id));
+    assert!(dialogs.iter().any(|d| d["id"] == available_id));
+
+    // Participant dialog: i_am_participant=true, can_join=false
+    let participating = dialogs
+        .iter()
+        .find(|d| d["id"] == participating_id)
+        .unwrap();
+    assert_eq!(participating["i_am_participant"], true);
+    assert_eq!(participating["can_join"], false);
+
+    // Available dialog: i_am_participant=false, can_join=true
+    let available = dialogs.iter().find(|d| d["id"] == available_id).unwrap();
+    assert_eq!(available["i_am_participant"], false);
+    assert_eq!(available["can_join"], true);
+
+    // Cleanup
+    delete_test_dialog(&client, &base_url, &auth_header, &participating_id).await;
+    delete_test_dialog(&client, &base_url, &auth_header, &available_id).await;
+}
+
 // ============ Join/Leave Tests ============
 
 #[tokio::test]

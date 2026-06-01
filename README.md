@@ -316,7 +316,8 @@ Authenticated with a JWT bearer token when `JWT_AUTH_ENABLED=true`, or with the 
 | GET | `/api/v1/dialogs?type=participating` | List user's chats |
 | GET | `/api/v1/dialogs?type=available` | List joinable chats |
 | GET | `/api/v1/dialogs/{id}` | Get dialog details |
-| GET | `/api/v1/dialogs/by-object/{type}/{id}` | Get dialog by object |
+| GET | `/api/v1/dialogs/by-object/{type}/{id}` | Get most recent dialog by object |
+| GET | `/api/v1/dialogs/by-object/{type}/{id}/list` | List all accessible dialogs for object |
 | POST | `/api/v1/dialogs/{id}/join` | Join dialog |
 | POST | `/api/v1/dialogs/{id}/leave` | Leave dialog |
 | POST | `/api/v1/dialogs/{id}/archive` | Archive dialog |
