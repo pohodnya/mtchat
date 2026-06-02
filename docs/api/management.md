@@ -85,6 +85,75 @@ POST /api/v1/management/dialogs
 
 ---
 
+## Find Dialog
+
+Finds an existing dialog by object and access scopes. Used for idempotent
+**find-or-create**: call this before `Create Dialog` to reuse an existing
+dialog instead of creating a duplicate (e.g. one chat per object + tenant pair).
+
+```
+POST /api/v1/management/dialogs/search
+```
+
+### Request Body
+
+```json
+{
+  "object_id": "550e8400-e29b-41d4-a716-446655440000",
+  "object_type": "order",
+  "access_scopes": [
+    {
+      "scope_level0": ["22222222-...", "33333333-..."],
+      "scope_level2": ["chat:access"]
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `object_id` | UUID | Yes | ID of the business object |
+| `object_type` | string | Yes | Type of the business object |
+| `access_scopes` | array | No | Scopes to match (same shape as in Create Dialog) |
+
+### Matching
+
+A dialog matches when it belongs to the given `object_id` / `object_type` **and**
+its access scopes are **exactly equal** to the requested ones, compared as sets:
+
+- order of scopes in the array is ignored;
+- order of values within each level (`scope_level0` / `scope_level1` / `scope_level2`) is ignored;
+- a partial scope (e.g. omitting `scope_level2`) does **not** match a dialog that has it.
+
+The most recently created matching dialog is returned. If several scopes are
+sent, all of them must be present on the dialog (and vice versa).
+
+### Response
+
+Found:
+
+```json
+{
+  "data": {
+    "id": "019481a2-...",
+    "object_id": "550e8400-...",
+    "object_type": "order",
+    "title": "Order #1234 Discussion",
+    "object_url": "https://app.example.com/orders/1234",
+    "created_by": "11111111-...",
+    "created_at": "2026-02-17T12:00:00Z"
+  }
+}
+```
+
+Not found:
+
+```json
+{ "data": null }
+```
+
+---
+
 ## Get Dialog
 
 Retrieves a dialog with its participants and access scopes.

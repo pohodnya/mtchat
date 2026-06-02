@@ -45,6 +45,14 @@ pub struct AccessScopeInput {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct FindDialogRequest {
+    pub object_id: String,
+    pub object_type: String,
+    #[serde(default)]
+    pub access_scopes: Vec<AccessScopeInput>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct AddParticipantRequest {
     pub user_id: String,
     pub display_name: String,
@@ -195,6 +203,83 @@ pub async fn management_create_dialog(
     }
 
     Ok(Json(ApiResponse { data: dialog }))
+}
+
+/// Find an existing dialog by object + access scopes (for idempotent find-or-create).
+///
+/// Matches the dialog whose access scopes are exactly equal to the requested
+/// ones as sets — order-independent both across scopes and within each level
+/// (level0/level1/level2). Lets host systems ensure a single dialog per
+/// (object, access-scope set), e.g. one chat per (tender stage, tenant pair).
+/// Returns `{ "data": null }` when no matching dialog exists.
+pub async fn management_find_dialog(
+    State(state): State<AppState>,
+    Json(req): Json<FindDialogRequest>,
+) -> Result<Json<ApiResponse<Option<Dialog>>>, ApiError> {
+    let candidates = state
+        .dialogs
+        .find_all_by_object(&req.object_type, &req.object_id)
+        .await?;
+
+    let wanted: Vec<ScopeKey> = req.access_scopes.iter().map(ScopeKey::from_input).collect();
+
+    for dialog in candidates {
+        let scopes = state.scopes.find_by_dialog(dialog.id).await?;
+        let actual: Vec<ScopeKey> = scopes.iter().map(ScopeKey::from_scope).collect();
+
+        if scope_sets_equal(&wanted, &actual) {
+            return Ok(Json(ApiResponse { data: Some(dialog) }));
+        }
+    }
+
+    Ok(Json(ApiResponse { data: None }))
+}
+
+/// Normalized, order-independent representation of one access scope.
+#[derive(PartialEq, Eq)]
+struct ScopeKey {
+    level0: Vec<String>,
+    level1: Vec<String>,
+    level2: Vec<String>,
+}
+
+impl ScopeKey {
+    fn from_input(input: &AccessScopeInput) -> Self {
+        Self::normalized(
+            &input.scope_level0,
+            &input.scope_level1,
+            &input.scope_level2,
+        )
+    }
+
+    fn from_scope(scope: &DialogAccessScope) -> Self {
+        Self::normalized(
+            &scope.scope_level0,
+            &scope.scope_level1,
+            &scope.scope_level2,
+        )
+    }
+
+    fn normalized(level0: &[String], level1: &[String], level2: &[String]) -> Self {
+        let sorted = |values: &[String]| {
+            let mut v = values.to_vec();
+            v.sort();
+            v.dedup();
+            v
+        };
+        Self {
+            level0: sorted(level0),
+            level1: sorted(level1),
+            level2: sorted(level2),
+        }
+    }
+}
+
+/// Compare two scope collections as sets (order-independent).
+fn scope_sets_equal(wanted: &[ScopeKey], actual: &[ScopeKey]) -> bool {
+    wanted.len() == actual.len()
+        && wanted.iter().all(|w| actual.contains(w))
+        && actual.iter().all(|a| wanted.contains(a))
 }
 
 pub async fn management_add_participant(

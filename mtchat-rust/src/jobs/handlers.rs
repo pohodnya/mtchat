@@ -116,12 +116,26 @@ pub async fn handle_notification(job: NotificationJob, ctx: Data<JobContext>) ->
         }
     };
 
+    // Resolve sender company (for notification text) from the sender's participant profile
+    let sender_company = match &message.sender_id {
+        Some(sender_id) => match ctx.participants.find(job.dialog_id, sender_id).await {
+            Ok(Some(p)) => p.company,
+            Ok(None) => None,
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to load sender participant for company");
+                None
+            }
+        },
+        None => None,
+    };
+
     // Send webhook with notification info
     ctx.webhooks
         .send(WebhookEvent::notification_pending(
             &dialog,
             &message,
             &job.recipient_id,
+            sender_company,
         ))
         .await;
 
