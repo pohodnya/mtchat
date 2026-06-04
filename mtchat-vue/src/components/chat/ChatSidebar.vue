@@ -19,6 +19,10 @@ const props = defineProps<{
   archivedDialogs: DialogListItem[]
   currentDialogId: string | null
   theme: string
+  /** Hide the tab switcher (Participating / Available). Default: true. */
+  showTabs?: boolean
+  /** Current object ID. When it changes, archived load state resets. */
+  objectId?: string
 }>()
 
 const emit = defineEmits<{
@@ -33,7 +37,7 @@ const emit = defineEmits<{
 }>()
 
 // i18n
-const { t, tt } = useI18n()
+const { t } = useI18n()
 
 // Refs
 const searchInputRef = ref<HTMLInputElement | null>(null)
@@ -43,6 +47,16 @@ const activeTab = ref<'participating' | 'available'>('participating')
 const searchInput = ref('')
 const showArchivedAccordion = ref(false)
 const archivedLoaded = ref(false)
+
+watch(() => props.objectId, () => {
+  if (showArchivedAccordion.value) {
+    emit('loadArchived')
+    archivedLoaded.value = true
+  } else {
+    archivedLoaded.value = false
+  }
+})
+
 const contextMenuRef = ref<MtContextMenuExpose | null>(null)
 const contextMenuDialog = ref<DialogListItem | null>(null)
 
@@ -211,7 +225,7 @@ defineExpose({
     </div>
 
     <!-- Tabs -->
-    <div class="chat-sidebar__tabs" role="tablist">
+    <div v-if="showTabs !== false" class="chat-sidebar__tabs" role="tablist">
       <button
         role="tab"
         :aria-selected="activeTab === 'participating'"

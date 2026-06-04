@@ -577,6 +577,21 @@ export interface MTChatProps {
   showHeader?: boolean
   /** Show sidebar with dialog list (full mode only) */
   showSidebar?: boolean
+  /**
+   * Full mode: hide the tab switcher (Participating / Available). UI only.
+   * Does not affect which data is loaded — data source is controlled by objectType/objectId/dialogId.
+   * Default: true (tabs visible).
+   */
+  showTabs?: boolean
+  /**
+   * Full mode: hide the search input. UI only.
+   * Default: true (search visible).
+   */
+  showSearch?: boolean
+  /**
+   * Full mode: override search input placeholder.
+   */
+  searchPlaceholder?: string
   /** Theme name — applied as CSS class `mtchat--${theme}` */
   theme?: string
   /** JWT token for authentication (overrides config.token) */
@@ -619,12 +634,23 @@ export interface UseChatOptions {
   config: MTChatConfig
   /** Auto-connect on mount (default: true) */
   autoConnect?: boolean
-  /** Initial dialog ID to load */
-  dialogId?: string
-  /** For inline mode: object ID */
-  objectId?: string
-  /** For inline mode: object type */
-  objectType?: string
+  /** Display mode — affects data loading strategy in full mode */
+  mode?: ChatMode
+  /**
+   * Dialog ID to open on mount or when changed.
+   * Passed as a Ref to preserve reactivity across prop updates.
+   */
+  dialogId: import('vue').Ref<string | undefined>
+  /**
+   * Object ID for scoped dialog list in full mode (or single dialog in inline mode).
+   * Passed as a Ref to preserve reactivity across prop updates.
+   */
+  objectId: import('vue').Ref<string | undefined>
+  /**
+   * Object type for scoped dialog list in full mode (or single dialog in inline mode).
+   * Passed as a Ref to preserve reactivity across prop updates.
+   */
+  objectType: import('vue').Ref<string | undefined>
 }
 
 /**
@@ -700,6 +726,21 @@ export interface UseChatReturn {
   /** Load archived dialogs (lazy) */
   loadArchivedDialogs: () => Promise<void>
   loadAvailableDialogs: () => Promise<void>
+  /**
+   * Load dialogs for a specific object, split into active and archived.
+   * Uses searchQuery for filtering.
+   */
+  loadDialogsByObject: (objectType: string, objectId: string) => Promise<void>
+  /**
+   * Load archived dialogs for a specific object (full mode only).
+   * Fails silently when backend support is pending.
+   */
+  loadArchivedDialogsByObject: (objectType: string, objectId: string) => Promise<void>
+  /**
+   * Unified dialog loading dispatcher. Reads objectId/objectType from options Refs.
+   * Selects the right source based on mode and available props.
+   */
+  loadDialogs: () => Promise<void>
   loadDialogByObject: (objectType: string, objectId: string) => Promise<DialogListItem | null>
   selectDialog: (dialogId: string) => Promise<void>
   joinDialog: (dialogId: string, profile: JoinDialogRequest) => Promise<void>

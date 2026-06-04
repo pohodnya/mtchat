@@ -4,7 +4,7 @@
  * Reactive chat state management for Vue 3
  */
 
-import { ref, computed, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
 import { MTChatClient } from '../sdk/client'
 import { logger } from '../utils/logger'
 import type {
@@ -23,7 +23,7 @@ import type {
  * Vue composable for chat functionality
  */
 export function useChat(options: UseChatOptions): UseChatReturn {
-  const { config, autoConnect = true, dialogId, objectId, objectType } = options
+  const { config, autoConnect = true, mode, dialogId, objectId, objectType } = options
 
   // Initialize client
   const client = new MTChatClient(config)
@@ -129,6 +129,67 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       throw e
     } finally {
       isLoadingDialogs.value = false
+    }
+  }
+
+  async function loadDialogsByObject(oType: string, oId: string): Promise<void> {
+    try {
+      isLoadingDialogs.value = true
+      error.value = null
+      const search = searchQuery.value || undefined
+      participatingDialogs.value = await client.api.getDialogsByObject({
+		  objectType: oType,
+		  objectId: oId,
+		  search,
+		  archived: false,
+		  type: 'participating'
+	  })
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    } finally {
+      isLoadingDialogs.value = false
+    }
+  }
+
+  async function loadArchivedDialogsByObject(oType: string, oId: string): Promise<void> {
+	try {
+	  isLoadingDialogs.value = true
+	  error.value = null
+      const search = searchQuery.value || undefined
+      archivedDialogs.value = await client.api.getDialogsByObject({
+		  objectType: oType,
+		  objectId: oId,
+		  search,
+		  archived: true,
+		  type: 'participating'
+	  })
+    } catch (e) {
+		  error.value = e instanceof Error ? e : new Error(String(e))
+		  throw e
+	  } finally {
+		  isLoadingDialogs.value = false
+	  }
+  }
+
+  async function loadDialogs(): Promise<void> {
+    const oType = objectType?.value
+    const oId = objectId?.value
+
+    if (oType && oId) {
+      if (mode === 'inline') {
+        await loadDialogByObject(oType, oId)
+        if (currentDialog.value) {
+          subscribe(currentDialog.value.id)
+          await loadMessages()
+          await loadParticipants()
+        }
+      } else {
+        await loadDialogsByObject(oType, oId)
+      }
+    } else {
+      await loadParticipatingDialogs()
+      await loadAvailableDialogs()
     }
   }
 
@@ -1294,11 +1355,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
       // On reconnect, reload data that may have changed while disconnected
       if (hasConnectedBefore) {
-        // Reload dialog lists
-        loadParticipatingDialogs().catch(() => {})
-        loadAvailableDialogs().catch(() => {})
+        // Reload dialog list using unified dispatcher (respects objectType/objectId)
+        loadDialogs().catch(() => {})
 
-        // Reload current dialog data
+        // Reload current dialog messages (do not re-select — user is already viewing it)
         if (currentDialog.value?.i_am_participant) {
           loadMessages().catch(() => {})
           loadParticipants().catch(() => {})
@@ -1332,19 +1392,38 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       connect()
     }
 
-    // Load initial dialog
-    if (objectType && objectId) {
-      // Inline mode - load by object
-      await loadDialogByObject(objectType, objectId)
-      if (currentDialog.value) {
-        subscribe(currentDialog.value.id)
-        await loadMessages()
-        await loadParticipants()
-      }
-    } else if (dialogId) {
-      // Full mode with initial dialog
-      await selectDialog(dialogId)
+    // Load dialogs based on mode and available props
+    await loadDialogs()
+    // Open initial dialog if provided (separate from list loading)
+    if (mode !== 'inline' && dialogId?.value) {
+      await selectDialog(dialogId.value)
     }
+  })
+
+  // Watch objectId changes: reload dialog list and reset open dialog.
+  // Registered synchronously in useChat body (not inside onMounted) so that
+  // Vue's current instance context is active and the watch fires correctly.
+  watch(objectId, () => {
+    if (!objectId.value || !objectType?.value) return
+    // Unsubscribe from current dialog WebSocket channel.
+    // Without this, events from the old dialog keep arriving and mutate
+    // participatingDialogs/messages in the context of the new object.
+    if (subscribedDialogId) {
+      client.unsubscribe(subscribedDialogId)
+      subscribedDialogId = null
+    }
+    currentDialog.value = null
+    archivedDialogs.value = []
+    searchQuery.value = '' // Reset search so the old query doesn't filter the new object's dialogs
+    loadDialogs()
+  })
+
+  // Watch dialogId changes: open the specified dialog reactively.
+  // dialogId is passed as a Ref, so changes after mount are tracked.
+  // Without this watch, dialogId would be read only once at useChat init time.
+  watch(dialogId, async (newId) => {
+    if (!newId) return
+    await selectDialog(newId)
   })
 
   onUnmounted(() => {
@@ -1401,6 +1480,9 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     loadParticipatingDialogs,
     loadArchivedDialogs,
     loadAvailableDialogs,
+    loadDialogsByObject,
+    loadArchivedDialogsByObject,
+    loadDialogs,
     loadDialogByObject,
     selectDialog,
     joinDialog,

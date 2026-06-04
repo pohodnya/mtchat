@@ -7,7 +7,7 @@
  * - Inline mode: Single chat for a business object
  */
 
-import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { computed, ref, toRef, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useChat } from '../composables/useChat'
 import { provideI18n } from '../i18n'
 import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment } from '../types'
@@ -33,6 +33,12 @@ const props = withDefaults(
     dialogId?: string
     showHeader?: boolean
     showSidebar?: boolean
+    /** Full mode: hide the tab switcher (Participating / Available). UI only. Default: true. */
+    showTabs?: boolean
+    /** Full mode: hide the search input. UI only. Default: true. */
+    showSearch?: boolean
+    /** Full mode: override search input placeholder. */
+    searchPlaceholder?: string
     /** Theme name — applied as CSS class `mtchat--${theme}` */
     theme?: string
     /** JWT token for authentication (overrides config.token) */
@@ -42,6 +48,8 @@ const props = withDefaults(
     mode: 'full',
     showHeader: true,
     showSidebar: true,
+    showTabs: true,
+    showSearch: true,
     theme: 'light',
   }
 )
@@ -72,12 +80,13 @@ const effectiveConfig = computed<MTChatConfig>(() => ({
   token: props.token ?? props.config.token,
 }))
 
-// Chat composable
+// Chat composable — pass props as Refs so useChat can watch them reactively
 const chat = useChat({
   config: effectiveConfig.value,
-  dialogId: props.dialogId,
-  objectId: props.objectId,
-  objectType: props.objectType,
+  mode: props.mode,
+  dialogId: toRef(props, 'dialogId'),
+  objectId: toRef(props, 'objectId'),
+  objectType: toRef(props, 'objectType'),
 })
 
 // Refs
@@ -140,18 +149,10 @@ const allAttachments = computed(() => {
 
 // ============ Watchers ============
 
-// Track if we've connected before to distinguish reconnect from initial connect
-let hasConnectedBefore = false
-
 watch(() => chat.isConnected.value, (connected) => {
   if (connected) {
     emit('connected')
-    // On reconnect, reload dialogs to catch any changes while disconnected
-    if (hasConnectedBefore && !isInlineMode.value) {
-      chat.loadParticipatingDialogs()
-      chat.loadAvailableDialogs()
-    }
-    hasConnectedBefore = true
+    // Dialog reload on reconnect is handled inside useChat via client.on('connected')
   } else {
     emit('disconnected')
   }
@@ -196,8 +197,7 @@ async function handleSelectDialog(dialog: DialogListItem) {
 
 function handleSidebarSearch(query: string) {
   chat.setSearchQuery(query)
-  chat.loadParticipatingDialogs()
-  chat.loadAvailableDialogs()
+  chat.loadDialogs()
 }
 
 function handleJoin() {
@@ -412,20 +412,32 @@ function stopResize() {
   document.removeEventListener('touchmove', handleInfoResize)
 }
 
+function handleLoadArchived() {
+  const oType = props.objectType
+  const oId = props.objectId
+  if (oType && oId && !isInlineMode.value) {
+    chat.loadArchivedDialogsByObject(oType, oId)
+  } else {
+    chat.loadArchivedDialogs()
+  }
+}
+
 // ============ Lifecycle ============
 
 function handleWindowResize() {
   windowWidth.value = window.innerWidth
 }
 
+// Drive mobileView from data state: when a dialog is open show chat, otherwise show list
+watch(chat.currentDialog, (dialog) => {
+  if (!isDesktop.value) {
+    mobileView.value = dialog ? 'chat' : 'list'
+  }
+})
+
 onMounted(() => {
   window.addEventListener('resize', handleWindowResize)
-
-  // Load dialogs immediately for full mode (independent of WebSocket connection)
-  if (!isInlineMode.value) {
-    chat.loadParticipatingDialogs()
-    chat.loadAvailableDialogs()
-  }
+  // Dialog loading is handled inside useChat onMounted via loadDialogs()
 })
 
 onUnmounted(() => {
@@ -444,6 +456,9 @@ defineExpose({
   currentDialog: chat.currentDialog,
   isConnected: chat.isConnected,
   selectDialog: chat.selectDialog,
+  loadDialogsByObject: chat.loadDialogsByObject,
+  loadArchivedDialogsByObject: chat.loadArchivedDialogsByObject,
+  loadDialogs: chat.loadDialogs,
   sendMessage: chat.sendMessage,
   joinDialog: chat.joinDialog,
   leaveDialog: chat.leaveDialog,
@@ -482,10 +497,12 @@ defineExpose({
       :archived-dialogs="chat.archivedDialogs.value"
       :current-dialog-id="chat.currentDialog.value?.id ?? null"
       :theme="theme"
+      :show-tabs="showTabs"
+      :object-id="props.objectId"
       :style="isDesktop ? { width: `${sidebarWidth}px` } : undefined"
       @select-dialog="handleSelectDialog"
       @search="handleSidebarSearch"
-      @load-archived="chat.loadArchivedDialogs()"
+      @load-archived="handleLoadArchived"
       @pin-dialog="chat.pinDialog"
       @unpin-dialog="chat.unpinDialog"
       @archive-dialog="chat.archiveDialog"

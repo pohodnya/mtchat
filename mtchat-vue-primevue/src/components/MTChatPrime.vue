@@ -30,6 +30,8 @@ const props = withDefaults(
     mode: 'full',
     showHeader: true,
     showSidebar: true,
+    showTabs: true,
+    showSearch: true,
     theme: 'light',
   }
 )
@@ -63,6 +65,9 @@ provideRegistry(primevueRegistry)
       :dialog-id="dialogId"
       :show-header="showHeader"
       :show-sidebar="showSidebar"
+      :show-tabs="showTabs"
+      :show-search="showSearch"
+      :search-placeholder="searchPlaceholder"
       :theme="theme"
       :token="token"
       @connected="$emit('connected')"
