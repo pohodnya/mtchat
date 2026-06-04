@@ -424,9 +424,7 @@ function handleLoadArchived() {
 
 // ============ Lifecycle ============
 
-function handleWindowResize() {
-  windowWidth.value = window.innerWidth
-}
+let resizeObserver: ResizeObserver | null = null
 
 // Drive mobileView from data state: when a dialog is open show chat, otherwise show list
 watch(chat.currentDialog, (dialog) => {
@@ -436,12 +434,21 @@ watch(chat.currentDialog, (dialog) => {
 })
 
 onMounted(() => {
-  window.addEventListener('resize', handleWindowResize)
+  const parent = containerRef.value?.parentElement
+  if (parent) {
+    resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) windowWidth.value = entry.contentRect.width
+    })
+    resizeObserver.observe(parent)
+    windowWidth.value = parent.getBoundingClientRect().width || window.innerWidth
+  }
   // Dialog loading is handled inside useChat onMounted via loadDialogs()
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleWindowResize)
+  resizeObserver?.disconnect()
+  resizeObserver = null
   stopResize()
 })
 
@@ -861,12 +868,9 @@ defineExpose({
 }
 
 .mtchat--mobile .chat-sidebar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  z-index: 10;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .mtchat--mobile.mtchat--view-chat .chat-sidebar,
