@@ -188,11 +188,11 @@ watch(() => chat.messages.value, (messages) => {
 // ============ Handlers ============
 
 async function handleSelectDialog(dialog: DialogListItem) {
-  await chat.selectDialog(dialog.id)
-  emit('dialog-selected', dialog)
   if (isMobile.value) {
     mobileView.value = 'chat'
   }
+  await chat.selectDialog(dialog.id)
+  emit('dialog-selected', dialog)
 }
 
 function handleSidebarSearch(query: string) {
