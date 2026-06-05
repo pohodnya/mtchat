@@ -506,6 +506,7 @@ defineExpose({
       :theme="theme"
       :show-tabs="showTabs"
       :object-id="props.objectId"
+      :current-user-id="props.config.userId"
       :style="isDesktop ? { width: `${sidebarWidth}px` } : undefined"
       @select-dialog="handleSelectDialog"
       @search="handleSidebarSearch"

@@ -57,7 +57,7 @@ const emit = defineEmits<{
 }>()
 
 // i18n
-const { t, formatDateDivider } = useI18n()
+const { t, formatDateDivider, formatTime } = useI18n()
 
 // Refs
 const scrollerRef = shallowRef<any>(null)
@@ -332,11 +332,6 @@ watch(() => props.messages.length, async () => {
 function getDateKey(dateString: string): string {
   const date = new Date(dateString)
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
-}
-
-function formatTime(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 // ============ Participant/Sender Helpers ============

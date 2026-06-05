@@ -869,33 +869,36 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  // ============ Helper: Update dialog last_message_at ============
+  // ============ Helper: Update dialog last_message ============
 
-  function updateDialogLastMessageAt(dialogId: string, sentAt: string): void {
-    // Update in participating dialogs
-    const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
+  function updateDialogLastMessage(message: Message): void {
+    const buildLastMessage = (dialog: DialogListItem) => ({
+      id: message.id,
+      content: message.content,
+      sender_id: message.sender_id ?? undefined,
+      sender_name: dialog.participants?.find((p) => p.user_id === message.sender_id)?.display_name,
+      sent_at: message.sent_at,
+      message_type: message.message_type ?? 'user',
+    })
+
+    const applyPatch = (dialog: DialogListItem) => ({
+      ...dialog,
+      last_message_at: message.sent_at,
+      last_message: buildLastMessage(dialog),
+    })
+
+    const activeIdx = participatingDialogs.value.findIndex((d) => d.id === message.dialog_id)
     if (activeIdx !== -1) {
-      participatingDialogs.value[activeIdx] = {
-        ...participatingDialogs.value[activeIdx],
-        last_message_at: sentAt,
-      }
+      participatingDialogs.value[activeIdx] = applyPatch(participatingDialogs.value[activeIdx])
     }
 
-    // Update in archived dialogs
-    const archivedIdx = archivedDialogs.value.findIndex((d) => d.id === dialogId)
+    const archivedIdx = archivedDialogs.value.findIndex((d) => d.id === message.dialog_id)
     if (archivedIdx !== -1) {
-      archivedDialogs.value[archivedIdx] = {
-        ...archivedDialogs.value[archivedIdx],
-        last_message_at: sentAt,
-      }
+      archivedDialogs.value[archivedIdx] = applyPatch(archivedDialogs.value[archivedIdx])
     }
 
-    // Update current dialog
-    if (currentDialog.value?.id === dialogId) {
-      currentDialog.value = {
-        ...currentDialog.value,
-        last_message_at: sentAt,
-      }
+    if (currentDialog.value?.id === message.dialog_id) {
+      currentDialog.value = applyPatch(currentDialog.value)
     }
   }
 
@@ -996,8 +999,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         messages.value = [...messages.value, message]
       }
 
-      // Update last_message_at so dialog moves up in the list
-      updateDialogLastMessageAt(currentDialog.value.id, message.sent_at)
+      // Update last_message so dialog moves up and preview refreshes
+      updateDialogLastMessage(message)
 
       // Sending a message marks all previous as read - clear divider
       firstUnreadMessageId.value = null
@@ -1046,8 +1049,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     if (!message) return
 
-    // Update last_message_at for the dialog (even if not current dialog)
-    updateDialogLastMessageAt(message.dialog_id, message.sent_at)
+    // Update last_message for the dialog (even if not current dialog)
+    updateDialogLastMessage(message)
 
     // Increment unread_count for messages from other users (not system messages)
     const isFromOtherUser = message.sender_id !== config.userId
@@ -1312,7 +1315,16 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     const last_edited_at = (event.last_edited_at || event.payload?.last_edited_at) as string | undefined
     if (!id || !dialog_id || !content) return
 
-    // Only update if it's for the current dialog
+    // Update last_message preview across all dialog lists if this was the last message
+    const patchLastMessage = (dialog: DialogListItem) => {
+      if (dialog.last_message?.id !== id) return dialog
+      return { ...dialog, last_message: { ...dialog.last_message, content } }
+    }
+    participatingDialogs.value = participatingDialogs.value.map(patchLastMessage)
+    archivedDialogs.value = archivedDialogs.value.map(patchLastMessage)
+    if (currentDialog.value) currentDialog.value = patchLastMessage(currentDialog.value)
+
+    // Update messages[] only for current dialog
     if (currentDialog.value?.id !== dialog_id) return
 
     const idx = messages.value.findIndex((m) => m.id === id)
@@ -1330,7 +1342,16 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     if (!id || !dialog_id) return
 
-    // Only update if it's for the current dialog
+    // Clear last_message preview across all dialog lists if this was the last message
+    const clearLastMessage = (dialog: DialogListItem) => {
+      if (dialog.last_message?.id !== id) return dialog
+      return { ...dialog, last_message: undefined }
+    }
+    participatingDialogs.value = participatingDialogs.value.map(clearLastMessage)
+    archivedDialogs.value = archivedDialogs.value.map(clearLastMessage)
+    if (currentDialog.value) currentDialog.value = clearLastMessage(currentDialog.value)
+
+    // Remove from messages[] only for current dialog
     if (currentDialog.value?.id !== dialog_id) return
 
     messages.value = messages.value.filter((m) => m.id !== id)

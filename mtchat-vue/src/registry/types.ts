@@ -241,6 +241,13 @@ export interface MtTooltipOptions {
   hideDelay?: number
 }
 
+// ============ Tag ============
+
+export interface MtTagProps {
+  /** Text to display */
+  value: string
+}
+
 // ============ Component Registry ============
 
 /**
@@ -260,6 +267,7 @@ export interface ComponentRegistry {
   MtTab: Component
   MtAccordion: Component
   MtAccordionPanel: Component
+  MtTag: Component
 
   // Directives (use unknown to allow different directive implementations)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

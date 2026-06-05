@@ -63,6 +63,7 @@ export {
   MtTab,
   MtAccordion,
   MtAccordionPanel,
+  MtTag,
   vTooltip,
 } from './primitives'
 
@@ -93,6 +94,7 @@ export type {
   MtAccordionProps,
   MtAccordionEmits,
   MtAccordionPanelProps,
+  MtTagProps,
   MtTooltipOptions,
 } from './registry'
 
