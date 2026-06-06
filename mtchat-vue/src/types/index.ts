@@ -630,8 +630,8 @@ export interface VirtualItem {
  * useChat composable options
  */
 export interface UseChatOptions {
-  /** SDK configuration */
-  config: MTChatConfig
+  /** SDK configuration — must be a Ref so useChat can watch token changes and recreate the client */
+  config: import('vue').Ref<MTChatConfig>
   /** Auto-connect on mount (default: true) */
   autoConnect?: boolean
   /** Display mode — affects data loading strategy in full mode */

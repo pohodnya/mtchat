@@ -82,7 +82,7 @@ const effectiveConfig = computed<MTChatConfig>(() => ({
 
 // Chat composable — pass props as Refs so useChat can watch them reactively
 const chat = useChat({
-  config: effectiveConfig.value,
+  config: effectiveConfig,
   mode: props.mode,
   dialogId: toRef(props, 'dialogId'),
   objectId: toRef(props, 'objectId'),

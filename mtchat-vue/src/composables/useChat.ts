@@ -26,7 +26,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   const { config, autoConnect = true, mode, dialogId, objectId, objectType } = options
 
   // Initialize client
-  const client = new MTChatClient(config)
+  let client = new MTChatClient(config.value)
 
   // Reactive state
   const messages: Ref<Message[]> = ref([])
@@ -1053,7 +1053,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     updateDialogLastMessage(message)
 
     // Increment unread_count for messages from other users (not system messages)
-    const isFromOtherUser = message.sender_id !== config.userId
+    const isFromOtherUser = message.sender_id !== config.value.userId
     const isSystemMessage = msgType === 'system'
     const isCurrentlyViewingDialog = currentDialog.value?.id === message.dialog_id
 
@@ -1101,7 +1101,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     if (!dialog_id || !user_id) return
 
     // Check if current user joined a new dialog - reload dialog lists
-    if (user_id === config.userId) {
+    if (user_id === config.value.userId) {
       // Current user joined a dialog - reload participating dialogs to show it
       loadParticipatingDialogs().catch(() => {})
       // Also reload available dialogs as dialog may no longer be "available"
@@ -1140,7 +1140,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     if (!dialog_id || !user_id) return
 
     // Check if current user left a dialog - reload dialog lists
-    if (user_id === config.userId) {
+    if (user_id === config.value.userId) {
       // Current user left a dialog - reload to remove it from participating
       loadParticipatingDialogs().catch(() => {})
       // Also reload available dialogs as dialog may now be "available" again
@@ -1251,7 +1251,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
 
     // Only handle unread count if it's the current user's read receipt
-    if (readByUserId === config.userId) {
+    if (readByUserId === config.value.userId) {
       // Update unread count in active dialogs
       const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialog_id)
       if (activeIdx !== -1) {
@@ -1369,8 +1369,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   // Track if we've connected before (to distinguish reconnect from initial connect)
   let hasConnectedBefore = false
 
-  onMounted(async () => {
-    // Set up event handlers
+  function setupClientHandlers(): void {
     client.on('connected', async () => {
       isConnected.value = true
 
@@ -1407,6 +1406,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     client.on('participant.left', handleParticipantLeft)
     client.on('dialog.archived', handleDialogArchived)
     client.on('dialog.unarchived', handleDialogUnarchived)
+  }
+
+  onMounted(async () => {
+    setupClientHandlers()
 
     // Auto-connect
     if (autoConnect) {
@@ -1447,6 +1450,23 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     await selectDialog(newId)
   })
 
+  // Watch for token changes: recreate client with fresh token to avoid stale JWT on reconnect
+  watch(
+    () => config.value.token,
+    () => {
+      const wasConnected = client.isConnected
+      client.disconnect()
+      client = new MTChatClient(config.value)
+      setupClientHandlers()
+      if (wasConnected) {
+        client.connect()
+        if (subscribedDialogId) {
+          client.subscribe(subscribedDialogId)
+        }
+      }
+    },
+  )
+
   onUnmounted(() => {
     if (subscribedDialogId) {
       client.unsubscribe(subscribedDialogId)
@@ -1480,8 +1500,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     isJumpingToMessage,
     jumpCooldown,
 
-    // API access for file uploads
-    api: client.api,
+    // API access for file uploads — getter so it stays current after token-watch recreates client
+    get api() { return client.api },
 
     // Methods
     connect,

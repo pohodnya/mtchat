@@ -36,7 +36,8 @@ export class MTChatClient {
       token: config.token,
       onConnect: () => {
         config.onConnect?.()
-        this.emit({ type: 'connected' })
+		// Do not emit 'connected' here synthetically — the server sends { type: 'connected', employee_id }
+		// as the first WS message, which already triggers handlers via onMessage.
       },
       onDisconnect: () => {
         config.onDisconnect?.()
