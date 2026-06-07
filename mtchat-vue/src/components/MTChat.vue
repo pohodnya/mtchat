@@ -872,6 +872,7 @@ defineExpose({
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  border-right: none;
 }
 
 .mtchat--mobile.mtchat--view-chat .chat-sidebar,
