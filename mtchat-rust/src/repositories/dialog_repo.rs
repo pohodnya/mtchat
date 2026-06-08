@@ -197,6 +197,7 @@ impl DialogRepository {
     ///
     /// The participant branch honours the `archived` filter; the potential
     /// branch has no per-user archived state and is unaffected by it.
+    #[allow(clippy::too_many_arguments)]
     pub async fn find_all_by_object_for_user(
         &self,
         object_type: &str,
