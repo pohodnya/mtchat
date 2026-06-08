@@ -474,7 +474,7 @@ docker compose up -d
 
 ## Changelog
 
-### 2026-06-08 - Type Filter for List Dialogs by Object
+### 2026-06-08 (v0.4.11) - Type Filter for List Dialogs by Object
 - **New optional query param** `type?: participating | available` on
   `GET /api/v1/dialogs/by-object/{object_type}/{object_id}/list`, mirroring
   `GET /api/v1/dialogs`.
