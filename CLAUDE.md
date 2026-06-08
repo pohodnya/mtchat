@@ -157,6 +157,8 @@ GET  /api/v1/dialogs?type=available       # Can join
 # Pagination: &limit=50&offset=0 (limit max 100, default 50)
 GET  /api/v1/dialogs/by-object/{type}/{id}  # Inline mode (most recent dialog)
 GET  /api/v1/dialogs/by-object/{type}/{id}/list  # All accessible dialogs for object
+# Optional filters: &archived=true/false (participant dialogs only; potential always included), &search=<query> (title or participant company)
+# Both list endpoints (this and GET /api/v1/dialogs) return participants (full list) and last_message (full object; participant dialogs only — hidden for can-join)
 POST /api/v1/dialogs/{id}/join            # Join chat
 POST /api/v1/dialogs/{id}/leave           # Leave chat
 POST /api/v1/dialogs/{id}/read            # Mark messages as read
@@ -470,6 +472,38 @@ docker compose up -d
 | String identifiers (user_id, object_id) | ✅ |
 
 ## Changelog
+
+### 2026-06-08 - Synced Dialog List Interfaces
+- **`GET /api/v1/dialogs` and `GET /api/v1/dialogs/by-object/{type}/{id}/list`
+  now return the same per-dialog data**: full `last_message` object
+  (`id`, `content`, `sender_id`, `sender_name`, `sent_at`, `message_type`) and
+  full `participants` list (`user_id`, `display_name`, `company`).
+- **`last_message` is only returned for dialogs the user participates in** —
+  hidden for `available`/can-join dialogs so message content is not leaked before
+  joining (consistent with the v0.3.7 "no reading before join" rule).
+  `participants` is not sensitive and is returned for can-join dialogs too.
+- `last_message_at` and `participants_count` are retained for backward compat.
+- **`search`** query param added to the by-object `/list` endpoint, matching
+  `GET /api/v1/dialogs` (title OR participant company, case-insensitive).
+- New batch repo methods `get_last_message_batch` (DialogRepository) and
+  `list_by_dialogs_batch` (ParticipantRepository) avoid N+1.
+  `find_all_by_object_for_user` gains a `search` parameter.
+- Also applied to `get_dialog_by_object` (inline single-dialog endpoint).
+- Frontend SDK: `DialogListItem` gains `last_message` and `participants`
+  (new `LastMessage` / `ParticipantSummary` interfaces); `getDialogsByObject`
+  accepts an optional `search` argument.
+
+### 2026-06-08 - Archived Filter for List Dialogs by Object
+- **New optional query param** `archived?: boolean` on
+  `GET /api/v1/dialogs/by-object/{object_type}/{object_id}/list`
+- `archived=true` → only archived participant dialogs; `archived=false` → only
+  active participant dialogs; omitted → all (unchanged behavior)
+- Filters the **participant** branch only. Potential (can-join) dialogs have no
+  per-user archived state and are always included, regardless of the flag —
+  consistent with available dialogs never being archived
+- `find_all_by_object_for_user` gains an `archived: Option<bool>` parameter using
+  the same `$N::boolean IS NULL OR dp.is_archived = $N` pattern as `find_participating`
+- New `ListByObjectQuery` extractor on the `list_dialogs_by_object` handler
 
 ### 2026-06-08 (v0.4.10) - Tender Chat Integration Support
 - **`notification.pending` enriched** - webhook payload now carries `chat_title`

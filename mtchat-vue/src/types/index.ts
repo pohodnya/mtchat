@@ -25,6 +25,30 @@ export interface Dialog {
 }
 
 /**
+ * Last message preview for dialog list display
+ */
+export interface LastMessage {
+  id: string
+  content: string
+  /** External sender id; absent for system messages */
+  sender_id?: string
+  /** Sender display name resolved from participant profile; absent for system messages */
+  sender_name?: string
+  sent_at: string
+  /** 'user' | 'system' */
+  message_type: string
+}
+
+/**
+ * Participant summary for dialog list display
+ */
+export interface ParticipantSummary {
+  user_id: string
+  display_name?: string
+  company?: string
+}
+
+/**
  * Dialog with additional metadata for list display
  */
 export interface DialogListItem extends Dialog {
@@ -44,6 +68,10 @@ export interface DialogListItem extends Dialog {
   notifications_enabled?: boolean
   /** Timestamp of the last message in this dialog */
   last_message_at?: string
+  /** Full last message object for list preview. Present only for dialogs the user participates in (hidden for can-join dialogs). */
+  last_message?: LastMessage
+  /** Full list of participants in this dialog */
+  participants?: ParticipantSummary[]
 }
 
 /**
