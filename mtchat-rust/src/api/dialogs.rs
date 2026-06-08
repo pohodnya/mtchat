@@ -3,7 +3,9 @@ use axum::response::Json;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::{self, system_messages, Dialog, JoinedAs, Message, ParticipantProfile};
+use crate::domain::{
+    self, system_messages, Dialog, DialogParticipant, JoinedAs, Message, ParticipantProfile,
+};
 use crate::middleware::{OptionalScopeConfig, ScopeConfig, UserId};
 use crate::webhooks::WebhookEvent;
 use crate::ws;
@@ -31,6 +33,16 @@ pub struct DialogsQuery {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ListByObjectQuery {
+    #[serde(default)]
+    pub r#type: Option<String>,
+    #[serde(default)]
+    pub archived: Option<bool>,
+    #[serde(default)]
+    pub search: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct JoinDialogRequest {
     pub display_name: String,
     pub company: String,
@@ -41,6 +53,27 @@ pub struct JoinDialogRequest {
 #[derive(Debug, Deserialize)]
 pub struct SetNotificationsRequest {
     pub enabled: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LastMessage {
+    pub id: Uuid,
+    pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_name: Option<String>,
+    pub sent_at: chrono::DateTime<chrono::Utc>,
+    pub message_type: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ParticipantSummary {
+    pub user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub company: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,6 +95,41 @@ pub struct DialogResponse {
     pub notifications_enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_message_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_message: Option<LastMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub participants: Option<Vec<ParticipantSummary>>,
+}
+
+/// Build a `LastMessage` DTO from a message, resolving `sender_name` from the
+/// dialog's participants. System messages (no `sender_id`) get no sender name.
+fn build_last_message(msg: &Message, participants: &[DialogParticipant]) -> LastMessage {
+    let sender_name = msg.sender_id.as_ref().and_then(|sid| {
+        participants
+            .iter()
+            .find(|p| &p.user_id == sid)
+            .and_then(|p| p.display_name.clone())
+    });
+    LastMessage {
+        id: msg.id,
+        content: msg.content.clone(),
+        sender_id: msg.sender_id.clone(),
+        sender_name,
+        sent_at: msg.sent_at,
+        message_type: msg.message_type.as_str().to_string(),
+    }
+}
+
+/// Build the participant summary list for a dialog from its participants.
+fn build_participant_summaries(participants: &[DialogParticipant]) -> Vec<ParticipantSummary> {
+    participants
+        .iter()
+        .map(|p| ParticipantSummary {
+            user_id: p.user_id.clone(),
+            display_name: p.display_name.clone(),
+            company: p.company.clone(),
+        })
+        .collect()
 }
 
 // ============ Handlers ============
@@ -126,6 +194,11 @@ pub async fn list_dialogs(
     } else {
         std::collections::HashMap::new()
     };
+    let last_message_full_map = state.dialogs.get_last_message_batch(&dialog_ids).await?;
+    let all_participants_map = state
+        .participants
+        .list_by_dialogs_batch(&dialog_ids)
+        .await?;
 
     // Build responses using batch-fetched data
     let mut responses = Vec::new();
@@ -147,6 +220,19 @@ pub async fn list_dialogs(
 
         let last_message_at = last_message_map.get(&dialog.id).copied();
 
+        let dialog_participants = all_participants_map.get(&dialog.id);
+        // last_message exposes message content, so it is only returned to actual
+        // participants (consistent with the v0.3.7 "no reading before join" rule).
+        // The participant list itself is not sensitive and is always returned.
+        let last_message = if dialog_type == "participating" {
+            last_message_full_map.get(&dialog.id).map(|m| {
+                build_last_message(m, dialog_participants.map(|v| v.as_slice()).unwrap_or(&[]))
+            })
+        } else {
+            None
+        };
+        let participants = dialog_participants.map(|v| build_participant_summaries(v));
+
         responses.push(DialogResponse {
             dialog,
             participants_count,
@@ -157,6 +243,8 @@ pub async fn list_dialogs(
             is_pinned,
             notifications_enabled,
             last_message_at,
+            last_message,
+            participants,
         });
     }
 
@@ -168,7 +256,15 @@ pub async fn list_dialogs_by_object(
     UserId(user_id): UserId,
     OptionalScopeConfig(scope_config): OptionalScopeConfig,
     Path((object_type, object_id)): Path<(String, String)>,
+    Query(params): Query<ListByObjectQuery>,
 ) -> Result<Json<ApiResponse<Vec<DialogResponse>>>, ApiError> {
+    // Validate the optional type filter (mirrors `GET /api/v1/dialogs`).
+    // Absent → both branches; participating/available → that branch only.
+    let dialog_type = match params.r#type.as_deref() {
+        None | Some("participating") | Some("available") => params.r#type.as_deref(),
+        _ => return Err(ApiError::BadRequest("Invalid type parameter".into())),
+    };
+
     let scope = scope_config.as_ref().map(|s| {
         (
             s.scope_level0.as_slice(),
@@ -177,9 +273,25 @@ pub async fn list_dialogs_by_object(
         )
     });
 
+    // Available (can-join) dialogs have no per-user archived state, so the
+    // archived filter only applies to the participant branch.
+    let archived = if dialog_type == Some("available") {
+        None
+    } else {
+        params.archived
+    };
+
     let dialogs = state
         .dialogs
-        .find_all_by_object_for_user(&object_type, &object_id, &user_id, scope)
+        .find_all_by_object_for_user(
+            &object_type,
+            &object_id,
+            &user_id,
+            scope,
+            archived,
+            params.search.as_deref(),
+            dialog_type,
+        )
         .await?;
 
     // Batch fetch supplementary data in parallel to avoid N+1 queries
@@ -189,6 +301,11 @@ pub async fn list_dialogs_by_object(
     let participant_map = state
         .participants
         .find_by_dialogs_and_user(&dialog_ids, &user_id)
+        .await?;
+    let last_message_full_map = state.dialogs.get_last_message_batch(&dialog_ids).await?;
+    let all_participants_map = state
+        .participants
+        .list_by_dialogs_batch(&dialog_ids)
         .await?;
 
     let mut responses = Vec::new();
@@ -205,6 +322,18 @@ pub async fn list_dialogs_by_object(
             participant.map(|p| p.notifications_enabled),
         );
 
+        let dialog_participants = all_participants_map.get(&dialog.id);
+        // last_message exposes message content, so it is only returned to actual
+        // participants (v0.3.7 "no reading before join"). participants is always returned.
+        let last_message = if i_am_participant {
+            last_message_full_map.get(&dialog.id).map(|m| {
+                build_last_message(m, dialog_participants.map(|v| v.as_slice()).unwrap_or(&[]))
+            })
+        } else {
+            None
+        };
+        let participants = dialog_participants.map(|v| build_participant_summaries(v));
+
         responses.push(DialogResponse {
             dialog,
             participants_count,
@@ -215,6 +344,8 @@ pub async fn list_dialogs_by_object(
             is_pinned,
             notifications_enabled,
             last_message_at,
+            last_message,
+            participants,
         });
     }
 
@@ -267,6 +398,20 @@ pub async fn get_dialog_by_object(
         let participants_count = participants_count_map.get(&dialog.id).copied().unwrap_or(0);
         let last_message_at = last_message_map.get(&dialog.id).copied();
 
+        let last_message_full_map = state.dialogs.get_last_message_batch(dialog_ids).await?;
+        let all_participants_map = state.participants.list_by_dialogs_batch(dialog_ids).await?;
+        let dialog_participants = all_participants_map.get(&dialog.id);
+        // last_message exposes message content, so it is only returned to actual
+        // participants (v0.3.7 "no reading before join"). participants is always returned.
+        let last_message = if i_am_participant {
+            last_message_full_map.get(&dialog.id).map(|m| {
+                build_last_message(m, dialog_participants.map(|v| v.as_slice()).unwrap_or(&[]))
+            })
+        } else {
+            None
+        };
+        let participants = dialog_participants.map(|v| build_participant_summaries(v));
+
         Ok(Json(ApiResponse {
             data: Some(DialogResponse {
                 dialog,
@@ -278,6 +423,8 @@ pub async fn get_dialog_by_object(
                 is_pinned: None,
                 notifications_enabled: None,
                 last_message_at,
+                last_message,
+                participants,
             }),
         }))
     } else {

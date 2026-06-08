@@ -193,11 +193,23 @@ export class MTChatApi {
   /**
    * Get all dialogs for a business object the user can access
    * (participant or joinable via scope). Returns an empty array if none.
+   * @param search - Optional search query for dialog title / participant company
+   * @param type - Optional filter: 'participating' (only joined) or 'available'
+   *   (only joinable via scope). Omit to return both (default).
    */
-  async getDialogsByObject(objectType: string, objectId: string): Promise<DialogListItem[]> {
+  async getDialogsByObject(
+    objectType: string,
+    objectId: string,
+    search?: string,
+    type?: 'participating' | 'available'
+  ): Promise<DialogListItem[]> {
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    if (type) params.set('type', type)
+    const qs = params.toString()
     const response = await this.request<ApiResponse<DialogListItem[]>>(
       'GET',
-      `/api/v1/dialogs/by-object/${objectType}/${objectId}/list`
+      `/api/v1/dialogs/by-object/${objectType}/${objectId}/list${qs ? `?${qs}` : ''}`
     )
     return response.data
   }

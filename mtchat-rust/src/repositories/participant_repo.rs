@@ -179,6 +179,35 @@ impl ParticipantRepository {
         .await
     }
 
+    /// List participants for multiple dialogs in one query.
+    ///
+    /// Returns a map of dialog_id -> participants (ordered by joined_at within
+    /// each dialog). One query, no N+1. Dialogs with no participants are absent.
+    pub async fn list_by_dialogs_batch(
+        &self,
+        dialog_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, Vec<DialogParticipant>>, sqlx::Error> {
+        if dialog_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let rows: Vec<DialogParticipant> = sqlx::query_as::<_, DialogParticipant>(
+            r#"SELECT * FROM dialog_participants
+               WHERE dialog_id = ANY($1)
+               ORDER BY dialog_id, joined_at"#,
+        )
+        .bind(dialog_ids)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut map: std::collections::HashMap<Uuid, Vec<DialogParticipant>> =
+            std::collections::HashMap::new();
+        for p in rows {
+            map.entry(p.dialog_id).or_default().push(p);
+        }
+        Ok(map)
+    }
+
     /// Update notifications setting
     pub async fn set_notifications(
         &self,

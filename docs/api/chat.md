@@ -47,7 +47,18 @@ GET /api/v1/dialogs?type=available&user_id={uuid}
       "is_archived": false,
       "is_pinned": true,
       "notifications_enabled": true,
-      "last_message_at": "2026-02-17T14:30:00Z"
+      "last_message_at": "2026-02-17T14:30:00Z",
+      "last_message": {
+        "id": "0194a1b2-...",
+        "content": "See you at the dock",
+        "sender_id": "user-123",
+        "sender_name": "Ivan Petrov",
+        "sent_at": "2026-02-17T14:30:00Z",
+        "message_type": "user"
+      },
+      "participants": [
+        { "user_id": "user-123", "display_name": "Ivan Petrov", "company": "Acme" }
+      ]
     }
   ]
 }
@@ -63,6 +74,8 @@ GET /api/v1/dialogs?type=available&user_id={uuid}
 | `is_pinned` | boolean | Whether this user pinned the dialog |
 | `notifications_enabled` | boolean | Whether notifications are enabled for this user |
 | `last_message_at` | datetime | Timestamp of the last message |
+| `last_message` | object? | Full last message: `id`, `content`, `sender_id`, `sender_name`, `sent_at`, `message_type`. Only returned for dialogs the user participates in (hidden for `available`/can-join dialogs to avoid leaking content before joining). Absent if the dialog has no messages. `sender_id`/`sender_name` are absent for system messages. |
+| `participants` | array? | Full participant list, each: `user_id`, `display_name`, `company` |
 
 ---
 
@@ -113,6 +126,13 @@ one chat per counterparty), so the host UI can render the full list.
 GET /api/v1/dialogs/by-object/{object_type}/{object_id}/list?user_id={uuid}
 ```
 
+**Query parameters:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `archived` | bool? | Filters **participant** dialogs by archived state: `true` = only archived, `false` = only active. Omitted = all. Potential (can-join) dialogs are always included regardless of this flag. |
+| `search` | string? | Filters by dialog title OR participant company name (case-insensitive). Same behavior as `search` on `List Dialogs`. |
+
 Scope can be supplied the same way as for `List Dialogs` (via the JWT claims or
 scope headers). Each item carries per-user metadata used to render the list:
 
@@ -127,6 +147,12 @@ scope headers). Each item carries per-user metadata used to render the list:
 | `is_pinned` | bool? | Whether the dialog is pinned for the user |
 | `notifications_enabled` | bool? | Whether notifications are enabled for the user |
 | `last_message_at` | datetime? | Timestamp of the last message |
+| `last_message` | object? | Full last message: `id`, `content`, `sender_id`, `sender_name`, `sent_at`, `message_type`. Only returned for dialogs the user participates in (hidden for can-join dialogs). Absent if no messages. `sender_id`/`sender_name` absent for system messages. |
+| `participants` | array? | Full participant list, each: `user_id`, `display_name`, `company`. Returned for both participant and can-join dialogs. |
+
+This endpoint returns the **same per-dialog data** as `List Dialogs`, including the
+full `last_message` object and `participants` list. `last_message` is only present
+for dialogs the user already participates in.
 
 ### Response
 
@@ -142,7 +168,18 @@ scope headers). Each item carries per-user metadata used to render the list:
       "is_archived": false,
       "is_pinned": false,
       "notifications_enabled": true,
-      "last_message_at": "2026-02-17T12:10:00Z"
+      "last_message_at": "2026-02-17T12:10:00Z",
+      "last_message": {
+        "id": "0194a1b2-...",
+        "content": "See you at the dock",
+        "sender_id": "user-123",
+        "sender_name": "Ivan Petrov",
+        "sent_at": "2026-02-17T12:10:00Z",
+        "message_type": "user"
+      },
+      "participants": [
+        { "user_id": "user-123", "display_name": "Ivan Petrov", "company": "Acme" }
+      ]
     }
   ]
 }
