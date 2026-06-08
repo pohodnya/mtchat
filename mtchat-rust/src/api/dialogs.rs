@@ -35,6 +35,8 @@ pub struct DialogsQuery {
 #[derive(Debug, Deserialize)]
 pub struct ListByObjectQuery {
     #[serde(default)]
+    pub r#type: Option<String>,
+    #[serde(default)]
     pub archived: Option<bool>,
     #[serde(default)]
     pub search: Option<String>,
@@ -193,7 +195,10 @@ pub async fn list_dialogs(
         std::collections::HashMap::new()
     };
     let last_message_full_map = state.dialogs.get_last_message_batch(&dialog_ids).await?;
-    let all_participants_map = state.participants.list_by_dialogs_batch(&dialog_ids).await?;
+    let all_participants_map = state
+        .participants
+        .list_by_dialogs_batch(&dialog_ids)
+        .await?;
 
     // Build responses using batch-fetched data
     let mut responses = Vec::new();
@@ -253,6 +258,13 @@ pub async fn list_dialogs_by_object(
     Path((object_type, object_id)): Path<(String, String)>,
     Query(params): Query<ListByObjectQuery>,
 ) -> Result<Json<ApiResponse<Vec<DialogResponse>>>, ApiError> {
+    // Validate the optional type filter (mirrors `GET /api/v1/dialogs`).
+    // Absent → both branches; participating/available → that branch only.
+    let dialog_type = match params.r#type.as_deref() {
+        None | Some("participating") | Some("available") => params.r#type.as_deref(),
+        _ => return Err(ApiError::BadRequest("Invalid type parameter".into())),
+    };
+
     let scope = scope_config.as_ref().map(|s| {
         (
             s.scope_level0.as_slice(),
@@ -261,6 +273,14 @@ pub async fn list_dialogs_by_object(
         )
     });
 
+    // Available (can-join) dialogs have no per-user archived state, so the
+    // archived filter only applies to the participant branch.
+    let archived = if dialog_type == Some("available") {
+        None
+    } else {
+        params.archived
+    };
+
     let dialogs = state
         .dialogs
         .find_all_by_object_for_user(
@@ -268,8 +288,9 @@ pub async fn list_dialogs_by_object(
             &object_id,
             &user_id,
             scope,
-            params.archived,
+            archived,
             params.search.as_deref(),
+            dialog_type,
         )
         .await?;
 
@@ -282,7 +303,10 @@ pub async fn list_dialogs_by_object(
         .find_by_dialogs_and_user(&dialog_ids, &user_id)
         .await?;
     let last_message_full_map = state.dialogs.get_last_message_batch(&dialog_ids).await?;
-    let all_participants_map = state.participants.list_by_dialogs_batch(&dialog_ids).await?;
+    let all_participants_map = state
+        .participants
+        .list_by_dialogs_batch(&dialog_ids)
+        .await?;
 
     let mut responses = Vec::new();
     for dialog in dialogs {

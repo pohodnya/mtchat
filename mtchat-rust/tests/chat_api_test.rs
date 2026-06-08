@@ -500,18 +500,39 @@ async fn test_list_dialogs_by_object_archived_filter() {
     // - archived_id: user is a participant, archived for this user
     // - available_id: user is not a participant, can join via scope
     let active_id = create_test_dialog(
-        &client, &base_url, &auth_header, object_id, "order",
-        &[user_id], tenant_uid, &["logistics"], &["driver"],
+        &client,
+        &base_url,
+        &auth_header,
+        object_id,
+        "order",
+        &[user_id],
+        tenant_uid,
+        &["logistics"],
+        &["driver"],
     )
     .await;
     let archived_id = create_test_dialog(
-        &client, &base_url, &auth_header, object_id, "order",
-        &[user_id], tenant_uid, &["logistics"], &["driver"],
+        &client,
+        &base_url,
+        &auth_header,
+        object_id,
+        "order",
+        &[user_id],
+        tenant_uid,
+        &["logistics"],
+        &["driver"],
     )
     .await;
     let available_id = create_test_dialog(
-        &client, &base_url, &auth_header, object_id, "order",
-        &[], tenant_uid, &["logistics"], &["driver"],
+        &client,
+        &base_url,
+        &auth_header,
+        object_id,
+        "order",
+        &[],
+        tenant_uid,
+        &["logistics"],
+        &["driver"],
     )
     .await;
 
@@ -551,8 +572,14 @@ async fn test_list_dialogs_by_object_archived_filter() {
     // Omitted: all accessible dialogs returned (current behavior).
     let all = list(None).await;
     assert!(all.contains(&active_id), "omitted should include active");
-    assert!(all.contains(&archived_id), "omitted should include archived");
-    assert!(all.contains(&available_id), "omitted should include available");
+    assert!(
+        all.contains(&archived_id),
+        "omitted should include archived"
+    );
+    assert!(
+        all.contains(&available_id),
+        "omitted should include available"
+    );
 
     // archived=true: only archived participant dialog, plus all potential.
     let only_archived = list(Some(true)).await;
@@ -587,6 +614,120 @@ async fn test_list_dialogs_by_object_archived_filter() {
     // Cleanup
     delete_test_dialog(&client, &base_url, &auth_header, &active_id).await;
     delete_test_dialog(&client, &base_url, &auth_header, &archived_id).await;
+    delete_test_dialog(&client, &base_url, &auth_header, &available_id).await;
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
+async fn test_list_dialogs_by_object_type_filter() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let user_id = Uuid::new_v4();
+    let tenant_uid = Uuid::new_v4();
+    let object_id = Uuid::new_v4();
+
+    // One dialog the user participates in, one only joinable via scope.
+    let participating_id = create_test_dialog(
+        &client,
+        &base_url,
+        &auth_header,
+        object_id,
+        "order",
+        &[user_id],
+        tenant_uid,
+        &["logistics"],
+        &["driver"],
+    )
+    .await;
+    let available_id = create_test_dialog(
+        &client,
+        &base_url,
+        &auth_header,
+        object_id,
+        "order",
+        &[],
+        tenant_uid,
+        &["logistics"],
+        &["driver"],
+    )
+    .await;
+
+    let scope_header = encode_scope_config(tenant_uid, &["logistics"], &["driver"]);
+
+    let list = |type_filter: Option<&'static str>| {
+        let client = client.clone();
+        let base_url = base_url.clone();
+        let scope_header = scope_header.clone();
+        async move {
+            let mut url = format!(
+                "{}/api/v1/dialogs/by-object/order/{}/list?user_id={}",
+                base_url, object_id, user_id
+            );
+            if let Some(t) = type_filter {
+                url.push_str(&format!("&type={}", t));
+            }
+            let resp = client
+                .get(url)
+                .header("X-Scope-Config", &scope_header)
+                .send()
+                .await
+                .unwrap();
+            (resp.status(), resp)
+        }
+    };
+
+    let ids = |body: &Value| -> Vec<String> {
+        body["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["id"].as_str().unwrap().to_string())
+            .collect()
+    };
+
+    // Omitted → both branches (default behavior).
+    let (status, resp) = list(None).await;
+    assert_eq!(status, StatusCode::OK);
+    let all = ids(&resp.json().await.unwrap());
+    assert!(
+        all.contains(&participating_id),
+        "omitted should include participating"
+    );
+    assert!(
+        all.contains(&available_id),
+        "omitted should include available"
+    );
+
+    // type=participating → only the participant dialog.
+    let (status, resp) = list(Some("participating")).await;
+    assert_eq!(status, StatusCode::OK);
+    let only_part = ids(&resp.json().await.unwrap());
+    assert!(only_part.contains(&participating_id));
+    assert!(
+        !only_part.contains(&available_id),
+        "type=participating should exclude available dialogs"
+    );
+
+    // type=available → only the joinable dialog.
+    let (status, resp) = list(Some("available")).await;
+    assert_eq!(status, StatusCode::OK);
+    let only_avail = ids(&resp.json().await.unwrap());
+    assert!(only_avail.contains(&available_id));
+    assert!(
+        !only_avail.contains(&participating_id),
+        "type=available should exclude participant dialogs"
+    );
+
+    // Invalid type → 400.
+    let (status, _) = list(Some("bogus")).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // Cleanup
+    delete_test_dialog(&client, &base_url, &auth_header, &participating_id).await;
     delete_test_dialog(&client, &base_url, &auth_header, &available_id).await;
 }
 

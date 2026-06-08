@@ -188,6 +188,15 @@ impl DialogRepository {
     ///
     /// Ordered by creation time (newest first). Returns an empty vec when no
     /// accessible dialogs exist.
+    /// List all dialogs for an object the user can access.
+    ///
+    /// `dialog_type` mirrors `GET /api/v1/dialogs`:
+    /// - `Some("participating")` → only dialogs the user is a direct participant of
+    /// - `Some("available")`     → only potential (can-join via scope) dialogs
+    /// - `None`                  → both branches (default)
+    ///
+    /// The participant branch honours the `archived` filter; the potential
+    /// branch has no per-user archived state and is unaffected by it.
     pub async fn find_all_by_object_for_user(
         &self,
         object_type: &str,
@@ -196,22 +205,27 @@ impl DialogRepository {
         scope: Option<(&[String], &[String], &[String])>,
         archived: Option<bool>,
         search: Option<&str>,
+        dialog_type: Option<&str>,
     ) -> Result<Vec<Dialog>, sqlx::Error> {
         let (has_scope, scope_level0, scope_level1, scope_level2) = match scope {
             Some((s0, s1, s2)) => (true, s0, s1, s2),
             None => (false, &[][..], &[][..], &[][..]),
         };
 
+        // Which branches of the OR are enabled. `None` enables both.
+        let include_participant = matches!(dialog_type, None | Some("participating"));
+        let include_potential = matches!(dialog_type, None | Some("available"));
+
         sqlx::query_as::<_, Dialog>(
             r#"SELECT d.* FROM dialogs d
                WHERE d.object_type = $1 AND d.object_id = $2
                  AND (
-                   EXISTS (
+                   ($10 AND EXISTS (
                      SELECT 1 FROM dialog_participants dp
                      WHERE dp.dialog_id = d.id AND dp.user_id = $3
                        AND ($8::boolean IS NULL OR dp.is_archived = $8)
-                   )
-                   OR ($4 AND EXISTS (
+                   ))
+                   OR ($11 AND $4 AND EXISTS (
                      SELECT 1 FROM dialog_access_scopes s
                      WHERE s.dialog_id = d.id
                        AND (s.scope_level0 = '{}' OR s.scope_level0 && $5)
@@ -238,6 +252,8 @@ impl DialogRepository {
         .bind(scope_level2)
         .bind(archived)
         .bind(search)
+        .bind(include_participant)
+        .bind(include_potential)
         .fetch_all(&self.pool)
         .await
     }

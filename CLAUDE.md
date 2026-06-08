@@ -157,7 +157,8 @@ GET  /api/v1/dialogs?type=available       # Can join
 # Pagination: &limit=50&offset=0 (limit max 100, default 50)
 GET  /api/v1/dialogs/by-object/{type}/{id}  # Inline mode (most recent dialog)
 GET  /api/v1/dialogs/by-object/{type}/{id}/list  # All accessible dialogs for object
-# Optional filters: &archived=true/false (participant dialogs only; potential always included), &search=<query> (title or participant company)
+# Optional filters: &type=participating|available (omit for both), &archived=true/false (participant dialogs only; potential always included), &search=<query> (title or participant company)
+# &type=available ignores the archived filter (potential dialogs have no per-user archived state)
 # Both list endpoints (this and GET /api/v1/dialogs) return participants (full list) and last_message (full object; participant dialogs only — hidden for can-join)
 POST /api/v1/dialogs/{id}/join            # Join chat
 POST /api/v1/dialogs/{id}/leave           # Leave chat
@@ -472,6 +473,22 @@ docker compose up -d
 | String identifiers (user_id, object_id) | ✅ |
 
 ## Changelog
+
+### 2026-06-08 - Type Filter for List Dialogs by Object
+- **New optional query param** `type?: participating | available` on
+  `GET /api/v1/dialogs/by-object/{object_type}/{object_id}/list`, mirroring
+  `GET /api/v1/dialogs`.
+- `type=participating` → only dialogs the user is a direct participant of;
+  `type=available` → only potential (can-join via scope) dialogs; omitted → both
+  branches (unchanged, backward-compatible behavior).
+- Invalid `type` value → `400 Bad Request` (same as `GET /api/v1/dialogs`).
+- `type=available` ignores the `archived` filter — potential dialogs have no
+  per-user archived state (consistent with available dialogs never being archived).
+- `find_all_by_object_for_user` gains a `dialog_type: Option<&str>` parameter that
+  toggles the participant / potential `EXISTS` branches via two bound flags,
+  preserving the single-query, no-N+1 shape.
+- Frontend SDK: `getDialogsByObject` accepts an optional
+  `type: 'participating' | 'available'` argument.
 
 ### 2026-06-08 - Synced Dialog List Interfaces
 - **`GET /api/v1/dialogs` and `GET /api/v1/dialogs/by-object/{type}/{id}/list`
