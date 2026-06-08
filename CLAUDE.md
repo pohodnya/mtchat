@@ -471,6 +471,18 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-06-08 (v0.4.10) - Tender Chat Integration Support
+- **`notification.pending` enriched** - webhook payload now carries `chat_title`
+  and `sender_company` so the host can render notification text (chat name +
+  sender company). Both are additive, optional fields populated from
+  `dialog.title` and the sender's participant profile.
+- **New management endpoint** `POST /api/v1/management/dialogs/search` for
+  idempotent find-or-create: matches an existing dialog by object + the exact
+  set of access scopes (order-independent), otherwise creates one.
+- **Docs**: documented the search endpoint, `sender_company`, and the
+  list-by-object endpoint from PR #2 (en + ru).
+- Tests added in `management_api_test.rs` and `webhook_events_test.rs`.
+
 ### 2026-05-29 - List Dialogs by Object
 - **New endpoint** `GET /api/v1/dialogs/by-object/{object_type}/{object_id}/list`
 - Returns **all** dialogs for an object the user can access, not just the most recent one
