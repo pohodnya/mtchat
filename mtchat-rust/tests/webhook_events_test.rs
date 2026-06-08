@@ -118,13 +118,20 @@ fn test_notification_pending_event() {
     let recipient_id = "user-recipient";
     let message = Message::new(dialog.id, sender_id, "Unread message");
 
-    let event = WebhookEvent::notification_pending(&dialog, &message, recipient_id);
+    let event = WebhookEvent::notification_pending(
+        &dialog,
+        &message,
+        recipient_id,
+        Some("ООО Перевозчик".to_string()),
+    );
 
     assert_eq!(event.event_type, WebhookEventType::NotificationPending);
 
     if let WebhookPayload::NotificationPending(payload) = &event.payload {
         assert_eq!(payload.dialog_id, dialog.id);
         assert_eq!(payload.recipient_id, recipient_id);
+        assert_eq!(payload.chat_title, dialog.title);
+        assert_eq!(payload.sender_company.as_deref(), Some("ООО Перевозчик"));
         assert_eq!(payload.message.id, message.id);
         assert_eq!(payload.message.sender_id.as_deref(), Some(sender_id));
         assert_eq!(payload.message.content, "Unread message");

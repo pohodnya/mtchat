@@ -102,6 +102,54 @@ GET /api/v1/dialogs/by-object/{object_type}/{object_id}?user_id={uuid}
 
 ---
 
+## List Dialogs by Object
+
+Returns **all** dialogs the user can access for a given business object — both
+the ones the user already participates in and the ones available to the user by
+matching access scopes. Useful when several dialogs may exist per object (e.g.
+one chat per counterparty), so the host UI can render the full list.
+
+```
+GET /api/v1/dialogs/by-object/{object_type}/{object_id}/list?user_id={uuid}
+```
+
+Scope can be supplied the same way as for `List Dialogs` (via the JWT claims or
+scope headers). Each item carries per-user metadata used to render the list:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `dialog` | object | Dialog record (id, title, object, timestamps) |
+| `participants_count` | number | Total participants |
+| `i_am_participant` | bool | Whether the current user is already a participant |
+| `can_join` | bool | Whether the user can join (not yet a participant) |
+| `unread_count` | number? | Unread messages for the user (null if not a participant) |
+| `is_archived` | bool? | Whether the dialog is archived for the user |
+| `is_pinned` | bool? | Whether the dialog is pinned for the user |
+| `notifications_enabled` | bool? | Whether notifications are enabled for the user |
+| `last_message_at` | datetime? | Timestamp of the last message |
+
+### Response
+
+```json
+{
+  "data": [
+    {
+      "dialog": { "id": "019481a2-...", "title": "Order #1234 Discussion", "object_id": "550e8400-...", "object_type": "order" },
+      "participants_count": 3,
+      "i_am_participant": true,
+      "can_join": false,
+      "unread_count": 2,
+      "is_archived": false,
+      "is_pinned": false,
+      "notifications_enabled": true,
+      "last_message_at": "2026-02-17T12:10:00Z"
+    }
+  ]
+}
+```
+
+---
+
 ## Join Dialog
 
 Joins the current user to a dialog as a participant.

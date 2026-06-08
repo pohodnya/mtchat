@@ -162,6 +162,10 @@ async fn main() {
     let management_routes = Router::new()
         .route("/dialogs", post(api::management::management_create_dialog))
         .route(
+            "/dialogs/search",
+            post(api::management::management_find_dialog),
+        )
+        .route(
             "/dialogs/{id}",
             get(api::management::management_get_dialog)
                 .delete(api::management::management_delete_dialog),

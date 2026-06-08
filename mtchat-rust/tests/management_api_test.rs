@@ -164,6 +164,108 @@ async fn test_create_dialog_with_participants() {
 
 #[tokio::test]
 #[ignore] // Requires running server
+async fn test_find_dialog_by_object_and_scope() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let object_id = Uuid::new_v4();
+    let organizer = Uuid::new_v4().to_string();
+    let carrier = Uuid::new_v4().to_string();
+
+    // Create a dialog scoped to the organizer+carrier pair.
+    let create = client
+        .post(format!("{}/api/v1/management/dialogs", base_url))
+        .header("Authorization", &auth_header)
+        .json(&json!({
+            "object_id": object_id,
+            "object_type": "tender_stage",
+            "title": "Тендер #1",
+            "participants": [{"user_id": Uuid::new_v4(), "display_name": "Иван"}],
+            "access_scopes": [{
+                "scope_level0": [organizer, carrier],
+                "scope_level2": ["tenders.tenders.chat"]
+            }]
+        }))
+        .send()
+        .await
+        .expect("Create request failed");
+    assert_eq!(create.status(), StatusCode::OK);
+    let dialog_id = create.json::<Value>().await.unwrap()["data"]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    // Search with the same scopes, order reversed in every level — must find it.
+    let found = client
+        .post(format!("{}/api/v1/management/dialogs/search", base_url))
+        .header("Authorization", &auth_header)
+        .json(&json!({
+            "object_id": object_id,
+            "object_type": "tender_stage",
+            "access_scopes": [{
+                "scope_level0": [carrier, organizer],
+                "scope_level2": ["tenders.tenders.chat"]
+            }]
+        }))
+        .send()
+        .await
+        .expect("Search request failed");
+    assert_eq!(found.status(), StatusCode::OK);
+    let found_body: Value = found.json().await.unwrap();
+    assert_eq!(found_body["data"]["id"], dialog_id);
+
+    // Search with a partial scope (missing scope_level2) — must NOT match.
+    let partial = client
+        .post(format!("{}/api/v1/management/dialogs/search", base_url))
+        .header("Authorization", &auth_header)
+        .json(&json!({
+            "object_id": object_id,
+            "object_type": "tender_stage",
+            "access_scopes": [{"scope_level0": [carrier, organizer]}]
+        }))
+        .send()
+        .await
+        .expect("Search request failed");
+    assert_eq!(partial.status(), StatusCode::OK);
+    assert!(partial.json::<Value>().await.unwrap()["data"].is_null());
+
+    // Search for a different pair — must not find it.
+    let other = Uuid::new_v4().to_string();
+    let not_found = client
+        .post(format!("{}/api/v1/management/dialogs/search", base_url))
+        .header("Authorization", &auth_header)
+        .json(&json!({
+            "object_id": object_id,
+            "object_type": "tender_stage",
+            "access_scopes": [{
+                "scope_level0": [organizer, other],
+                "scope_level2": ["tenders.tenders.chat"]
+            }]
+        }))
+        .send()
+        .await
+        .expect("Search request failed");
+    assert_eq!(not_found.status(), StatusCode::OK);
+    let not_found_body: Value = not_found.json().await.unwrap();
+    assert!(not_found_body["data"].is_null());
+
+    // Cleanup
+    client
+        .delete(format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
+        .header("Authorization", &auth_header)
+        .send()
+        .await
+        .expect("Cleanup failed");
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
 async fn test_get_dialog_with_details() {
     let client = Client::new();
     let base_url = get_base_url();

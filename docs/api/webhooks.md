@@ -167,6 +167,8 @@ Sent when a message has not been read by a recipient after a short server-side d
     "object_id": "550e8400-...",
     "object_type": "order",
     "recipient_id": "22222222-...",
+    "chat_title": "Order #1234 Discussion",
+    "sender_company": "Acme Inc",
     "message": {
       "id": "019481b3-...",
       "sender_id": "11111111-...",
@@ -178,6 +180,11 @@ Sent when a message has not been read by a recipient after a short server-side d
   }
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `chat_title` | string? | Dialog title, for the notification text. Omitted if not set. |
+| `sender_company` | string? | Company of the message sender, taken from the sender's participant profile. Omitted if unknown (e.g. system messages). |
 
 **Smart notification behavior:**
 

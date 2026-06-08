@@ -115,7 +115,12 @@ impl WebhookEvent {
     ///
     /// Sent when a message was not read after delay period.
     /// The receiving system should send a push notification to the user.
-    pub fn notification_pending(dialog: &Dialog, message: &Message, recipient_id: &str) -> Self {
+    pub fn notification_pending(
+        dialog: &Dialog,
+        message: &Message,
+        recipient_id: &str,
+        sender_company: Option<String>,
+    ) -> Self {
         Self::new(
             WebhookEventType::NotificationPending,
             WebhookPayload::NotificationPending(NotificationPendingPayload {
@@ -123,6 +128,8 @@ impl WebhookEvent {
                 object_id: dialog.object_id.clone(),
                 object_type: dialog.object_type.clone(),
                 recipient_id: recipient_id.to_string(),
+                chat_title: dialog.title.clone(),
+                sender_company,
                 message: MessageData {
                     id: message.id,
                     sender_id: message.sender_id.clone(),
@@ -203,6 +210,12 @@ pub struct NotificationPendingPayload {
     pub object_type: String,
     /// User who should receive the notification
     pub recipient_id: String,
+    /// Human-readable chat title (for notification text)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chat_title: Option<String>,
+    /// Company of the message sender (for notification text)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_company: Option<String>,
     /// Message that triggered the notification
     pub message: MessageData,
 }

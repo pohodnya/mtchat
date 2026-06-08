@@ -61,6 +61,24 @@ impl DialogRepository {
         .await
     }
 
+    /// Find all dialogs for an object (type + id), newest first.
+    ///
+    /// Used by host systems for idempotent "find-or-create": the caller
+    /// narrows candidates further by matching access scopes.
+    pub async fn find_all_by_object(
+        &self,
+        object_type: &str,
+        object_id: &str,
+    ) -> Result<Vec<Dialog>, sqlx::Error> {
+        sqlx::query_as::<_, Dialog>(
+            "SELECT * FROM dialogs WHERE object_type = $1 AND object_id = $2 ORDER BY created_at DESC",
+        )
+        .bind(object_type)
+        .bind(object_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     /// Find dialogs where user is a direct participant
     ///
     /// - archived: None = all, Some(true) = only archived, Some(false) = only active
