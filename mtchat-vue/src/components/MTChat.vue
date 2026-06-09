@@ -347,6 +347,10 @@ function goBack() {
   }
 }
 
+function toggleInfoPanel() {
+  showInfoPanel.value = !showInfoPanel.value
+}
+
 // ============ Resize Handlers ============
 
 function startSidebarResize(e: MouseEvent | TouchEvent) {
@@ -462,6 +466,8 @@ defineExpose({
   archivedDialogs: chat.archivedDialogs,
   currentDialog: chat.currentDialog,
   isConnected: chat.isConnected,
+  isLoading: chat.isLoading,
+  mobileView,
   selectDialog: chat.selectDialog,
   loadDialogsByObject: chat.loadDialogsByObject,
   loadArchivedDialogsByObject: chat.loadArchivedDialogsByObject,
@@ -474,6 +480,8 @@ defineExpose({
   pinDialog: chat.pinDialog,
   unpinDialog: chat.unpinDialog,
   toggleNotifications: chat.toggleNotifications,
+  goBack,
+  toggleInfoPanel,
 })
 </script>
 
