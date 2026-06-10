@@ -17,6 +17,7 @@ interface I18nHelpers {
   formatDate: (date: Date) => string
   formatDateDivider: (dateString: string) => string
   formatTime: (dateString: string) => string
+  formatInboxTime: (dateString: string) => string
 }
 
 /**
@@ -85,6 +86,16 @@ function createI18nHelpers(locale: Ref<Locale>): I18nHelpers {
 
   function formatTime(dateString: string): string {
     const date = new Date(dateString)
+    const localeCode = locale.value === 'zh' ? 'zh-CN' : locale.value
+    return date.toLocaleTimeString(localeCode, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: locale.value === 'ru' ? false : undefined,
+    })
+  }
+
+  function formatInboxTime(dateString: string): string {
+    const date = new Date(dateString)
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
@@ -99,7 +110,7 @@ function createI18nHelpers(locale: Ref<Locale>): I18nHelpers {
     return new Intl.DateTimeFormat(localeCode, options).format(date)
   }
 
-  return { t, tt, formatDate, formatDateDivider, formatTime }
+  return { t, tt, formatDate, formatDateDivider, formatTime, formatInboxTime }
 }
 
 /**
@@ -114,6 +125,7 @@ export function provideI18n(locale: Locale = 'ru'): {
   formatDate: (date: Date) => string
   formatDateDivider: (dateString: string) => string
   formatTime: (dateString: string) => string
+  formatInboxTime: (dateString: string) => string
   localeRef: Ref<Locale>
 } {
   const localeRef = ref(locale)
@@ -139,6 +151,7 @@ export function useI18n(): {
   formatDate: (date: Date) => string
   formatDateDivider: (dateString: string) => string
   formatTime: (dateString: string) => string
+  formatInboxTime: (dateString: string) => string
 } {
   const locale = inject(I18N_LOCALE_KEY, ref('ru' as Locale))
   const helpers = createI18nHelpers(locale)
