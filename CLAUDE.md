@@ -474,6 +474,17 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-06-10 (v0.4.12) - SDK & Mobile Fixes, Dialogs-by-Object List UI
+- **Sidebar**: list all dialogs by object in the UI; dialog items now show
+  participants and a last-message preview.
+- **Mobile**: fixed sidebar collapsing in embedded mode, dialog select not
+  switching to the chat view, and hid the sidebar right border in mobile view.
+- **WebSocket**: guard against duplicate connections while `CONNECTING`; prevent
+  an undefined config from overriding heartbeat defaults.
+- **JWT**: `useChat` config is now reactive so token refresh propagates.
+- **Header**: expose a custom-header define for the package client.
+- Frontend-only patch release; no API or schema changes.
+
 ### 2026-06-08 (v0.4.11) - Type Filter for List Dialogs by Object
 - **New optional query param** `type?: participating | available` on
   `GET /api/v1/dialogs/by-object/{object_type}/{object_id}/list`, mirroring
