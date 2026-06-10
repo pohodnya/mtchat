@@ -474,6 +474,14 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-06-10 (v0.4.13) - 24-Hour Time Format Fix
+- **i18n**: chat messages now always render the time as `HH:MM` (24-hour for `ru`,
+  locale-default elsewhere) via `formatTime`.
+- **Sidebar**: dialog list timestamps use a new `formatInboxTime` helper
+  (today → time, otherwise date), keeping the inbox-style relative formatting
+  separate from in-message timestamps.
+- Frontend-only patch release; no API or schema changes.
+
 ### 2026-06-10 (v0.4.12) - SDK & Mobile Fixes, Dialogs-by-Object List UI
 - **Sidebar**: list all dialogs by object in the UI; dialog items now show
   participants and a last-message preview.
