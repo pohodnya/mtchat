@@ -16,7 +16,7 @@
  * - Override MTChat tokens (--mtchat-*) via CSS on .mtchat-prime class
  */
 
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { MTChat, provideRegistry, type MTChatProps, type Message, type DialogListItem } from '@mtchat/vue'
 import { primevueRegistry } from '../registry/primevueRegistry'
 import '../theme/aura.css'
@@ -30,6 +30,8 @@ const props = withDefaults(
     mode: 'full',
     showHeader: true,
     showSidebar: true,
+    showTabs: true,
+    showSearch: true,
     theme: 'light',
   }
 )
@@ -51,11 +53,29 @@ defineEmits<{
 
 // Provide PrimeVue registry to all child components
 provideRegistry(primevueRegistry)
+
+const mtchatRef = ref<InstanceType<typeof MTChat> | null>(null)
+
+defineExpose({
+  get currentDialog()  { return mtchatRef.value?.currentDialog  ?? null },
+  get isConnected()    { return mtchatRef.value?.isConnected    ?? null },
+  get isLoading()      { return mtchatRef.value?.isLoading      ?? null },
+  get mobileView()     { return mtchatRef.value?.mobileView     ?? null },
+  goBack:              ()           => mtchatRef.value?.goBack(),
+  toggleInfoPanel:     ()           => mtchatRef.value?.toggleInfoPanel(),
+  leaveDialog:         (id: string) => mtchatRef.value?.leaveDialog(id),
+  archiveDialog:       (id: string) => mtchatRef.value?.archiveDialog(id),
+  unarchiveDialog:     (id: string) => mtchatRef.value?.unarchiveDialog(id),
+  pinDialog:           (id: string) => mtchatRef.value?.pinDialog(id),
+  unpinDialog:         (id: string) => mtchatRef.value?.unpinDialog(id),
+  toggleNotifications: (id: string) => mtchatRef.value?.toggleNotifications(id),
+})
 </script>
 
 <template>
   <div :class="wrapperClass">
     <MTChat
+      ref="mtchatRef"
       :config="config"
       :mode="mode"
       :object-id="objectId"
@@ -63,6 +83,9 @@ provideRegistry(primevueRegistry)
       :dialog-id="dialogId"
       :show-header="showHeader"
       :show-sidebar="showSidebar"
+      :show-tabs="showTabs"
+      :show-search="showSearch"
+      :search-placeholder="searchPlaceholder"
       :theme="theme"
       :token="token"
       @connected="$emit('connected')"

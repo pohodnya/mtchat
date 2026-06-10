@@ -16,6 +16,7 @@ interface I18nHelpers {
   tt: (key: string, params?: Record<string, string | number>) => string
   formatDate: (date: Date) => string
   formatDateDivider: (dateString: string) => string
+  formatTime: (dateString: string) => string
 }
 
 /**
@@ -82,7 +83,23 @@ function createI18nHelpers(locale: Ref<Locale>): I18nHelpers {
     return formatDate(new Date(dateString))
   }
 
-  return { t, tt, formatDate, formatDateDivider }
+  function formatTime(dateString: string): string {
+    const date = new Date(dateString)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    const localeCode = locale.value === 'zh' ? 'zh-CN' : locale.value
+
+    if (dateOnly.getTime() === today.getTime()) {
+      return date.toLocaleTimeString(localeCode, { hour: '2-digit', minute: '2-digit', hour12: locale.value !== 'ru' ? undefined : false })
+    }
+
+    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }
+    if (date.getFullYear() !== now.getFullYear()) options.year = 'numeric'
+    return new Intl.DateTimeFormat(localeCode, options).format(date)
+  }
+
+  return { t, tt, formatDate, formatDateDivider, formatTime }
 }
 
 /**
@@ -96,6 +113,7 @@ export function provideI18n(locale: Locale = 'ru'): {
   tt: (key: string, params?: Record<string, string | number>) => string
   formatDate: (date: Date) => string
   formatDateDivider: (dateString: string) => string
+  formatTime: (dateString: string) => string
   localeRef: Ref<Locale>
 } {
   const localeRef = ref(locale)
@@ -120,6 +138,7 @@ export function useI18n(): {
   tt: (key: string, params?: Record<string, string | number>) => string
   formatDate: (date: Date) => string
   formatDateDivider: (dateString: string) => string
+  formatTime: (dateString: string) => string
 } {
   const locale = inject(I18N_LOCALE_KEY, ref('ru' as Locale))
   const helpers = createI18nHelpers(locale)

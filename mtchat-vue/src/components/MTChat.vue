@@ -7,7 +7,7 @@
  * - Inline mode: Single chat for a business object
  */
 
-import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { computed, ref, toRef, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useChat } from '../composables/useChat'
 import { provideI18n } from '../i18n'
 import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment } from '../types'
@@ -33,6 +33,12 @@ const props = withDefaults(
     dialogId?: string
     showHeader?: boolean
     showSidebar?: boolean
+    /** Full mode: hide the tab switcher (Participating / Available). UI only. Default: true. */
+    showTabs?: boolean
+    /** Full mode: hide the search input. UI only. Default: true. */
+    showSearch?: boolean
+    /** Full mode: override search input placeholder. */
+    searchPlaceholder?: string
     /** Theme name — applied as CSS class `mtchat--${theme}` */
     theme?: string
     /** JWT token for authentication (overrides config.token) */
@@ -42,6 +48,8 @@ const props = withDefaults(
     mode: 'full',
     showHeader: true,
     showSidebar: true,
+    showTabs: true,
+    showSearch: true,
     theme: 'light',
   }
 )
@@ -72,12 +80,13 @@ const effectiveConfig = computed<MTChatConfig>(() => ({
   token: props.token ?? props.config.token,
 }))
 
-// Chat composable
+// Chat composable — pass props as Refs so useChat can watch them reactively
 const chat = useChat({
-  config: effectiveConfig.value,
-  dialogId: props.dialogId,
-  objectId: props.objectId,
-  objectType: props.objectType,
+  config: effectiveConfig,
+  mode: props.mode,
+  dialogId: toRef(props, 'dialogId'),
+  objectId: toRef(props, 'objectId'),
+  objectType: toRef(props, 'objectType'),
 })
 
 // Refs
@@ -140,18 +149,10 @@ const allAttachments = computed(() => {
 
 // ============ Watchers ============
 
-// Track if we've connected before to distinguish reconnect from initial connect
-let hasConnectedBefore = false
-
 watch(() => chat.isConnected.value, (connected) => {
   if (connected) {
     emit('connected')
-    // On reconnect, reload dialogs to catch any changes while disconnected
-    if (hasConnectedBefore && !isInlineMode.value) {
-      chat.loadParticipatingDialogs()
-      chat.loadAvailableDialogs()
-    }
-    hasConnectedBefore = true
+    // Dialog reload on reconnect is handled inside useChat via client.on('connected')
   } else {
     emit('disconnected')
   }
@@ -187,17 +188,16 @@ watch(() => chat.messages.value, (messages) => {
 // ============ Handlers ============
 
 async function handleSelectDialog(dialog: DialogListItem) {
-  await chat.selectDialog(dialog.id)
-  emit('dialog-selected', dialog)
   if (isMobile.value) {
     mobileView.value = 'chat'
   }
+  await chat.selectDialog(dialog.id)
+  emit('dialog-selected', dialog)
 }
 
 function handleSidebarSearch(query: string) {
   chat.setSearchQuery(query)
-  chat.loadParticipatingDialogs()
-  chat.loadAvailableDialogs()
+  chat.loadDialogs()
 }
 
 function handleJoin() {
@@ -347,6 +347,10 @@ function goBack() {
   }
 }
 
+function toggleInfoPanel() {
+  showInfoPanel.value = !showInfoPanel.value
+}
+
 // ============ Resize Handlers ============
 
 function startSidebarResize(e: MouseEvent | TouchEvent) {
@@ -412,24 +416,43 @@ function stopResize() {
   document.removeEventListener('touchmove', handleInfoResize)
 }
 
-// ============ Lifecycle ============
-
-function handleWindowResize() {
-  windowWidth.value = window.innerWidth
+function handleLoadArchived() {
+  const oType = props.objectType
+  const oId = props.objectId
+  if (oType && oId && !isInlineMode.value) {
+    chat.loadArchivedDialogsByObject(oType, oId)
+  } else {
+    chat.loadArchivedDialogs()
+  }
 }
 
-onMounted(() => {
-  window.addEventListener('resize', handleWindowResize)
+// ============ Lifecycle ============
 
-  // Load dialogs immediately for full mode (independent of WebSocket connection)
-  if (!isInlineMode.value) {
-    chat.loadParticipatingDialogs()
-    chat.loadAvailableDialogs()
+let resizeObserver: ResizeObserver | null = null
+
+// Drive mobileView from data state: when a dialog is open show chat, otherwise show list
+watch(chat.currentDialog, (dialog) => {
+  if (!isDesktop.value) {
+    mobileView.value = dialog ? 'chat' : 'list'
   }
 })
 
+onMounted(() => {
+  const parent = containerRef.value?.parentElement
+  if (parent) {
+    resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) windowWidth.value = entry.contentRect.width
+    })
+    resizeObserver.observe(parent)
+    windowWidth.value = parent.getBoundingClientRect().width || window.innerWidth
+  }
+  // Dialog loading is handled inside useChat onMounted via loadDialogs()
+})
+
 onUnmounted(() => {
-  window.removeEventListener('resize', handleWindowResize)
+  resizeObserver?.disconnect()
+  resizeObserver = null
   stopResize()
 })
 
@@ -443,7 +466,12 @@ defineExpose({
   archivedDialogs: chat.archivedDialogs,
   currentDialog: chat.currentDialog,
   isConnected: chat.isConnected,
+  isLoading: chat.isLoading,
+  mobileView,
   selectDialog: chat.selectDialog,
+  loadDialogsByObject: chat.loadDialogsByObject,
+  loadArchivedDialogsByObject: chat.loadArchivedDialogsByObject,
+  loadDialogs: chat.loadDialogs,
   sendMessage: chat.sendMessage,
   joinDialog: chat.joinDialog,
   leaveDialog: chat.leaveDialog,
@@ -452,6 +480,8 @@ defineExpose({
   pinDialog: chat.pinDialog,
   unpinDialog: chat.unpinDialog,
   toggleNotifications: chat.toggleNotifications,
+  goBack,
+  toggleInfoPanel,
 })
 </script>
 
@@ -482,10 +512,13 @@ defineExpose({
       :archived-dialogs="chat.archivedDialogs.value"
       :current-dialog-id="chat.currentDialog.value?.id ?? null"
       :theme="theme"
+      :show-tabs="showTabs"
+      :object-id="props.objectId"
+      :current-user-id="props.config.userId"
       :style="isDesktop ? { width: `${sidebarWidth}px` } : undefined"
       @select-dialog="handleSelectDialog"
       @search="handleSidebarSearch"
-      @load-archived="chat.loadArchivedDialogs()"
+      @load-archived="handleLoadArchived"
       @pin-dialog="chat.pinDialog"
       @unpin-dialog="chat.unpinDialog"
       @archive-dialog="chat.archiveDialog"
@@ -844,12 +877,10 @@ defineExpose({
 }
 
 .mtchat--mobile .chat-sidebar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  z-index: 10;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-right: none;
 }
 
 .mtchat--mobile.mtchat--view-chat .chat-sidebar,

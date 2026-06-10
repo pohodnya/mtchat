@@ -38,14 +38,15 @@ export class MTChatWebSocket {
 
   constructor(options: WsClientOptions) {
     this.options = {
-      reconnect: true,
-      reconnectInterval: 3000,
-      heartbeatInterval: 30000, // 30 seconds, backend TTL is 60s
       onConnect: () => {},
       onDisconnect: () => {},
       onError: () => {},
       onMessage: () => {},
       ...options,
+      // Apply defaults after spread: explicit undefined from callers must not override defaults
+      reconnect: options.reconnect ?? true,
+      reconnectInterval: options.reconnectInterval ?? 3000,
+      heartbeatInterval: options.heartbeatInterval ?? 30000, // 30 seconds, backend TTL is 60s
     }
 
     // Build WebSocket URL with appropriate auth params
@@ -69,7 +70,10 @@ export class MTChatWebSocket {
   }
 
   connect(): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (
+      this.ws?.readyState === WebSocket.OPEN ||
+      this.ws?.readyState === WebSocket.CONNECTING
+    ) {
       return
     }
 

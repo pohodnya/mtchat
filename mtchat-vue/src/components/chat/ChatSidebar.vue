@@ -11,7 +11,7 @@ import { useRegistry } from '../../registry/useRegistry'
 import Icon from '../Icon.vue'
 
 // Registry components
-const { MtContextMenu } = useRegistry()
+const { MtContextMenu, MtTag } = useRegistry()
 
 const props = defineProps<{
   participatingDialogs: DialogListItem[]
@@ -19,6 +19,11 @@ const props = defineProps<{
   archivedDialogs: DialogListItem[]
   currentDialogId: string | null
   theme: string
+  /** Hide the tab switcher (Participating / Available). Default: true. */
+  showTabs?: boolean
+  /** Current object ID. When it changes, archived load state resets. */
+  objectId?: string
+  currentUserId?: string
 }>()
 
 const emit = defineEmits<{
@@ -33,7 +38,7 @@ const emit = defineEmits<{
 }>()
 
 // i18n
-const { t, tt } = useI18n()
+const { t, formatTime } = useI18n()
 
 // Refs
 const searchInputRef = ref<HTMLInputElement | null>(null)
@@ -43,6 +48,16 @@ const activeTab = ref<'participating' | 'available'>('participating')
 const searchInput = ref('')
 const showArchivedAccordion = ref(false)
 const archivedLoaded = ref(false)
+
+watch(() => props.objectId, () => {
+  if (showArchivedAccordion.value) {
+    emit('loadArchived')
+    archivedLoaded.value = true
+  } else {
+    archivedLoaded.value = false
+  }
+})
+
 const contextMenuRef = ref<MtContextMenuExpose | null>(null)
 const contextMenuDialog = ref<DialogListItem | null>(null)
 
@@ -165,6 +180,24 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
+const stripHtml = (html: string): string => {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent ?? ''
+}
+
+function formatParticipantCompanies(
+  participants: DialogListItem['participants'],
+  excludeUserId?: string,
+): string {
+  const currentUserCompany = participants?.find(p => p.user_id === excludeUserId)?.company
+  const companies = participants
+    ?.filter(p => p.user_id !== excludeUserId && (!currentUserCompany || p.company !== currentUserCompany))
+    .map(p => p.company)
+    .filter(Boolean) as string[]
+  return [...new Set(companies ?? [])].join(', ')
+}
+
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
 })
@@ -211,7 +244,7 @@ defineExpose({
     </div>
 
     <!-- Tabs -->
-    <div class="chat-sidebar__tabs" role="tablist">
+    <div v-if="showTabs !== false" class="chat-sidebar__tabs" role="tablist">
       <button
         role="tab"
         :aria-selected="activeTab === 'participating'"
@@ -249,19 +282,32 @@ defineExpose({
           @click="emit('selectDialog', dialog)"
           @contextmenu="handleDialogContextMenu($event, dialog)"
         >
-          <Icon v-if="dialog.is_pinned" name="pin" :size="12" class="chat-sidebar__pin-icon" />
-          <Icon v-if="dialog.notifications_enabled === false" name="bell-off" :size="12" class="chat-sidebar__muted-icon" :title="t.tooltips.muted" />
           <div class="chat-sidebar__item-content">
             <div class="chat-sidebar__item-title">
-              {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
+              <component :is="MtTag" :value="dialog.title || `${dialog.object_type}/${dialog.object_id}`" />
+              <Icon v-if="dialog.is_pinned" name="pin" :size="12" class="chat-sidebar__pin-icon" />
+              <Icon v-if="dialog.notifications_enabled === false" name="bell-off" :size="12" class="chat-sidebar__muted-icon" :title="t.tooltips.muted" />
+              <span v-if="dialog.last_message_at || dialog.created_at" class="chat-sidebar__item-time">
+                {{ formatTime(dialog.last_message_at || dialog.created_at) }}
+              </span>
             </div>
-            <div class="chat-sidebar__item-meta">
-              {{ tt('chat.participants', { count: dialog.participants_count }) }}
+            <div
+              v-if="formatParticipantCompanies(dialog.participants, currentUserId)"
+              class="chat-sidebar__item-participants"
+            >
+              {{ formatParticipantCompanies(dialog.participants, currentUserId) }}
+            </div>
+            <div class="chat-sidebar__item-last-message-row">
+              <div class="chat-sidebar__item-last-message">
+                <template v-if="dialog.last_message?.message_type === 'user' && dialog.last_message.content">
+                  <span v-if="dialog.participants?.find(p => p.user_id === dialog.last_message!.sender_id)?.company" class="chat-sidebar__item-sender">{{ dialog.participants?.find(p => p.user_id === dialog.last_message!.sender_id)?.company }}:&nbsp;</span>{{ stripHtml(dialog.last_message.content) }}
+                </template>
+              </div>
+              <span v-if="dialog.unread_count && dialog.unread_count > 0" class="chat-sidebar__unread">
+                {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
+              </span>
             </div>
           </div>
-          <span v-if="dialog.unread_count && dialog.unread_count > 0" class="chat-sidebar__unread">
-            {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
-          </span>
         </div>
 
         <div v-if="sortedActiveDialogs.length === 0" class="chat-sidebar__empty">
@@ -292,15 +338,28 @@ defineExpose({
           >
             <div class="chat-sidebar__item-content">
               <div class="chat-sidebar__item-title">
-                {{ dialog.title || `${dialog.object_type}/${dialog.object_id}` }}
+                <component :is="MtTag" :value="dialog.title || `${dialog.object_type}/${dialog.object_id}`" />
+                <span v-if="dialog.last_message_at || dialog.created_at" class="chat-sidebar__item-time">
+                  {{ formatTime(dialog.last_message_at || dialog.created_at) }}
+                </span>
               </div>
-              <div class="chat-sidebar__item-meta">
-                {{ tt('chat.participants', { count: dialog.participants_count }) }}
+              <div
+                v-if="formatParticipantCompanies(dialog.participants, currentUserId)"
+                class="chat-sidebar__item-participants"
+              >
+                {{ formatParticipantCompanies(dialog.participants, currentUserId) }}
+              </div>
+              <div class="chat-sidebar__item-last-message-row">
+                <div class="chat-sidebar__item-last-message">
+                  <template v-if="dialog.last_message?.message_type === 'user' && dialog.last_message.content">
+                    <span v-if="dialog.participants?.find(p => p.user_id === dialog.last_message!.sender_id)?.company" class="chat-sidebar__item-sender">{{ dialog.participants?.find(p => p.user_id === dialog.last_message!.sender_id)?.company }}:&nbsp;</span>{{ stripHtml(dialog.last_message.content) }}
+                  </template>
+                </div>
+                <span v-if="dialog.unread_count && dialog.unread_count > 0" class="chat-sidebar__unread">
+                  {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
+                </span>
               </div>
             </div>
-            <span v-if="dialog.unread_count && dialog.unread_count > 0" class="chat-sidebar__unread">
-              {{ dialog.unread_count > 99 ? '99+' : dialog.unread_count }}
-            </span>
           </div>
         </div>
       </div>
@@ -458,21 +517,57 @@ defineExpose({
 .chat-sidebar__item-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .chat-sidebar__item-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chat-sidebar__item-time {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 13px;
+  line-height: 16px;
+  color: #64748B;
+}
+
+.chat-sidebar__item-sender {
+  color: var(--mtchat-text-secondary);
+  flex-shrink: 0;
+}
+
+.chat-sidebar__item-participants {
   font-size: 14px;
+  line-height: 100%;
   font-weight: 500;
-  color: var(--mtchat-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chat-sidebar__item-meta {
-  font-size: 12px;
+.chat-sidebar__item-last-message-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chat-sidebar__item-last-message {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 100%;
   color: var(--mtchat-text-secondary);
-  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .chat-sidebar__unread {

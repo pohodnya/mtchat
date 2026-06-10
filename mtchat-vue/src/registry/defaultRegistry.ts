@@ -18,6 +18,7 @@ import {
   MtTab,
   MtAccordion,
   MtAccordionPanel,
+  MtTag,
   vTooltip,
 } from '../primitives'
 
@@ -36,5 +37,6 @@ export const defaultRegistry: ComponentRegistry = {
   MtTab,
   MtAccordion,
   MtAccordionPanel,
+  MtTag,
   vTooltip,
 }

@@ -4,7 +4,7 @@
  * Reactive chat state management for Vue 3
  */
 
-import { ref, computed, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
 import { MTChatClient } from '../sdk/client'
 import { logger } from '../utils/logger'
 import type {
@@ -23,10 +23,10 @@ import type {
  * Vue composable for chat functionality
  */
 export function useChat(options: UseChatOptions): UseChatReturn {
-  const { config, autoConnect = true, dialogId, objectId, objectType } = options
+  const { config, autoConnect = true, mode, dialogId, objectId, objectType } = options
 
   // Initialize client
-  const client = new MTChatClient(config)
+  let client = new MTChatClient(config.value)
 
   // Reactive state
   const messages: Ref<Message[]> = ref([])
@@ -129,6 +129,67 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       throw e
     } finally {
       isLoadingDialogs.value = false
+    }
+  }
+
+  async function loadDialogsByObject(oType: string, oId: string): Promise<void> {
+    try {
+      isLoadingDialogs.value = true
+      error.value = null
+      const search = searchQuery.value || undefined
+      participatingDialogs.value = await client.api.getDialogsByObject({
+		  objectType: oType,
+		  objectId: oId,
+		  search,
+		  archived: false,
+		  type: 'participating'
+	  })
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e))
+      throw e
+    } finally {
+      isLoadingDialogs.value = false
+    }
+  }
+
+  async function loadArchivedDialogsByObject(oType: string, oId: string): Promise<void> {
+	try {
+	  isLoadingDialogs.value = true
+	  error.value = null
+      const search = searchQuery.value || undefined
+      archivedDialogs.value = await client.api.getDialogsByObject({
+		  objectType: oType,
+		  objectId: oId,
+		  search,
+		  archived: true,
+		  type: 'participating'
+	  })
+    } catch (e) {
+		  error.value = e instanceof Error ? e : new Error(String(e))
+		  throw e
+	  } finally {
+		  isLoadingDialogs.value = false
+	  }
+  }
+
+  async function loadDialogs(): Promise<void> {
+    const oType = objectType?.value
+    const oId = objectId?.value
+
+    if (oType && oId) {
+      if (mode === 'inline') {
+        await loadDialogByObject(oType, oId)
+        if (currentDialog.value) {
+          subscribe(currentDialog.value.id)
+          await loadMessages()
+          await loadParticipants()
+        }
+      } else {
+        await loadDialogsByObject(oType, oId)
+      }
+    } else {
+      await loadParticipatingDialogs()
+      await loadAvailableDialogs()
     }
   }
 
@@ -808,33 +869,36 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
-  // ============ Helper: Update dialog last_message_at ============
+  // ============ Helper: Update dialog last_message ============
 
-  function updateDialogLastMessageAt(dialogId: string, sentAt: string): void {
-    // Update in participating dialogs
-    const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
+  function updateDialogLastMessage(message: Message): void {
+    const buildLastMessage = (dialog: DialogListItem) => ({
+      id: message.id,
+      content: message.content,
+      sender_id: message.sender_id ?? undefined,
+      sender_name: dialog.participants?.find((p) => p.user_id === message.sender_id)?.display_name,
+      sent_at: message.sent_at,
+      message_type: message.message_type ?? 'user',
+    })
+
+    const applyPatch = (dialog: DialogListItem) => ({
+      ...dialog,
+      last_message_at: message.sent_at,
+      last_message: buildLastMessage(dialog),
+    })
+
+    const activeIdx = participatingDialogs.value.findIndex((d) => d.id === message.dialog_id)
     if (activeIdx !== -1) {
-      participatingDialogs.value[activeIdx] = {
-        ...participatingDialogs.value[activeIdx],
-        last_message_at: sentAt,
-      }
+      participatingDialogs.value[activeIdx] = applyPatch(participatingDialogs.value[activeIdx])
     }
 
-    // Update in archived dialogs
-    const archivedIdx = archivedDialogs.value.findIndex((d) => d.id === dialogId)
+    const archivedIdx = archivedDialogs.value.findIndex((d) => d.id === message.dialog_id)
     if (archivedIdx !== -1) {
-      archivedDialogs.value[archivedIdx] = {
-        ...archivedDialogs.value[archivedIdx],
-        last_message_at: sentAt,
-      }
+      archivedDialogs.value[archivedIdx] = applyPatch(archivedDialogs.value[archivedIdx])
     }
 
-    // Update current dialog
-    if (currentDialog.value?.id === dialogId) {
-      currentDialog.value = {
-        ...currentDialog.value,
-        last_message_at: sentAt,
-      }
+    if (currentDialog.value?.id === message.dialog_id) {
+      currentDialog.value = applyPatch(currentDialog.value)
     }
   }
 
@@ -935,8 +999,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         messages.value = [...messages.value, message]
       }
 
-      // Update last_message_at so dialog moves up in the list
-      updateDialogLastMessageAt(currentDialog.value.id, message.sent_at)
+      // Update last_message so dialog moves up and preview refreshes
+      updateDialogLastMessage(message)
 
       // Sending a message marks all previous as read - clear divider
       firstUnreadMessageId.value = null
@@ -985,11 +1049,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     if (!message) return
 
-    // Update last_message_at for the dialog (even if not current dialog)
-    updateDialogLastMessageAt(message.dialog_id, message.sent_at)
+    // Update last_message for the dialog (even if not current dialog)
+    updateDialogLastMessage(message)
 
     // Increment unread_count for messages from other users (not system messages)
-    const isFromOtherUser = message.sender_id !== config.userId
+    const isFromOtherUser = message.sender_id !== config.value.userId
     const isSystemMessage = msgType === 'system'
     const isCurrentlyViewingDialog = currentDialog.value?.id === message.dialog_id
 
@@ -1037,7 +1101,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     if (!dialog_id || !user_id) return
 
     // Check if current user joined a new dialog - reload dialog lists
-    if (user_id === config.userId) {
+    if (user_id === config.value.userId) {
       // Current user joined a dialog - reload participating dialogs to show it
       loadParticipatingDialogs().catch(() => {})
       // Also reload available dialogs as dialog may no longer be "available"
@@ -1076,7 +1140,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     if (!dialog_id || !user_id) return
 
     // Check if current user left a dialog - reload dialog lists
-    if (user_id === config.userId) {
+    if (user_id === config.value.userId) {
       // Current user left a dialog - reload to remove it from participating
       loadParticipatingDialogs().catch(() => {})
       // Also reload available dialogs as dialog may now be "available" again
@@ -1187,7 +1251,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
 
     // Only handle unread count if it's the current user's read receipt
-    if (readByUserId === config.userId) {
+    if (readByUserId === config.value.userId) {
       // Update unread count in active dialogs
       const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialog_id)
       if (activeIdx !== -1) {
@@ -1251,7 +1315,16 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     const last_edited_at = (event.last_edited_at || event.payload?.last_edited_at) as string | undefined
     if (!id || !dialog_id || !content) return
 
-    // Only update if it's for the current dialog
+    // Update last_message preview across all dialog lists if this was the last message
+    const patchLastMessage = (dialog: DialogListItem) => {
+      if (dialog.last_message?.id !== id) return dialog
+      return { ...dialog, last_message: { ...dialog.last_message, content } }
+    }
+    participatingDialogs.value = participatingDialogs.value.map(patchLastMessage)
+    archivedDialogs.value = archivedDialogs.value.map(patchLastMessage)
+    if (currentDialog.value) currentDialog.value = patchLastMessage(currentDialog.value)
+
+    // Update messages[] only for current dialog
     if (currentDialog.value?.id !== dialog_id) return
 
     const idx = messages.value.findIndex((m) => m.id === id)
@@ -1269,7 +1342,16 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     if (!id || !dialog_id) return
 
-    // Only update if it's for the current dialog
+    // Clear last_message preview across all dialog lists if this was the last message
+    const clearLastMessage = (dialog: DialogListItem) => {
+      if (dialog.last_message?.id !== id) return dialog
+      return { ...dialog, last_message: undefined }
+    }
+    participatingDialogs.value = participatingDialogs.value.map(clearLastMessage)
+    archivedDialogs.value = archivedDialogs.value.map(clearLastMessage)
+    if (currentDialog.value) currentDialog.value = clearLastMessage(currentDialog.value)
+
+    // Remove from messages[] only for current dialog
     if (currentDialog.value?.id !== dialog_id) return
 
     messages.value = messages.value.filter((m) => m.id !== id)
@@ -1287,18 +1369,16 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   // Track if we've connected before (to distinguish reconnect from initial connect)
   let hasConnectedBefore = false
 
-  onMounted(async () => {
-    // Set up event handlers
+  function setupClientHandlers(): void {
     client.on('connected', async () => {
       isConnected.value = true
 
       // On reconnect, reload data that may have changed while disconnected
       if (hasConnectedBefore) {
-        // Reload dialog lists
-        loadParticipatingDialogs().catch(() => {})
-        loadAvailableDialogs().catch(() => {})
+        // Reload dialog list using unified dispatcher (respects objectType/objectId)
+        loadDialogs().catch(() => {})
 
-        // Reload current dialog data
+        // Reload current dialog messages (do not re-select — user is already viewing it)
         if (currentDialog.value?.i_am_participant) {
           loadMessages().catch(() => {})
           loadParticipants().catch(() => {})
@@ -1326,26 +1406,66 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     client.on('participant.left', handleParticipantLeft)
     client.on('dialog.archived', handleDialogArchived)
     client.on('dialog.unarchived', handleDialogUnarchived)
+  }
+
+  onMounted(async () => {
+    setupClientHandlers()
 
     // Auto-connect
     if (autoConnect) {
       connect()
     }
 
-    // Load initial dialog
-    if (objectType && objectId) {
-      // Inline mode - load by object
-      await loadDialogByObject(objectType, objectId)
-      if (currentDialog.value) {
-        subscribe(currentDialog.value.id)
-        await loadMessages()
-        await loadParticipants()
-      }
-    } else if (dialogId) {
-      // Full mode with initial dialog
-      await selectDialog(dialogId)
+    // Load dialogs based on mode and available props
+    await loadDialogs()
+    // Open initial dialog if provided (separate from list loading)
+    if (mode !== 'inline' && dialogId?.value) {
+      await selectDialog(dialogId.value)
     }
   })
+
+  // Watch objectId changes: reload dialog list and reset open dialog.
+  // Registered synchronously in useChat body (not inside onMounted) so that
+  // Vue's current instance context is active and the watch fires correctly.
+  watch(objectId, () => {
+    if (!objectId.value || !objectType?.value) return
+    // Unsubscribe from current dialog WebSocket channel.
+    // Without this, events from the old dialog keep arriving and mutate
+    // participatingDialogs/messages in the context of the new object.
+    if (subscribedDialogId) {
+      client.unsubscribe(subscribedDialogId)
+      subscribedDialogId = null
+    }
+    currentDialog.value = null
+    archivedDialogs.value = []
+    searchQuery.value = '' // Reset search so the old query doesn't filter the new object's dialogs
+    loadDialogs()
+  })
+
+  // Watch dialogId changes: open the specified dialog reactively.
+  // dialogId is passed as a Ref, so changes after mount are tracked.
+  // Without this watch, dialogId would be read only once at useChat init time.
+  watch(dialogId, async (newId) => {
+    if (!newId) return
+    await selectDialog(newId)
+  })
+
+  // Watch for token changes: recreate client with fresh token to avoid stale JWT on reconnect
+  watch(
+    () => config.value.token,
+    () => {
+      const wasConnected = client.isConnected
+      client.disconnect()
+      client = new MTChatClient(config.value)
+      setupClientHandlers()
+      if (wasConnected) {
+        client.connect()
+        if (subscribedDialogId) {
+          client.subscribe(subscribedDialogId)
+        }
+      }
+    },
+  )
 
   onUnmounted(() => {
     if (subscribedDialogId) {
@@ -1380,8 +1500,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     isJumpingToMessage,
     jumpCooldown,
 
-    // API access for file uploads
-    api: client.api,
+    // API access for file uploads — getter so it stays current after token-watch recreates client
+    get api() { return client.api },
 
     // Methods
     connect,
@@ -1401,6 +1521,9 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     loadParticipatingDialogs,
     loadArchivedDialogs,
     loadAvailableDialogs,
+    loadDialogsByObject,
+    loadArchivedDialogsByObject,
+    loadDialogs,
     loadDialogByObject,
     selectDialog,
     joinDialog,
