@@ -38,7 +38,7 @@ const emit = defineEmits<{
 }>()
 
 // i18n
-const { t, formatTime } = useI18n()
+const { t, formatInboxTime } = useI18n()
 
 // Refs
 const searchInputRef = ref<HTMLInputElement | null>(null)
@@ -288,7 +288,7 @@ defineExpose({
               <Icon v-if="dialog.is_pinned" name="pin" :size="12" class="chat-sidebar__pin-icon" />
               <Icon v-if="dialog.notifications_enabled === false" name="bell-off" :size="12" class="chat-sidebar__muted-icon" :title="t.tooltips.muted" />
               <span v-if="dialog.last_message_at || dialog.created_at" class="chat-sidebar__item-time">
-                {{ formatTime(dialog.last_message_at || dialog.created_at) }}
+                {{ formatInboxTime(dialog.last_message_at || dialog.created_at) }}
               </span>
             </div>
             <div
@@ -340,7 +340,7 @@ defineExpose({
               <div class="chat-sidebar__item-title">
                 <component :is="MtTag" :value="dialog.title || `${dialog.object_type}/${dialog.object_id}`" />
                 <span v-if="dialog.last_message_at || dialog.created_at" class="chat-sidebar__item-time">
-                  {{ formatTime(dialog.last_message_at || dialog.created_at) }}
+                  {{ formatInboxTime(dialog.last_message_at || dialog.created_at) }}
                 </span>
               </div>
               <div
