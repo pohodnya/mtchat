@@ -1,7 +1,7 @@
 <template>
   <div class="chat-info-panel">
     <!-- Header -->
-    <div class="chat-info-panel__header">
+    <div v-if="props.showHeader" class="chat-info-panel__header">
       <h2 class="chat-info-panel__title">{{ t.infoPanel.title }}</h2>
       <button
         class="chat-info-panel__close"
@@ -108,6 +108,7 @@ const props = defineProps<{
   participants: DialogParticipant[]
   participantsCount: number
   currentUserId: string
+  showHeader?: boolean
 }>()
 
 const emit = defineEmits<{

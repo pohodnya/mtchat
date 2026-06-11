@@ -654,6 +654,7 @@ defineExpose({
         :style="isDesktop && !isInlineMode ? { width: `${infoWidth}px` } : undefined"
       >
         <ChatInfoPanel
+          :show-header="showHeader"
           :dialog-title="dialogTitle"
           :object-type="chat.currentDialog.value?.object_type"
           :object-id="chat.currentDialog.value?.object_id"
