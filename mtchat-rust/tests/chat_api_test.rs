@@ -406,6 +406,90 @@ async fn test_get_dialog_by_object_forbidden() {
 
 #[tokio::test]
 #[ignore] // Requires running server
+async fn test_get_dialog_by_object_returns_callers_dialog_not_newest() {
+    // Regression: multiple dialogs per object (one per tenant scope). The singular
+    // by-object endpoint must return the newest dialog the CALLER can access, not
+    // the globally-newest. Previously tenant B got 403 because the newest dialog
+    // belonged to tenant A.
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let user_id = Uuid::new_v4();
+    let tenant_a = Uuid::new_v4();
+    let tenant_b = Uuid::new_v4();
+    let object_id = Uuid::new_v4();
+
+    // Tenant B's dialog is created first (older)...
+    let tenant_b_dialog = create_test_dialog(
+        &client,
+        &base_url,
+        &auth_header,
+        object_id,
+        "tender_stage",
+        &[],
+        tenant_b,
+        &[],
+        &["tender:chat"],
+    )
+    .await;
+    // ...then tenant A's dialog (newest). A globally-newest lookup would pick this.
+    let tenant_a_dialog = create_test_dialog(
+        &client,
+        &base_url,
+        &auth_header,
+        object_id,
+        "tender_stage",
+        &[],
+        tenant_a,
+        &[],
+        &["tender:chat"],
+    )
+    .await;
+
+    // Tenant B asks for the dialog: must get its own, not 403, not tenant A's.
+    let scope_header = encode_scope_config(tenant_b, &[], &["tender:chat"]);
+    let resp = client
+        .get(format!(
+            "{}/api/v1/dialogs/by-object/tender_stage/{}?user_id={}",
+            base_url, object_id, user_id
+        ))
+        .header("X-Scope-Config", &scope_header)
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["data"]["id"], tenant_b_dialog);
+    assert_eq!(body["data"]["i_am_participant"], false);
+    assert_eq!(body["data"]["can_join"], true);
+
+    // A tenant with no accessible dialog gets `data: null`, not 403 (no leak).
+    let stranger = Uuid::new_v4();
+    let stranger_header = encode_scope_config(stranger, &[], &["tender:chat"]);
+    let resp = client
+        .get(format!(
+            "{}/api/v1/dialogs/by-object/tender_stage/{}?user_id={}",
+            base_url, object_id, user_id
+        ))
+        .header("X-Scope-Config", &stranger_header)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp.json().await.unwrap();
+    assert!(body["data"].is_null());
+
+    // Cleanup
+    delete_test_dialog(&client, &base_url, &auth_header, &tenant_b_dialog).await;
+    delete_test_dialog(&client, &base_url, &auth_header, &tenant_a_dialog).await;
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
 async fn test_list_dialogs_by_object() {
     let client = Client::new();
     let base_url = get_base_url();
