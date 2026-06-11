@@ -358,38 +358,28 @@ pub async fn get_dialog_by_object(
     OptionalScopeConfig(scope_config): OptionalScopeConfig,
     Path((object_type, object_id)): Path<(String, String)>,
 ) -> Result<Json<ApiResponse<Option<DialogResponse>>>, ApiError> {
+    let scope = scope_config.as_ref().map(|s| {
+        (
+            s.scope_level0.as_slice(),
+            s.scope_level1.as_slice(),
+            s.scope_level2.as_slice(),
+        )
+    });
+
+    // Resolve the newest dialog the caller can access. Multiple dialogs may exist
+    // per object (one per scope); a globally-newest lookup would 403 every tenant
+    // but the owner of the latest dialog. `None` means no accessible dialog, which
+    // is reported as `data: null` rather than leaking another tenant's dialog.
     let dialog = state
         .dialogs
-        .find_by_object(&object_type, &object_id)
+        .find_by_object_for_user(&object_type, &object_id, &user_id, scope)
         .await?;
 
     if let Some(dialog) = dialog {
+        // The dialog is already access-filtered: the user is either a participant
+        // or can join it via scope.
         let i_am_participant = state.participants.exists(dialog.id, &user_id).await?;
-
-        let can_join = if !i_am_participant {
-            if let Some(scope) = &scope_config {
-                state
-                    .scopes
-                    .check_access(
-                        dialog.id,
-                        &scope.scope_level0,
-                        &scope.scope_level1,
-                        &scope.scope_level2,
-                    )
-                    .await?
-            } else {
-                false
-            }
-        } else {
-            false
-        };
-
-        if !i_am_participant && !can_join {
-            return Err(ApiError::new(
-                ErrorCode::ScopeMismatch,
-                "No access to this dialog",
-            ));
-        }
+        let can_join = !i_am_participant;
 
         // Use batch methods to avoid N+1 queries (consistent with list_dialogs)
         let dialog_ids = &[dialog.id];
