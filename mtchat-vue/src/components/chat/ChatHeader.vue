@@ -195,6 +195,8 @@ function toggleMenu(event: Event) {
 }
 
 .chat-header__back {
+  display: flex;
+  align-items: center;
   padding: 8px;
   background: none;
   border: none;
@@ -296,6 +298,8 @@ function toggleMenu(event: Event) {
 }
 
 .chat-header__menu-btn {
+  display: flex;
+  align-items: center;
   padding: 8px;
   background: none;
   border: none;
