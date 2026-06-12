@@ -21,6 +21,8 @@ const props = defineProps<{
   theme: string
   /** Hide the tab switcher (Participating / Available). Default: true. */
   showTabs?: boolean
+  /** Disable right-click context menu on dialog items. Default: true. */
+  showContextMenu?: boolean
   /** Current object ID. When it changes, archived load state resets. */
   objectId?: string
   currentUserId?: string
@@ -165,6 +167,7 @@ async function toggleArchivedAccordion() {
 
 // Context menu
 function handleDialogContextMenu(e: MouseEvent, dialog: DialogListItem) {
+  if (!props.showContextMenu) return
   // Only show context menu for dialogs where user is participant
   if (!dialog.i_am_participant) return
   contextMenuDialog.value = dialog

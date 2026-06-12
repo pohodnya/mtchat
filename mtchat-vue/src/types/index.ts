@@ -592,6 +592,11 @@ export interface MTChatProps {
    * Full mode: override search input placeholder.
    */
   searchPlaceholder?: string
+  /**
+   * Full mode: disable right-click context menu on dialog items.
+   * Default: true (context menu enabled).
+   */
+  showContextMenu?: boolean
   /** Theme name — applied as CSS class `mtchat--${theme}` */
   theme?: string
   /** JWT token for authentication (overrides config.token) */
