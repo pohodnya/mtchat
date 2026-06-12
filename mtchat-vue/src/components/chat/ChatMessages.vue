@@ -703,6 +703,7 @@ defineExpose({
 <style scoped>
 .chat-messages__wrapper {
   position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   display: flex;

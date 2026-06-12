@@ -710,6 +710,8 @@ defineExpose({
   --mtchat-spacing-md: 12px;
   --mtchat-spacing-lg: 16px;
 
+  isolation: isolate;
+
   display: flex;
   height: 100%;
   background: var(--mtchat-bg);
@@ -870,6 +872,7 @@ defineExpose({
 .mtchat--tablet .mtchat__info-panel {
   width: 320px;
   flex-shrink: 0;
+  z-index: 10;
 }
 
 /* Mobile responsive - single column */
@@ -900,6 +903,7 @@ defineExpose({
   bottom: 0;
   width: 100%;
   max-width: none;
+  z-index: 10;
 }
 
 /* Inline mode */
