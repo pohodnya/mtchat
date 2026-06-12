@@ -37,6 +37,8 @@ const props = withDefaults(
     showTabs?: boolean
     /** Full mode: hide the search input. UI only. Default: true. */
     showSearch?: boolean
+    /** Full mode: disable right-click context menu on dialog items. Default: true. */
+    showContextMenu?: boolean
     /** Full mode: override search input placeholder. */
     searchPlaceholder?: string
     /** Theme name — applied as CSS class `mtchat--${theme}` */
@@ -50,6 +52,7 @@ const props = withDefaults(
     showSidebar: true,
     showTabs: true,
     showSearch: true,
+    showContextMenu: true,
     theme: 'light',
   }
 )
@@ -513,6 +516,7 @@ defineExpose({
       :current-dialog-id="chat.currentDialog.value?.id ?? null"
       :theme="theme"
       :show-tabs="showTabs"
+      :show-context-menu="showContextMenu"
       :object-id="props.objectId"
       :current-user-id="props.config.userId"
       :style="isDesktop ? { width: `${sidebarWidth}px` } : undefined"

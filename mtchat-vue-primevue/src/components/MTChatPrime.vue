@@ -32,6 +32,7 @@ const props = withDefaults(
     showSidebar: true,
     showTabs: true,
     showSearch: true,
+    showContextMenu: true,
     theme: 'light',
   }
 )
@@ -85,6 +86,7 @@ defineExpose({
       :show-sidebar="showSidebar"
       :show-tabs="showTabs"
       :show-search="showSearch"
+      :show-context-menu="showContextMenu"
       :search-placeholder="searchPlaceholder"
       :theme="theme"
       :token="token"
