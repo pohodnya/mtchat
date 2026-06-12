@@ -80,7 +80,8 @@ pub struct ParticipantSummary {
 pub struct DialogResponse {
     #[serde(flatten)]
     pub dialog: Dialog,
-    pub participants_count: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub participants_count: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub i_am_participant: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -235,7 +236,7 @@ pub async fn list_dialogs(
 
         responses.push(DialogResponse {
             dialog,
-            participants_count,
+            participants_count: Some(participants_count),
             i_am_participant: Some(dialog_type == "participating"),
             can_join: Some(dialog_type == "available"),
             unread_count,
@@ -336,7 +337,7 @@ pub async fn list_dialogs_by_object(
 
         responses.push(DialogResponse {
             dialog,
-            participants_count,
+            participants_count: Some(participants_count),
             i_am_participant: Some(i_am_participant),
             can_join: Some(!i_am_participant),
             unread_count,
@@ -405,7 +406,7 @@ pub async fn get_dialog_by_object(
         Ok(Json(ApiResponse {
             data: Some(DialogResponse {
                 dialog,
-                participants_count,
+                participants_count: Some(participants_count),
                 i_am_participant: Some(i_am_participant),
                 can_join: Some(can_join),
                 unread_count: None,
@@ -716,9 +717,9 @@ pub async fn set_dialog_notifications(
 pub async fn get_dialog(
     State(state): State<AppState>,
     UserId(user_id): UserId,
-    scope_config: ScopeConfig,
+    OptionalScopeConfig(scope_config): OptionalScopeConfig,
     Path(dialog_id): Path<Uuid>,
-) -> Result<Json<ApiResponse<Dialog>>, ApiError> {
+) -> Result<Json<ApiResponse<DialogResponse>>, ApiError> {
     let dialog = state
         .dialogs
         .find_by_id(dialog_id)
@@ -727,15 +728,19 @@ pub async fn get_dialog(
 
     // Check access: must be participant OR have scope access (potential participant)
     let is_participant = state.participants.exists(dialog_id, &user_id).await?;
-    let has_scope_access = state
-        .scopes
-        .check_access(
-            dialog_id,
-            &scope_config.scope_level0,
-            &scope_config.scope_level1,
-            &scope_config.scope_level2,
-        )
-        .await?;
+    let has_scope_access = if let Some(scope) = &scope_config {
+        state
+            .scopes
+            .check_access(
+                dialog_id,
+                &scope.scope_level0,
+                &scope.scope_level1,
+                &scope.scope_level2,
+            )
+            .await?
+    } else {
+        false
+    };
 
     if !is_participant && !has_scope_access {
         return Err(ApiError::new(
@@ -744,5 +749,27 @@ pub async fn get_dialog(
         ));
     }
 
-    Ok(Json(ApiResponse { data: dialog }))
+    let (participants, participants_count) = if is_participant {
+        let list = state.participants.list_by_dialog(dialog_id).await?;
+        let count = list.len() as i64;
+        (Some(build_participant_summaries(&list)), Some(count))
+    } else {
+        (None, None)
+    };
+
+    Ok(Json(ApiResponse {
+        data: DialogResponse {
+            dialog,
+            participants_count,
+            i_am_participant: Some(is_participant),
+            can_join: Some(!is_participant && has_scope_access),
+            participants,
+            unread_count: None,
+            is_archived: None,
+            is_pinned: None,
+            notifications_enabled: None,
+            last_message_at: None,
+            last_message: None,
+        },
+    }))
 }
