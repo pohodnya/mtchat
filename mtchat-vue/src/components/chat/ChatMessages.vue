@@ -916,6 +916,7 @@ defineExpose({
 }
 
 .chat-messages__action-btn {
+  display: inline-flex;
   padding: 4px;
   background: var(--mtchat-bg);
   border: 1px solid var(--mtchat-border);
