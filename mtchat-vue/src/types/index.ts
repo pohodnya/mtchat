@@ -22,6 +22,14 @@ export interface Dialog {
   /** User who created the dialog */
   created_by?: string
   created_at: string
+  /** Whether current user is a participant */
+  i_am_participant?: boolean
+  /** Whether current user can join */
+  can_join?: boolean
+  /** Number of participants; present only for dialogs the user participates in */
+  participants_count?: number
+  /** Participant list; present only for dialogs the user participates in */
+  participants?: ParticipantSummary[]
 }
 
 /**
