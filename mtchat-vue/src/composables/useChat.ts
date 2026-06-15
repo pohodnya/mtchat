@@ -250,8 +250,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         const fetched = await client.api.getDialog(id)
         dialog = {
           ...fetched,
-          participants_count: 0,
-          i_am_participant: true,
+          participants_count: fetched.participants_count ?? 0,
+          participants: fetched.participants ?? [],
+          i_am_participant: fetched.i_am_participant ?? false,
+          can_join: fetched.can_join ?? false,
         }
       } catch (e) {
         error.value = e instanceof Error ? e : new Error(String(e))
@@ -283,9 +285,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         availableDialogs.value = availableDialogs.value.filter((d) => d.id !== id)
         participatingDialogs.value = [...participatingDialogs.value, dialog]
       } else {
-        // Dialog wasn't in available list - reload both lists
-        await loadParticipatingDialogs()
-        await loadAvailableDialogs()
+        // Dialog wasn't in any list - reload via unified loader (handles by-object mode)
+        await loadDialogs()
       }
 
       // Update current dialog if it's the one we joined

@@ -37,6 +37,8 @@ const props = withDefaults(
     showTabs?: boolean
     /** Full mode: hide the search input. UI only. Default: true. */
     showSearch?: boolean
+    /** Full mode: disable right-click context menu on dialog items. Default: true. */
+    showContextMenu?: boolean
     /** Full mode: override search input placeholder. */
     searchPlaceholder?: string
     /** Theme name — applied as CSS class `mtchat--${theme}` */
@@ -50,6 +52,7 @@ const props = withDefaults(
     showSidebar: true,
     showTabs: true,
     showSearch: true,
+    showContextMenu: true,
     theme: 'light',
   }
 )
@@ -513,6 +516,7 @@ defineExpose({
       :current-dialog-id="chat.currentDialog.value?.id ?? null"
       :theme="theme"
       :show-tabs="showTabs"
+      :show-context-menu="showContextMenu"
       :object-id="props.objectId"
       :current-user-id="props.config.userId"
       :style="isDesktop ? { width: `${sidebarWidth}px` } : undefined"
@@ -654,9 +658,8 @@ defineExpose({
         :style="isDesktop && !isInlineMode ? { width: `${infoWidth}px` } : undefined"
       >
         <ChatInfoPanel
+          :show-header="showHeader"
           :dialog-title="dialogTitle"
-          :object-type="chat.currentDialog.value?.object_type"
-          :object-id="chat.currentDialog.value?.object_id"
           :object-url="isInlineMode ? undefined : chat.currentDialog.value?.object_url"
           :participants="chat.participants.value"
           :participants-count="chat.currentDialog.value?.participants_count || 0"
@@ -708,6 +711,8 @@ defineExpose({
   --mtchat-spacing-sm: 8px;
   --mtchat-spacing-md: 12px;
   --mtchat-spacing-lg: 16px;
+
+  isolation: isolate;
 
   display: flex;
   height: 100%;
@@ -869,6 +874,7 @@ defineExpose({
 .mtchat--tablet .mtchat__info-panel {
   width: 320px;
   flex-shrink: 0;
+  z-index: 10;
 }
 
 /* Mobile responsive - single column */
@@ -899,6 +905,7 @@ defineExpose({
   bottom: 0;
   width: 100%;
   max-width: none;
+  z-index: 10;
 }
 
 /* Inline mode */

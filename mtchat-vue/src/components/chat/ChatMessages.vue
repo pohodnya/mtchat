@@ -703,6 +703,7 @@ defineExpose({
 <style scoped>
 .chat-messages__wrapper {
   position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -915,6 +916,7 @@ defineExpose({
 }
 
 .chat-messages__action-btn {
+  display: inline-flex;
   padding: 4px;
   background: var(--mtchat-bg);
   border: 1px solid var(--mtchat-border);
