@@ -474,6 +474,15 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-06-15 (v0.4.15) - Join Button Fix, Info Panel & Sidebar Improvements
+- **Dialogs API**: `GET /api/v1/dialogs/{id}` enriched with `i_am_participant`, `can_join`, `participants`, `participants_count`; scope extractor changed to `OptionalScopeConfig` so participants can fetch dialog details without the scope header.
+- **Join button**: `useChat.selectDialog` no longer hardcodes `i_am_participant: true` — join button now correctly appears for non-participant dialogs; `joinDialog` fallback uses `loadDialogs()` for object-mode compatibility.
+- **Info panel**: new `showHeader?: boolean` prop on `ChatInfoPanel` (forwarded from `MTChat`/`MTChatPrime`) — pass `false` to hide the panel header.
+- **Mobile/tablet stacking context**: `isolation: isolate` on `.mtchat` + `z-index: 10` on info panel in mobile and tablet modes — fixes panel rendering behind sticky date dividers and the message editor.
+- **Sidebar**: new `showContextMenu?: boolean` prop (default `true`) on `MTChat`, `MTChatPrime`, `ChatSidebar` — allows host apps to suppress the right-click context menu on dialog items; `PrimeContextMenu` gains explicit structural styles for PrimeVue `unstyled: true` hosts.
+- **Header**: `chat-header__menu-container` gets `display: flex; align-items: center` — menu button no longer stretches to container height.
+- **Buttons**: removed extra height from icon buttons.
+
 ### 2026-06-10 (v0.4.13) - 24-Hour Time Format Fix
 - **i18n**: chat messages now always render the time as `HH:MM` (24-hour for `ru`,
   locale-default elsewhere) via `formatTime`.
