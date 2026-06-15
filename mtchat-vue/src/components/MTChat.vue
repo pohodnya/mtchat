@@ -434,11 +434,15 @@ function handleLoadArchived() {
 let resizeObserver: ResizeObserver | null = null
 
 // Drive mobileView from data state: when a dialog is open show chat, otherwise show list
-watch(chat.currentDialog, (dialog) => {
-  if (!isDesktop.value) {
-    mobileView.value = dialog ? 'chat' : 'list'
+// Watch only id to avoid triggering on last_message/last_message_at patches
+watch(
+  () => chat.currentDialog.value?.id,
+  (id) => {
+    if (!isDesktop.value) {
+      mobileView.value = id ? 'chat' : 'list'
+    }
   }
-})
+)
 
 onMounted(() => {
   const parent = containerRef.value?.parentElement
