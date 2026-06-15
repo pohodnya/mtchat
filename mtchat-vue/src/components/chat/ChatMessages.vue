@@ -118,13 +118,18 @@ const virtualItems = computed<VirtualItem[]>(() => {
 
 // ============ Scroll Handling ============
 
+function getScrollMetrics(container: HTMLElement) {
+  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+  const distanceFromTop = container.scrollTop
+  const isAtBottom = distanceFromBottom < 50
+  return { distanceFromBottom, distanceFromTop, isAtBottom }
+}
+
 function handleScroll() {
   const container = scrollerRef.value?.$el
   if (!container) return
 
-  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-  const distanceFromTop = container.scrollTop
-  const isAtBottom = distanceFromBottom < 50
+  const { distanceFromBottom, distanceFromTop, isAtBottom } = getScrollMetrics(container)
 
   // Show/hide scroll to bottom button
   showScrollButton.value = distanceFromBottom > 200
@@ -186,6 +191,21 @@ function updateStickyDate(container: HTMLElement) {
   stickyDate.value = dividerNearTop ? null : topMessageDate
   hiddenDividerDate.value = stickyDate.value
 }
+
+// When messages load and all fit in the container (no scroll possible), scroll event never fires.
+// Check read state after each messages update so short dialogs get marked as read too.
+watch(
+  () => props.messages,
+  () => {
+    nextTick(() => {
+      const container = scrollerRef.value?.$el
+      if (!container) return
+      const { isAtBottom } = getScrollMetrics(container)
+      handleReadTracking(isAtBottom)
+    })
+  },
+  { flush: 'post' }
+)
 
 function handleReadTracking(isAtBottom: boolean) {
   if (props.firstUnreadMessageId) {
