@@ -1103,10 +1103,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     // Check if current user joined a new dialog - reload dialog lists
     if (user_id === config.value.userId) {
-      // Current user joined a dialog - reload participating dialogs to show it
-      loadParticipatingDialogs().catch(() => {})
-      // Also reload available dialogs as dialog may no longer be "available"
-      loadAvailableDialogs().catch(() => {})
+      loadDialogs().catch(() => {})
       return
     }
 
@@ -1142,10 +1139,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     // Check if current user left a dialog - reload dialog lists
     if (user_id === config.value.userId) {
-      // Current user left a dialog - reload to remove it from participating
-      loadParticipatingDialogs().catch(() => {})
-      // Also reload available dialogs as dialog may now be "available" again
-      loadAvailableDialogs().catch(() => {})
+      loadDialogs().catch(() => {})
       return
     }
 
