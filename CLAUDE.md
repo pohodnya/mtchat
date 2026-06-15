@@ -474,6 +474,12 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-06-15 (v0.4.16) - Mobile View & Unread Tracking Fixes
+- **Mobile view flicker**: `mobileView` watcher in `MTChat` now tracks `currentDialog.id` instead of the full object — fixes mobile view unexpectedly switching to chat panel on every incoming `message.new`.
+- **By-object dialog list**: `handleParticipantJoined` / `handleParticipantLeft` now call `loadDialogs()` instead of `loadParticipatingDialogs()` + `loadAvailableDialogs()` — in by-object mode the list is correctly reloaded with the object filter applied.
+- **Unread tracking for short dialogs**: `ChatMessages` now checks scroll position after each message list update (`watch` on `props.messages`, `flush: 'post'`) — fixes dialogs where all messages fit in the viewport never calling `markAsRead` because no scroll event fires.
+- Frontend-only patch release; no API or schema changes.
+
 ### 2026-06-15 (v0.4.15) - Join Button Fix, Info Panel & Sidebar Improvements
 - **Dialogs API**: `GET /api/v1/dialogs/{id}` enriched with `i_am_participant`, `can_join`, `participants`, `participants_count`; scope extractor changed to `OptionalScopeConfig` so participants can fetch dialog details without the scope header.
 - **Join button**: `useChat.selectDialog` no longer hardcodes `i_am_participant: true` — join button now correctly appears for non-participant dialogs; `joinDialog` fallback uses `loadDialogs()` for object-mode compatibility.
