@@ -660,8 +660,6 @@ defineExpose({
         <ChatInfoPanel
           :show-header="showHeader"
           :dialog-title="dialogTitle"
-          :object-type="chat.currentDialog.value?.object_type"
-          :object-id="chat.currentDialog.value?.object_id"
           :object-url="isInlineMode ? undefined : chat.currentDialog.value?.object_url"
           :participants="chat.participants.value"
           :participants-count="chat.currentDialog.value?.participants_count || 0"

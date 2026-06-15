@@ -16,10 +16,6 @@
     <!-- Dialog info -->
     <div class="chat-info-panel__section">
       <h3 class="chat-info-panel__section-title">{{ dialogTitle }}</h3>
-      <div v-if="objectType" class="chat-info-panel__object-info">
-        <span class="chat-info-panel__object-type">{{ objectTypeLabel }}</span>
-        <span v-if="objectId" class="chat-info-panel__object-id">#{{ objectId.slice(0, 8) }}</span>
-      </div>
       <a
         v-if="objectUrl"
         :href="objectUrl"
@@ -102,8 +98,6 @@ const { t } = useI18n()
 
 const props = defineProps<{
   dialogTitle: string
-  objectType?: string
-  objectId?: string
   objectUrl?: string
   participants: DialogParticipant[]
   participantsCount: number
@@ -127,16 +121,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
-})
-
-const objectTypeLabel = computed(() => {
-  const labels = t.value.infoPanel.objectTypes
-  const typeMap: Record<string, string> = {
-    tender: labels.tender,
-    order: labels.order,
-    route: labels.route,
-  }
-  return props.objectType ? typeMap[props.objectType] || props.objectType : ''
 })
 
 // Sort participants: current user first, then by join date
@@ -200,6 +184,9 @@ const sortedParticipants = computed(() => {
 }
 
 .chat-info-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 16px;
   border-bottom: 1px solid var(--mtchat-border, #e5e5e5);
 }
@@ -211,17 +198,10 @@ const sortedParticipants = computed(() => {
 }
 
 .chat-info-panel__section-title {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--mtchat-text, #1a1a1a);
-}
-
-.chat-info-panel__object-info {
-  display: flex;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--mtchat-text-secondary, #666);
 }
 
 .chat-info-panel__object-link {
