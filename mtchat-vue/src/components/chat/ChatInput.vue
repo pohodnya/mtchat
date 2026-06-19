@@ -182,6 +182,7 @@ defineExpose({
       :participants="participants"
       :current-user-id="currentUserId"
       :has-attachments="fileUpload.pendingAttachments.value.length > 0"
+      :is-uploading="fileUpload.isUploading.value"
       @submit="handleSubmit"
       @update:is-empty="editorIsEmpty = $event"
       @attach="handleFileSelect"
