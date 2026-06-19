@@ -29,6 +29,7 @@ const props = defineProps<{
   participants?: DialogParticipant[]
   currentUserId?: string
   hasAttachments?: boolean
+  isUploading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -308,8 +309,8 @@ const isActive = (name: string, attrs?: Record<string, unknown>) => {
 // Check if editor has content
 const isEmpty = computed(() => editor.value?.isEmpty ?? true)
 
-// Can send when there's text OR attachments
-const canSend = computed(() => !isEmpty.value || props.hasAttachments)
+// Can send when there's text OR attachments, but not while attachments are still uploading
+const canSend = computed(() => (!isEmpty.value || props.hasAttachments) && !props.isUploading)
 
 // Format commands
 const toggleBold = () => editor.value?.chain().focus().toggleBold().run()
