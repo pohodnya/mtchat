@@ -474,6 +474,10 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-06-19 (v0.4.17) - Disable Send While Uploading
+- **Send during upload**: `MessageEditor` gains an `isUploading` prop and gates `canSend` on `!isUploading`; `ChatInput` passes `fileUpload.isUploading` — the send button (and Enter) is now disabled while attachments are still uploading, so clicking send mid-upload no longer fires an empty message and discards the in-flight attachment.
+- Frontend-only patch release; no API or schema changes.
+
 ### 2026-06-15 (v0.4.16) - Mobile View & Unread Tracking Fixes
 - **Mobile view flicker**: `mobileView` watcher in `MTChat` now tracks `currentDialog.id` instead of the full object — fixes mobile view unexpectedly switching to chat panel on every incoming `message.new`.
 - **By-object dialog list**: `handleParticipantJoined` / `handleParticipantLeft` now call `loadDialogs()` instead of `loadParticipatingDialogs()` + `loadAvailableDialogs()` — in by-object mode the list is correctly reloaded with the object filter applied.
