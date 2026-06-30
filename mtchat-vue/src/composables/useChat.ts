@@ -1442,6 +1442,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   // Without this watch, dialogId would be read only once at useChat init time.
   watch(dialogId, async (newId) => {
     if (!newId) return
+    if (newId === currentDialog.value?.id) return
     await selectDialog(newId)
   })
 
