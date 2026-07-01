@@ -14,6 +14,7 @@ fn make_dialog() -> Dialog {
         Some("Test Dialog".into()),
         None,
         Some("user-creator".to_string()),
+        None,
     )
 }
 

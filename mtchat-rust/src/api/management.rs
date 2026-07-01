@@ -32,6 +32,8 @@ pub struct CreateDialogRequest {
     pub participants: Vec<ParticipantInput>,
     #[serde(default)]
     pub access_scopes: Vec<AccessScopeInput>,
+    #[serde(default)]
+    pub meta: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -104,10 +106,11 @@ pub async fn management_create_dialog(
         req.title,
         req.object_url,
         created_by,
+        req.meta,
     );
     let dialog = sqlx::query_as::<_, Dialog>(
-        r#"INSERT INTO dialogs (id, object_id, object_type, title, object_url, created_by, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+        r#"INSERT INTO dialogs (id, object_id, object_type, title, object_url, created_by, created_at, meta)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING *"#,
     )
     .bind(dialog.id)
@@ -117,6 +120,7 @@ pub async fn management_create_dialog(
     .bind(&dialog.object_url)
     .bind(dialog.created_by)
     .bind(dialog.created_at)
+    .bind(&dialog.meta)
     .fetch_one(&mut *tx)
     .await?;
 
