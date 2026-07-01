@@ -475,6 +475,20 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-07-01 (v0.4.18) - Stale Redis Connection Fix
+- **Fixed `/participants` 504s** caused by silently-dropped idle Redis TCP
+  connections. `GET /api/v1/dialogs/{id}/participants` is the only Chat API
+  endpoint that touches Redis (`get_online_users`); a NAT/firewall-killed idle
+  connection in the Fred pool would be handed out dead, and the next `mget`
+  blocked forever until the gateway timed out with a 504.
+- **TCP keepalive** enabled on the Fred pool (`with_time=60s`, `interval=10s`)
+  so the OS detects dropped idle sockets before they are reused (root cause).
+- **2s timeout** wrapped around the `mget` in `get_online_users` — degrades to
+  "no one online" instead of hanging (defense in depth). The prior
+  `.unwrap_or_default()` only caught `Err`, not a hung `await`.
+- New dependency: `socket2` 0.5.10 (matches Fred's) for the `TcpKeepalive` type.
+- Also ships the Dialog Metadata Field work below in the tagged release.
+
 ### 2026-07-01 - Dialog Metadata Field
 - **New optional `meta` field on dialogs** — free-form JSON object supplied by the
   host at creation via `POST /api/v1/management/dialogs`. Stored verbatim (JSONB),
