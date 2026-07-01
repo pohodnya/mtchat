@@ -17,7 +17,7 @@
  */
 
 import { computed, ref } from 'vue'
-import { MTChat, provideRegistry, type MTChatProps, type Message, type DialogListItem } from '@mtchat/vue'
+import { MTChat, provideRegistry, type MTChatProps, type Message, type DialogListItem, type ObjectNavigateEvent } from '@mtchat/vue'
 import { primevueRegistry } from '../registry/primevueRegistry'
 import '../theme/aura.css'
 
@@ -50,6 +50,7 @@ defineEmits<{
   (e: 'dialog-selected', dialog: DialogListItem): void
   (e: 'dialog-joined', dialogId: string): void
   (e: 'dialog-left', dialogId: string): void
+  (e: 'object-navigate', payload: ObjectNavigateEvent): void
 }>()
 
 // Provide PrimeVue registry to all child components
@@ -90,6 +91,7 @@ defineExpose({
       :search-placeholder="searchPlaceholder"
       :theme="theme"
       :token="token"
+      :intercept-object-navigation="interceptObjectNavigation"
       @connected="$emit('connected')"
       @disconnected="$emit('disconnected')"
       @error="$emit('error', $event)"
@@ -97,6 +99,7 @@ defineExpose({
       @dialog-selected="$emit('dialog-selected', $event)"
       @dialog-joined="$emit('dialog-joined', $event)"
       @dialog-left="$emit('dialog-left', $event)"
+      @object-navigate="$emit('object-navigate', $event)"
     >
       <!-- Pass through named slots -->
       <template v-if="$slots['sidebar-action']" #sidebar-action>

@@ -31,7 +31,12 @@
 | `dialogId` | `string` | -- | Предвыбранный диалог |
 | `showHeader` | `boolean` | `true` | Показать заголовок чата |
 | `showSidebar` | `boolean` | `true` | Показать боковую панель |
+| `showTabs` | `boolean` | `true` | Показать переключатель вкладок (Участвую / Доступные). Влияет только на UI |
+| `showSearch` | `boolean` | `true` | Показать поле поиска по диалогам. Влияет только на UI |
+| `searchPlaceholder` | `string` | -- | Переопределить placeholder поля поиска |
+| `showContextMenu` | `boolean` | `true` | Включить контекстное меню (ПКМ) на элементах списка диалогов |
 | `theme` | `string` | `'light'` | Тема (`'light'` или `'dark'`) |
+| `interceptObjectNavigation` | `boolean` | `false` | Заменить переход по `<a href>` на ссылке объекта диалога на клиентский эмит `object-navigate` — см. [События](events.md#object-navigate) |
 
 ## События
 
@@ -44,6 +49,7 @@
 | `dialog-selected` | `DialogListItem` | Диалог выбран из списка |
 | `dialog-joined` | `string` | Пользователь присоединился |
 | `dialog-left` | `string` | Пользователь вышел |
+| `object-navigate` | `{ dialog: DialogListItem, originalEvent: MouseEvent }` | Клик по ссылке объекта диалога (эмитится только при включённом `interceptObjectNavigation`) |
 
 ## Слоты
 

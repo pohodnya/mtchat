@@ -10,7 +10,7 @@
 import { computed, ref, toRef, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useChat } from '../composables/useChat'
 import { provideI18n } from '../i18n'
-import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment } from '../types'
+import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment, ObjectNavigateEvent } from '../types'
 
 // Sub-components
 import ChatSidebar from './chat/ChatSidebar.vue'
@@ -45,6 +45,11 @@ const props = withDefaults(
     theme?: string
     /** JWT token for authentication (overrides config.token) */
     token?: string
+    /**
+     * Replace the default `<a href>` navigation to the dialog's object_url with
+     * a client-side `object-navigate` emit. Default: false.
+     */
+    interceptObjectNavigation?: boolean
   }>(),
   {
     mode: 'full',
@@ -54,6 +59,7 @@ const props = withDefaults(
     showSearch: true,
     showContextMenu: true,
     theme: 'light',
+    interceptObjectNavigation: false,
   }
 )
 
@@ -66,6 +72,7 @@ const emit = defineEmits<{
   'dialog-selected': [dialog: DialogListItem]
   'dialog-joined': [dialogId: string]
   'dialog-left': [dialogId: string]
+  'object-navigate': [payload: ObjectNavigateEvent]
 }>()
 
 // i18n
@@ -557,6 +564,7 @@ defineExpose({
         :show-back-button="(isMobile && mobileView === 'chat') || (isTablet && showInfoPanel) || (isInlineMode && showInfoPanel)"
         :is-inline-mode="isInlineMode"
         :theme="theme"
+        :intercept-object-navigation="interceptObjectNavigation"
         @back="goBack"
         @show-info="showInfoPanel = !showInfoPanel"
         @leave="handleLeave"
@@ -565,6 +573,7 @@ defineExpose({
         @pin="chat.pinDialog(chat.currentDialog.value!.id)"
         @unpin="chat.unpinDialog(chat.currentDialog.value!.id)"
         @toggle-notifications="handleToggleNotifications"
+        @object-navigate="emit('object-navigate', $event)"
       >
         <template #menu-actions="{ closeMenu, menuItemClass }">
           <slot
@@ -665,10 +674,13 @@ defineExpose({
           :show-header="showHeader"
           :dialog-title="dialogTitle"
           :object-url="isInlineMode ? undefined : chat.currentDialog.value?.object_url"
+          :dialog="chat.currentDialog.value ?? undefined"
+          :intercept-object-navigation="!isInlineMode && interceptObjectNavigation"
           :participants="chat.participants.value"
           :participants-count="chat.currentDialog.value?.participants_count || 0"
           :current-user-id="config.userId"
           @close="showInfoPanel = false"
+          @object-navigate="emit('object-navigate', $event)"
         />
       </aside>
     </Transition>

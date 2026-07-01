@@ -85,6 +85,15 @@ export interface DialogListItem extends Dialog {
 }
 
 /**
+ * Payload for the 'object-navigate' event, emitted instead of a normal
+ * `<a href>` navigation when `interceptObjectNavigation` is enabled.
+ */
+export interface ObjectNavigateEvent {
+  dialog: DialogListItem
+  originalEvent: MouseEvent
+}
+
+/**
  * Dialog participant
  */
 export interface DialogParticipant {
@@ -611,6 +620,12 @@ export interface MTChatProps {
   theme?: string
   /** JWT token for authentication (overrides config.token) */
   token?: string
+  /**
+   * Replace the default `<a href>` navigation to the dialog's object_url with
+   * a client-side `object-navigate` emit, so the host can handle navigation itself
+   * (e.g. via vue-router). Default: false (normal `<a href target="_blank">`).
+   */
+  interceptObjectNavigation?: boolean
 }
 
 // ============ Composable Types ============

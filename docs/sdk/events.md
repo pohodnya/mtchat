@@ -13,6 +13,7 @@ The `<MTChat>` component emits the following events:
 | `dialog-selected` | `DialogListItem` | User selected a dialog from the sidebar |
 | `dialog-joined` | `string` | User joined a dialog (emits dialog ID) |
 | `dialog-left` | `string` | User left a dialog (emits dialog ID) |
+| `object-navigate` | `{ dialog: DialogListItem, originalEvent: MouseEvent }` | User clicked the dialog's object link, with the `interceptObjectNavigation` prop enabled -- see below |
 
 ### Usage
 
@@ -53,6 +54,39 @@ function onDialogSelected(dialog: DialogListItem) {
     @dialog-selected="onDialogSelected"
     @dialog-joined="(id) => console.log('Joined:', id)"
     @dialog-left="(id) => console.log('Left:', id)"
+  />
+</template>
+```
+
+### `object-navigate`
+
+By default, the object link shown in the chat header and info panel (the link to the dialog's `object_url`, e.g. the order/tender it's attached to) is a plain `<a href target="_blank">` -- clicking it navigates the browser away from your SPA.
+
+Set the `interceptObjectNavigation` prop to `true` to take over that navigation on the host side (e.g. to route with `vue-router` instead of a full page load). When enabled:
+
+- The link is rendered as a `<button>` (no `href`) instead of an `<a>`, in **both** the chat header icon and the info panel link.
+- It is shown **unconditionally** -- unlike the default `<a>`, it does not depend on the dialog having an `object_url` set.
+- Clicking it emits `object-navigate` with the full dialog and the original `MouseEvent` (so you can inspect `ctrlKey`/`metaKey` if you want to special-case opening in a new tab) instead of navigating.
+
+This prop has no effect in inline mode (`mode="inline"`) -- the object link is never shown there, since the host is already on the object's page.
+
+```vue
+<script setup lang="ts">
+import { MTChat, type ObjectNavigateEvent } from '@mtchat/vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+function onObjectNavigate({ dialog }: ObjectNavigateEvent) {
+  router.push({ name: 'order-detail', params: { id: dialog.object_id } })
+}
+</script>
+
+<template>
+  <MTChat
+    :config="config"
+    :intercept-object-navigation="true"
+    @object-navigate="onObjectNavigate"
   />
 </template>
 ```

@@ -55,7 +55,12 @@ Below the active chats, an **Archived** accordion shows dialogs the user has arc
 | `dialogId` | `string` | -- | Pre-select a dialog on mount |
 | `showHeader` | `boolean` | `true` | Show the chat header bar |
 | `showSidebar` | `boolean` | `true` | Show the dialog list sidebar |
+| `showTabs` | `boolean` | `true` | Show the tab switcher (Participating / Available). UI only |
+| `showSearch` | `boolean` | `true` | Show the dialog search input. UI only |
+| `searchPlaceholder` | `string` | -- | Override the search input placeholder text |
+| `showContextMenu` | `boolean` | `true` | Enable the right-click context menu on dialog items |
 | `theme` | `string` | `'light'` | Theme name (`'light'` or `'dark'`) |
+| `interceptObjectNavigation` | `boolean` | `false` | Replace the `<a href>` navigation on the dialog's object link with a client-side `object-navigate` emit -- see [Events](events.md#object-navigate) |
 
 ## Events
 
@@ -68,6 +73,7 @@ Below the active chats, an **Archived** accordion shows dialogs the user has arc
 | `dialog-selected` | `DialogListItem` | User selected a dialog from the list |
 | `dialog-joined` | `string` | User joined a dialog (dialog ID) |
 | `dialog-left` | `string` | User left a dialog (dialog ID) |
+| `object-navigate` | `{ dialog: DialogListItem, originalEvent: MouseEvent }` | User clicked the dialog's object link (only fires when `interceptObjectNavigation` is enabled) |
 
 ### Event Examples
 
