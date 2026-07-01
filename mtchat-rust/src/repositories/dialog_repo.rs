@@ -20,8 +20,8 @@ impl DialogRepository {
     /// Create a new dialog
     pub async fn create(&self, dialog: &Dialog) -> Result<Dialog, sqlx::Error> {
         sqlx::query_as::<_, Dialog>(
-            r#"INSERT INTO dialogs (id, object_id, object_type, title, object_url, created_by, created_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
+            r#"INSERT INTO dialogs (id, object_id, object_type, title, object_url, created_by, created_at, meta)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                RETURNING *"#,
         )
         .bind(dialog.id)
@@ -31,6 +31,7 @@ impl DialogRepository {
         .bind(&dialog.object_url)
         .bind(&dialog.created_by)
         .bind(dialog.created_at)
+        .bind(&dialog.meta)
         .fetch_one(&self.pool)
         .await
     }

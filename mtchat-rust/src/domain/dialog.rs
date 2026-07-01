@@ -23,6 +23,9 @@ pub struct Dialog {
     /// User ID who created this dialog (external identifier)
     pub created_by: Option<String>,
     pub created_at: DateTime<Utc>,
+    /// Free-form metadata supplied by the host application. Opaque to MTChat.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meta: Option<serde_json::Value>,
 }
 
 impl Dialog {
@@ -33,6 +36,7 @@ impl Dialog {
         title: Option<String>,
         object_url: Option<String>,
         created_by: Option<String>,
+        meta: Option<serde_json::Value>,
     ) -> Self {
         Self {
             id: Uuid::now_v7(),
@@ -42,6 +46,7 @@ impl Dialog {
             object_url,
             created_by,
             created_at: Utc::now(),
+            meta,
         }
     }
 }
