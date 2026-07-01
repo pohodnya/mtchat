@@ -17,7 +17,7 @@
     <div class="chat-info-panel__section">
       <h3 class="chat-info-panel__section-title">{{ dialogTitle }}</h3>
       <a
-        v-if="objectUrl"
+        v-if="!interceptObjectNavigation && objectUrl"
         :href="objectUrl"
         target="_blank"
         rel="noopener noreferrer"
@@ -26,6 +26,15 @@
         <Icon name="external-link" :size="14" />
         {{ t.infoPanel.openObject }}
       </a>
+      <button
+        v-else-if="interceptObjectNavigation"
+        type="button"
+        class="chat-info-panel__object-link"
+        @click="handleObjectLinkClick"
+      >
+        <Icon name="external-link" :size="14" />
+        {{ t.infoPanel.openObject }}
+      </button>
     </div>
 
     <!-- Participants -->
@@ -89,7 +98,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
-import type { DialogParticipant } from '../../types'
+import type { DialogParticipant, DialogListItem, ObjectNavigateEvent } from '../../types'
 import { useI18n } from '../../i18n'
 import { getInitials } from '../../utils/helpers'
 import Icon from '../Icon.vue'
@@ -99,6 +108,8 @@ const { t } = useI18n()
 const props = defineProps<{
   dialogTitle: string
   objectUrl?: string
+  dialog?: DialogListItem
+  interceptObjectNavigation?: boolean
   participants: DialogParticipant[]
   participantsCount: number
   currentUserId: string
@@ -107,12 +118,18 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
+  'object-navigate': [payload: ObjectNavigateEvent]
 }>()
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     emit('close')
   }
+}
+
+function handleObjectLinkClick(event: MouseEvent) {
+  if (!props.dialog) return
+  emit('object-navigate', { dialog: props.dialog, originalEvent: event })
 }
 
 onMounted(() => {
@@ -216,6 +233,14 @@ const sortedParticipants = computed(() => {
 
 .chat-info-panel__object-link:hover {
   text-decoration: underline;
+}
+
+button.chat-info-panel__object-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .chat-info-panel__participants {

@@ -4,7 +4,7 @@
  */
 
 import { ref, computed } from 'vue'
-import type { DialogListItem } from '../../types'
+import type { DialogListItem, ObjectNavigateEvent } from '../../types'
 import type { MtMenuItem, MtMenuExpose } from '../../registry/types'
 import { useI18n } from '../../i18n'
 import { useRegistry } from '../../registry/useRegistry'
@@ -20,6 +20,7 @@ const props = defineProps<{
   showBackButton?: boolean
   isInlineMode?: boolean
   theme?: string
+  interceptObjectNavigation?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -31,7 +32,13 @@ const emit = defineEmits<{
   pin: []
   unpin: []
   toggleNotifications: []
+  'object-navigate': [payload: ObjectNavigateEvent]
 }>()
+
+function handleObjectLinkClick(event: MouseEvent) {
+  if (!props.dialog) return
+  emit('object-navigate', { dialog: props.dialog, originalEvent: event })
+}
 
 
 // i18n
@@ -125,7 +132,7 @@ function toggleMenu(event: Event) {
       <div class="chat-header__title-row">
         <h2 class="chat-header__title">{{ dialogTitle }}</h2>
         <a
-          v-if="!isInlineMode && dialog.object_url"
+          v-if="!isInlineMode && !interceptObjectNavigation && dialog.object_url"
           :href="dialog.object_url"
           target="_blank"
           rel="noopener noreferrer"
@@ -135,6 +142,15 @@ function toggleMenu(event: Event) {
         >
           <Icon name="external-link" :size="14" />
         </a>
+        <button
+          v-else-if="!isInlineMode && interceptObjectNavigation"
+          type="button"
+          class="chat-header__link"
+          :title="t.tooltips.openObject"
+          @click.stop="handleObjectLinkClick"
+        >
+          <Icon name="external-link" :size="14" />
+        </button>
         <span v-if="dialog.is_archived" class="chat-header__badge">
           {{ t.chat.archived }}
         </span>
@@ -245,6 +261,14 @@ function toggleMenu(event: Event) {
 
 .chat-header__link:hover {
   color: var(--mtchat-primary);
+}
+
+button.chat-header__link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .chat-header__badge {
