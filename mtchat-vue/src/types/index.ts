@@ -22,6 +22,8 @@ export interface Dialog {
   /** User who created the dialog */
   created_by?: string
   created_at: string
+  /** Free-form metadata supplied by the host application. Opaque to MTChat. */
+  meta?: Record<string, unknown>
   /** Whether current user is a participant */
   i_am_participant?: boolean
   /** Whether current user can join */

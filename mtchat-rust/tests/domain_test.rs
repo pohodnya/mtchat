@@ -14,7 +14,7 @@ use uuid::Uuid;
 #[test]
 fn test_dialog_new_sets_uuid_v7() {
     let object_id = "tender-123";
-    let dialog = Dialog::new(object_id, "tender", Some("Test".into()), None, None);
+    let dialog = Dialog::new(object_id, "tender", Some("Test".into()), None, None, None);
     // UUIDv7 has version bits = 7
     assert_eq!(dialog.id.get_version_num(), 7);
 }
@@ -29,6 +29,7 @@ fn test_dialog_new_preserves_fields() {
         Some("Important Chat".into()),
         Some("https://example.com/order/1".into()),
         Some(creator.to_string()),
+        None,
     );
     assert_eq!(dialog.object_id, object_id);
     assert_eq!(dialog.object_type, "order");
@@ -42,7 +43,7 @@ fn test_dialog_new_preserves_fields() {
 
 #[test]
 fn test_dialog_new_optional_fields() {
-    let dialog = Dialog::new("tender-1", "tender", None, None, None);
+    let dialog = Dialog::new("tender-1", "tender", None, None, None, None);
     assert!(dialog.title.is_none());
     assert!(dialog.object_url.is_none());
     assert!(dialog.created_by.is_none());
@@ -51,8 +52,8 @@ fn test_dialog_new_optional_fields() {
 #[test]
 fn test_dialog_ids_are_unique() {
     let id = "tender-same";
-    let d1 = Dialog::new(id, "tender", None, None, None);
-    let d2 = Dialog::new(id, "tender", None, None, None);
+    let d1 = Dialog::new(id, "tender", None, None, None, None);
+    let d2 = Dialog::new(id, "tender", None, None, None, None);
     assert_ne!(d1.id, d2.id);
 }
 
@@ -61,6 +62,7 @@ fn test_dialog_accepts_string_object_type() {
     let dialog = Dialog::new(
         "delivery-1",
         String::from("delivery_note"),
+        None,
         None,
         None,
         None,

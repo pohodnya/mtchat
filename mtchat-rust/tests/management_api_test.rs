@@ -560,6 +560,96 @@ async fn test_update_access_scopes() {
         .unwrap();
 }
 
+// ============ Dialog Meta Tests ============
+
+#[tokio::test]
+#[ignore] // Requires running server
+async fn create_dialog_persists_meta() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let object_id = Uuid::new_v4();
+
+    let resp = client
+        .post(format!("{}/api/v1/management/dialogs", base_url))
+        .header("Authorization", &auth_header)
+        .json(&json!({
+            "object_id": object_id,
+            "object_type": "tender",
+            "title": "Meta test",
+            "participants": [{ "user_id": "u1", "display_name": "Alice" }],
+            "meta": { "tender_number": "T-123", "priority": "high" }
+        }))
+        .send()
+        .await
+        .expect("Request failed");
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Value = resp.json().await.unwrap();
+    let dialog_id = body["data"]["id"].as_str().unwrap().to_string();
+
+    assert_eq!(body["data"]["meta"]["tender_number"], "T-123");
+    assert_eq!(body["data"]["meta"]["priority"], "high");
+
+    // Cleanup
+    client
+        .delete(format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
+        .header("Authorization", &auth_header)
+        .send()
+        .await
+        .expect("Cleanup failed");
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
+async fn create_dialog_without_meta_omits_field() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let object_id = Uuid::new_v4();
+
+    let resp = client
+        .post(format!("{}/api/v1/management/dialogs", base_url))
+        .header("Authorization", &auth_header)
+        .json(&json!({
+            "object_id": object_id,
+            "object_type": "tender",
+            "title": "No meta test",
+            "participants": [{ "user_id": "u1", "display_name": "Alice" }]
+        }))
+        .send()
+        .await
+        .expect("Request failed");
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body: Value = resp.json().await.unwrap();
+    let dialog_id = body["data"]["id"].as_str().unwrap().to_string();
+
+    assert!(body["data"].get("meta").is_none() || body["data"]["meta"].is_null());
+
+    // Cleanup
+    client
+        .delete(format!(
+            "{}/api/v1/management/dialogs/{}",
+            base_url, dialog_id
+        ))
+        .header("Authorization", &auth_header)
+        .send()
+        .await
+        .expect("Cleanup failed");
+}
+
 // ============ Error Handling Tests ============
 
 #[tokio::test]

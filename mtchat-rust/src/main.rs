@@ -98,6 +98,21 @@ async fn main() {
             tracing::info!("Connecting to Redis...");
             let config = Config::from_url(&url).expect("Failed to parse REDIS_URL");
             let pool = Builder::from_config(config)
+                // Enable TCP keepalive so the OS probes idle connections and
+                // detects silently-dropped sockets (NAT/firewall idle timeout)
+                // before they are handed out from the pool and hang on the next
+                // command. Without this, an idle-killed connection stays "alive"
+                // to the app and the first mget after a lull blocks forever.
+                .with_connection_config(|c| {
+                    c.tcp = fred::types::config::TcpConfig {
+                        keepalive: Some(
+                            socket2::TcpKeepalive::new()
+                                .with_time(std::time::Duration::from_secs(60))
+                                .with_interval(std::time::Duration::from_secs(10)),
+                        ),
+                        ..Default::default()
+                    };
+                })
                 .build_pool(5)
                 .expect("Failed to create Redis pool");
             pool.init().await.expect("Failed to connect to Redis");

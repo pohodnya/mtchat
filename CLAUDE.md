@@ -53,6 +53,7 @@
 │  title           STRING                                          │
 │  created_by      STRING      ← external user ID                 │
 │  created_at      TIMESTAMP                                       │
+│  meta            JSONB (nullable) ← free-form host metadata     │
 └─────────────────────────────────────────────────────────────────┘
          │
          ├──────────────────────────────────┐
@@ -473,6 +474,14 @@ docker compose up -d
 | String identifiers (user_id, object_id) | ✅ |
 
 ## Changelog
+
+### 2026-07-01 - Dialog Metadata Field
+- **New optional `meta` field on dialogs** — free-form JSON object supplied by the
+  host at creation via `POST /api/v1/management/dialogs`. Stored verbatim (JSONB),
+  opaque to MTChat (never validated, searched, or filtered), and returned in all
+  dialog responses (Management + Chat API) and the SDK `Dialog` type.
+- Set at creation only; no update endpoint.
+- Database migration: `20260701000001_add_dialog_meta.sql`
 
 ### 2026-06-19 (v0.4.17) - Disable Send While Uploading
 - **Send during upload**: `MessageEditor` gains an `isUploading` prop and gates `canSend` on `!isUploading`; `ChatInput` passes `fileUpload.isUploading` — the send button (and Enter) is now disabled while attachments are still uploading, so clicking send mid-upload no longer fires an empty message and discards the in-flight attachment.

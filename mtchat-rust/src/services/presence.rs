@@ -85,7 +85,18 @@ impl PresenceService {
 
         let keys: Vec<String> = user_ids.iter().map(|id| format!("online:{}", id)).collect();
 
-        let results: Vec<Option<String>> = redis.mget(keys).await?;
+        // Guard the Redis round-trip with a hard timeout. A silently-dropped
+        // TCP connection makes `mget` block indefinitely, which surfaced as
+        // gateway 504s on the only endpoint that touches Redis. On timeout we
+        // degrade gracefully to "no one is online" rather than hanging.
+        let results: Vec<Option<String>> =
+            match tokio::time::timeout(std::time::Duration::from_secs(2), redis.mget(keys)).await {
+                Ok(res) => res?,
+                Err(_) => {
+                    tracing::warn!("Redis mget timed out in get_online_users; assuming offline");
+                    return Ok(vec![]);
+                }
+            };
 
         let online_users = user_ids
             .iter()
