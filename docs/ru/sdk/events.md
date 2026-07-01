@@ -11,6 +11,7 @@
 | `dialog-selected` | `DialogListItem` | Диалог выбран |
 | `dialog-joined` | `string` | Пользователь присоединился |
 | `dialog-left` | `string` | Пользователь вышел |
+| `object-navigate` | `{ dialog: DialogListItem, originalEvent: MouseEvent }` | Клик по ссылке объекта диалога при включённом пропе `interceptObjectNavigation` — см. ниже |
 
 ```vue
 <MTChat
@@ -19,6 +20,39 @@
   @message-sent="onMessageSent"
   @dialog-selected="onDialogSelected"
 />
+```
+
+### `object-navigate`
+
+По умолчанию ссылка на объект диалога (в заголовке чата и в панели информации — ссылка на `object_url`, например заказ или тендер, к которому привязан чат) — обычный `<a href target="_blank">`, клик по ней уводит пользователя из SPA.
+
+Проп `interceptObjectNavigation: true` передаёт переход на сторону хоста (например, чтобы сделать переход через `vue-router` вместо полной перезагрузки страницы). При включённом пропе:
+
+- Элемент рендерится как `<button>` (без `href`) — и в иконке заголовка чата, и в ссылке панели информации.
+- Показывается **безусловно** — в отличие от дефолтной `<a>`, не зависит от того, задан ли у диалога `object_url`.
+- Клик эмитит `object-navigate` с полным объектом диалога и исходным `MouseEvent` (можно проверить `ctrlKey`/`metaKey`, если нужно особое поведение для открытия в новой вкладке) вместо навигации браузера.
+
+В inline-режиме (`mode="inline"`) проп не действует — там ссылка на объект не показывается вовсе, так как хост уже находится на странице объекта.
+
+```vue
+<script setup lang="ts">
+import { MTChat, type ObjectNavigateEvent } from '@mtchat/vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+function onObjectNavigate({ dialog }: ObjectNavigateEvent) {
+  router.push({ name: 'order-detail', params: { id: dialog.object_id } })
+}
+</script>
+
+<template>
+  <MTChat
+    :config="config"
+    :intercept-object-navigation="true"
+    @object-navigate="onObjectNavigate"
+  />
+</template>
 ```
 
 ## Слоты

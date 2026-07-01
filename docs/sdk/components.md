@@ -71,6 +71,27 @@ See [Inline Mode](inline-mode.md) for details.
 
 The SDK uses a **component registry** pattern. UI primitives (buttons, inputs, dialogs, menus) can be swapped between built-in implementations and PrimeVue components, or replaced with your own.
 
+## Props
+
+Full prop reference for `<MTChat>` (`@mtchat/vue`). `<MTChatPrime>` (`@mtchat/vue-primevue`) accepts the same props (see the `theme` note below) -- it is a thin wrapper that forwards them to `<MTChat>` unchanged.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `config` | `MTChatConfig` | **required** | SDK configuration |
+| `mode` | `'full' \| 'inline'` | `'full'` | Display mode -- see [Full Mode](full-mode.md) / [Inline Mode](inline-mode.md) |
+| `objectId` | `string` | -- | Inline mode: business object ID |
+| `objectType` | `string` | -- | Inline mode: business object type (e.g. `'order'`, `'tender'`) |
+| `dialogId` | `string` | -- | Full mode: pre-select a dialog on mount |
+| `showHeader` | `boolean` | `true` | Show the chat header bar |
+| `showSidebar` | `boolean` | `true` | Show the dialog list sidebar (full mode only; automatically disabled in inline mode) |
+| `showTabs` | `boolean` | `true` | Full mode: show the tab switcher (Participating / Available). UI only -- does not affect which data is loaded |
+| `showSearch` | `boolean` | `true` | Full mode: show the dialog search input. UI only |
+| `searchPlaceholder` | `string` | -- | Full mode: override the search input placeholder text |
+| `showContextMenu` | `boolean` | `true` | Full mode: enable the right-click context menu on dialog items |
+| `theme` | `string` | `'light'` | Theme name, applied as CSS class `mtchat--${theme}`. On `<MTChatPrime>` this is narrowed to `'light' \| 'dark' \| undefined` (`undefined` auto-detects from the PrimeVue dark mode selector) -- see [PrimeVue](primevue.md) |
+| `token` | `string` | -- | JWT token for authentication, overrides `config.token` |
+| `interceptObjectNavigation` | `boolean` | `false` | Replace the default `<a href>` navigation to the dialog's `object_url` with a client-side `object-navigate` emit, so the host app can handle navigation itself (e.g. via `vue-router`) instead of a full-page browser navigation. See [Events](events.md#component-events) |
+
 ## Quick Links
 
 | Topic | Description |

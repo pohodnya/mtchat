@@ -67,8 +67,14 @@ const config = {
 | `objectType` | `string` | -- | Тип объекта (для inline-режима) |
 | `dialogId` | `string` | -- | Начальный ID диалога (полный режим) |
 | `showHeader` | `boolean` | `true` | Показать/скрыть заголовок чата |
-| `showSidebar` | `boolean` | `true` | Показать/скрыть боковую панель |
-| `theme` | `string` | `'light'` | Тема: `'light'` или `'dark'` |
+| `showSidebar` | `boolean` | `true` | Показать/скрыть боковую панель (только полный режим; в inline-режиме отключается автоматически) |
+| `showTabs` | `boolean` | `true` | Полный режим: показать переключатель вкладок (Участвую / Доступные). Влияет только на UI |
+| `showSearch` | `boolean` | `true` | Полный режим: показать поле поиска по диалогам. Влияет только на UI |
+| `searchPlaceholder` | `string` | -- | Полный режим: переопределить placeholder поля поиска |
+| `showContextMenu` | `boolean` | `true` | Полный режим: включить контекстное меню (ПКМ) на элементах списка диалогов |
+| `theme` | `string` | `'light'` | Тема: `'light'` или `'dark'`. В `<MTChatPrime>` тип сужен до `'light' \| 'dark' \| undefined` (`undefined` — автоопределение по PrimeVue dark mode) |
+| `token` | `string` | -- | JWT-токен авторизации, переопределяет `config.token` |
+| `interceptObjectNavigation` | `boolean` | `false` | Заменить обычный переход по `<a href>` на ссылке объекта диалога (`object_url`) на клиентский эмит `object-navigate` — см. раздел «События» |
 
 ### События
 
@@ -80,6 +86,9 @@ const config = {
 | `dialog-selected` | `DialogListItem` | Пользователь выбрал диалог |
 | `dialog-joined` | `string` | Пользователь присоединился к диалогу |
 | `dialog-left` | `string` | Пользователь покинул диалог |
+| `object-navigate` | `{ dialog: DialogListItem, originalEvent: MouseEvent }` | Клик по ссылке объекта диалога при включённом пропе `interceptObjectNavigation` |
+
+При `interceptObjectNavigation: true` ссылка на объект диалога (в заголовке чата и в панели информации) вместо обычного `<a href target="_blank">` рендерится как `<button>` без `href` и показывается безусловно — независимо от того, задан ли у диалога `object_url`. Клик по ней эмитит `object-navigate` с полным объектом диалога и исходным `MouseEvent`, чтобы хост мог сам выполнить переход (например, через `vue-router`). В inline-режиме проп не действует — там ссылка на объект не показывается в принципе.
 
 ---
 

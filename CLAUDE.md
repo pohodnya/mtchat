@@ -475,6 +475,39 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-07-01 (v0.4.19) - Documented Previously Undocumented SDK Props/Events
+- `docs/sdk/components.md` (+ ru) gains a full `Props` reference table for
+  `<MTChat>`/`<MTChatPrime>` — several props shipped in earlier releases
+  (`showTabs`, `showSearch`, `searchPlaceholder`, `showContextMenu`, `token`)
+  were never documented; now listed alongside `interceptObjectNavigation`.
+- `docs/sdk/events.md` (+ ru) gains the `object-navigate` event row and a
+  dedicated usage section (example wiring it to `vue-router`).
+- `docs/sdk/full-mode.md`/`inline-mode.md` (+ ru) updated with the same
+  missing full-mode-specific props/events; `inline-mode.md` additionally notes
+  which props/events don't apply in inline mode (`interceptObjectNavigation`,
+  `object-navigate`, `dialog-selected`).
+
+### 2026-07-01 - Intercept Object Link Navigation (`interceptObjectNavigation`)
+- **New optional prop** `interceptObjectNavigation` (default `false`) on
+  `MTChat`/`MTChatPrime`: when enabled, the object link/icon in `ChatHeader`
+  and `ChatInfoPanel` (normally an `<a href target="_blank">` to the dialog's
+  `object_url`) renders as a `<button>` instead and emits `object-navigate`
+  with `{ dialog, originalEvent }` on click, so the host can navigate itself
+  (e.g. via `vue-router`) instead of a full browser navigation.
+- The `<button>` variant is shown **unconditionally** when the prop is
+  enabled, ignoring `object_url` — unlike the default `<a>`, which still
+  requires `object_url` to be set.
+- Has no effect in inline mode (`mode="inline"`) — the object link is never
+  rendered there.
+- New exported type `ObjectNavigateEvent` from `@mtchat/vue`.
+
+### 2026-06-30 - Skip Redundant Dialog Data Fetch on Matching `dialogId`
+- **Fixed unnecessary reload** when the `dialogId` prop changes to a value
+  that already matches the currently selected dialog — `useChat`'s
+  `watch(dialogId, ...)` now short-circuits (`if (newId === currentDialog.value?.id) return`)
+  before calling `selectDialog`, avoiding a redundant fetch of dialog data and
+  messages that were already loaded.
+
 ### 2026-07-01 (v0.4.18) - Stale Redis Connection Fix
 - **Fixed `/participants` 504s** caused by silently-dropped idle Redis TCP
   connections. `GET /api/v1/dialogs/{id}/participants` is the only Chat API

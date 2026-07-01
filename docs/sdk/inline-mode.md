@@ -67,6 +67,15 @@ const config: MTChatConfig = {
 
 In inline mode, `showSidebar` is automatically disabled.
 
+The `interceptObjectNavigation` prop has no effect in inline mode -- the object link it controls is never rendered here, since the host is already on the object's page.
+
+## Events
+
+Inline mode emits the same events as full mode (see [Events](events.md#component-events)), with two exceptions:
+
+- `dialog-selected` never fires -- there is no dialog list to select from.
+- `object-navigate` never fires -- the object link is not shown in inline mode (see the `interceptObjectNavigation` note above).
+
 ## Reactive Object Binding
 
 Change `objectId` or `objectType` to switch between objects dynamically:
