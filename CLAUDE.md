@@ -475,7 +475,7 @@ docker compose up -d
 
 ## Changelog
 
-### 2026-07-01 (v0.4.19) - Documented Previously Undocumented SDK Props/Events
+### 2026-07-01 - Documented Previously Undocumented SDK Props/Events
 - `docs/sdk/components.md` (+ ru) gains a full `Props` reference table for
   `<MTChat>`/`<MTChatPrime>` — several props shipped in earlier releases
   (`showTabs`, `showSearch`, `searchPlaceholder`, `showContextMenu`, `token`)
@@ -487,7 +487,7 @@ docker compose up -d
   which props/events don't apply in inline mode (`interceptObjectNavigation`,
   `object-navigate`, `dialog-selected`).
 
-### 2026-07-01 - Intercept Object Link Navigation (`interceptObjectNavigation`)
+### 2026-07-01 (v0.4.19) - Intercept Object Link Navigation (`interceptObjectNavigation`)
 - **New optional prop** `interceptObjectNavigation` (default `false`) on
   `MTChat`/`MTChatPrime`: when enabled, the object link/icon in `ChatHeader`
   and `ChatInfoPanel` (normally an `<a href target="_blank">` to the dialog's

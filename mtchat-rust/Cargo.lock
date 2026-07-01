@@ -2393,7 +2393,7 @@ dependencies = [
 
 [[package]]
 name = "multitenancy-chat-api"
-version = "0.4.18"
+version = "0.4.19"
 dependencies = [
  "ammonia",
  "apalis",
