@@ -108,6 +108,7 @@ onUnmounted(() => {
   --mtchat-bg-hover: #f1f5f9;
   --mtchat-hover: #f1f5f9;
   --mtchat-primary: #3B82F6;
+  --mtchat-primary-hover: #2563eb;
   --mtchat-input-bg: #ffffff;
   --mtchat-input-border: #d1d5db;
 }
@@ -120,6 +121,7 @@ onUnmounted(() => {
   --mtchat-bg-hover: #374151;
   --mtchat-hover: #374151;
   --mtchat-primary: #60a5fa;
+  --mtchat-primary-hover: #3b82f6;
   --mtchat-input-bg: #111827;
   --mtchat-input-border: #374151;
 }
