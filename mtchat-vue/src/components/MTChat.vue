@@ -747,6 +747,7 @@ defineExpose({
   --mtchat-text-on-primary: #ffffff;
   --mtchat-border: #e2e8f0;
   --mtchat-primary: #3b82f6;
+  --mtchat-primary-hover: #2563eb;
   --mtchat-primary-bg: rgba(59, 130, 246, 0.1);
   --mtchat-danger: #ef4444;
   --mtchat-danger-hover: #dc2626;
@@ -767,6 +768,7 @@ defineExpose({
   --mtchat-text-on-primary: #ffffff;
   --mtchat-border: #3f3f46;
   --mtchat-primary: #60a5fa;
+  --mtchat-primary-hover: #3b82f6;
   --mtchat-primary-bg: rgba(96, 165, 250, 0.15);
   --mtchat-danger: #f87171;
   --mtchat-danger-hover: #ef4444;
