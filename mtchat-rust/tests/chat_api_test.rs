@@ -23,7 +23,7 @@ fn get_admin_token() -> Option<String> {
 
 fn encode_scope_config(tenant_uid: Uuid, scope_level1: &[&str], scope_level2: &[&str]) -> String {
     let config = json!({
-        "tenant_uid": tenant_uid,
+        "scope_level0": [tenant_uid],
         "scope_level1": scope_level1,
         "scope_level2": scope_level2
     });
@@ -52,7 +52,7 @@ async fn create_test_dialog(
             "title": "Test Dialog",
             "participants": participants,
             "access_scopes": [{
-                "tenant_uid": tenant_uid,
+                "scope_level0": [tenant_uid],
                 "scope_level1": scope_level1,
                 "scope_level2": scope_level2
             }]
@@ -136,6 +136,97 @@ async fn test_list_participating_dialogs() {
 
     // Cleanup
     delete_test_dialog(&client, &base_url, &auth_header, &dialog_id).await;
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
+async fn test_list_participating_is_scoped_by_tenant() {
+    // Regression: a user who is a direct participant in dialogs of TWO tenants
+    // used to get the union of both lists regardless of the X-Scope-Config sent,
+    // because the participating branch never applied scope matching at all.
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let user_id = Uuid::new_v4();
+    let tenant_a = Uuid::new_v4();
+    let tenant_b = Uuid::new_v4();
+
+    let dialog_a = create_test_dialog(
+        &client,
+        &base_url,
+        &auth_header,
+        Uuid::new_v4(),
+        "tender",
+        &[user_id],
+        tenant_a,
+        &[],
+        &["tender:chat"],
+    )
+    .await;
+    let dialog_b = create_test_dialog(
+        &client,
+        &base_url,
+        &auth_header,
+        Uuid::new_v4(),
+        "tender",
+        &[user_id],
+        tenant_b,
+        &[],
+        &["tender:chat"],
+    )
+    .await;
+
+    // Asking as tenant A must return A's dialog and NOT B's, and vice versa.
+    for (scope_tenant, expected, unexpected) in [
+        (tenant_a, &dialog_a, &dialog_b),
+        (tenant_b, &dialog_b, &dialog_a),
+    ] {
+        let scope_header = encode_scope_config(scope_tenant, &[], &["tender:chat"]);
+        let resp = client
+            .get(format!(
+                "{}/api/v1/dialogs?type=participating&user_id={}",
+                base_url, user_id
+            ))
+            .header("X-Scope-Config", &scope_header)
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body: Value = resp.json().await.unwrap();
+        let dialogs = body["data"].as_array().unwrap();
+        assert!(
+            dialogs.iter().any(|d| d["id"] == *expected),
+            "tenant {} must see its own participating dialog",
+            scope_tenant
+        );
+        assert!(
+            !dialogs.iter().any(|d| d["id"] == *unexpected),
+            "tenant {} must NOT see the other tenant's participating dialog",
+            scope_tenant
+        );
+    }
+
+    // Without the header the list stays cross-tenant (backward compatible).
+    let resp = client
+        .get(format!(
+            "{}/api/v1/dialogs?type=participating&user_id={}",
+            base_url, user_id
+        ))
+        .send()
+        .await
+        .unwrap();
+    let body: Value = resp.json().await.unwrap();
+    let dialogs = body["data"].as_array().unwrap();
+    assert!(dialogs.iter().any(|d| d["id"] == dialog_a));
+    assert!(dialogs.iter().any(|d| d["id"] == dialog_b));
+
+    // Cleanup
+    delete_test_dialog(&client, &base_url, &auth_header, &dialog_a).await;
+    delete_test_dialog(&client, &base_url, &auth_header, &dialog_b).await;
 }
 
 #[tokio::test]

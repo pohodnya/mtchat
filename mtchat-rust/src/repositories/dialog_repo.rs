@@ -71,10 +71,22 @@ impl DialogRepository {
             r#"SELECT d.* FROM dialogs d
                WHERE d.object_type = $1 AND d.object_id = $2
                  AND (
-                   EXISTS (
+                   (EXISTS (
                      SELECT 1 FROM dialog_participants dp
                      WHERE dp.dialog_id = d.id AND dp.user_id = $3
-                   )
+                   ) AND (
+                     NOT $4
+                     OR NOT EXISTS (
+                       SELECT 1 FROM dialog_access_scopes s WHERE s.dialog_id = d.id
+                     )
+                     OR EXISTS (
+                       SELECT 1 FROM dialog_access_scopes s
+                       WHERE s.dialog_id = d.id
+                         AND (s.scope_level0 = '{}' OR s.scope_level0 && $5)
+                         AND (s.scope_level1 = '{}' OR s.scope_level1 && $6)
+                         AND (s.scope_level2 = '{}' OR s.scope_level2 && $7)
+                     )
+                   ))
                    OR ($4 AND EXISTS (
                      SELECT 1 FROM dialog_access_scopes s
                      WHERE s.dialog_id = d.id
@@ -117,17 +129,31 @@ impl DialogRepository {
 
     /// Find dialogs where user is a direct participant
     ///
+    /// - scope: when `Some`, the dialog must ALSO match the caller's scope config
+    ///   (same OR-across-levels logic as `find_available`; empty array in DB =
+    ///   wildcard). This is what keeps the list scoped to the caller's current
+    ///   tenant — a user who participates in dialogs of several tenants must not
+    ///   see all of them under one `scope_level0`. Dialogs with no access-scope
+    ///   rows at all carry no tenant attribution and are always kept. When `None`
+    ///   (no X-Scope-Config header) no scope filtering is applied.
     /// - archived: None = all, Some(true) = only archived, Some(false) = only active
     /// - search: searches in dialog title AND participant company names
     /// - limit/offset: pagination parameters
+    #[allow(clippy::too_many_arguments)]
     pub async fn find_participating(
         &self,
         user_id: &UserId,
+        scope: Option<(&[String], &[String], &[String])>,
         search: Option<&str>,
         archived: Option<bool>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<Dialog>, sqlx::Error> {
+        let (has_scope, scope_level0, scope_level1, scope_level2) = match scope {
+            Some((s0, s1, s2)) => (true, s0, s1, s2),
+            None => (false, &[][..], &[][..], &[][..]),
+        };
+
         sqlx::query_as::<_, Dialog>(
             r#"SELECT d.* FROM dialogs d
                INNER JOIN dialog_participants dp ON dp.dialog_id = d.id
@@ -141,6 +167,19 @@ impl DialogRepository {
                    )
                  ))
                  AND ($3::boolean IS NULL OR dp.is_archived = $3)
+                 AND (
+                   NOT $6::boolean
+                   OR NOT EXISTS (
+                     SELECT 1 FROM dialog_access_scopes s WHERE s.dialog_id = d.id
+                   )
+                   OR EXISTS (
+                     SELECT 1 FROM dialog_access_scopes s
+                     WHERE s.dialog_id = d.id
+                       AND (s.scope_level0 = '{}' OR s.scope_level0 && $7)
+                       AND (s.scope_level1 = '{}' OR s.scope_level1 && $8)
+                       AND (s.scope_level2 = '{}' OR s.scope_level2 && $9)
+                   )
+                 )
                ORDER BY d.created_at DESC
                LIMIT $4 OFFSET $5"#,
         )
@@ -149,6 +188,10 @@ impl DialogRepository {
         .bind(archived)
         .bind(limit)
         .bind(offset)
+        .bind(has_scope)
+        .bind(scope_level0)
+        .bind(scope_level1)
+        .bind(scope_level2)
         .fetch_all(&self.pool)
         .await
     }
@@ -261,6 +304,18 @@ impl DialogRepository {
                      SELECT 1 FROM dialog_participants dp
                      WHERE dp.dialog_id = d.id AND dp.user_id = $3
                        AND ($8::boolean IS NULL OR dp.is_archived = $8)
+                   ) AND (
+                     NOT $4
+                     OR NOT EXISTS (
+                       SELECT 1 FROM dialog_access_scopes s WHERE s.dialog_id = d.id
+                     )
+                     OR EXISTS (
+                       SELECT 1 FROM dialog_access_scopes s
+                       WHERE s.dialog_id = d.id
+                         AND (s.scope_level0 = '{}' OR s.scope_level0 && $5)
+                         AND (s.scope_level1 = '{}' OR s.scope_level1 && $6)
+                         AND (s.scope_level2 = '{}' OR s.scope_level2 && $7)
+                     )
                    ))
                    OR ($11 AND $4 AND EXISTS (
                      SELECT 1 FROM dialog_access_scopes s
