@@ -152,9 +152,19 @@ pub async fn list_dialogs(
 
     let dialogs = match dialog_type {
         "participating" => {
+            // Participant dialogs are still scoped to the caller's scope config
+            // when it is supplied: a user who participates in dialogs of several
+            // tenants must only see the ones matching the scope they asked with.
+            let scope = scope_config.as_ref().map(|s| {
+                (
+                    s.scope_level0.as_slice(),
+                    s.scope_level1.as_slice(),
+                    s.scope_level2.as_slice(),
+                )
+            });
             state
                 .dialogs
-                .find_participating(&user_id, search, archived, limit, offset)
+                .find_participating(&user_id, scope, search, archived, limit, offset)
                 .await?
         }
         "available" => {
