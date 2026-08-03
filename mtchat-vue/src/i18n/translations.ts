@@ -52,6 +52,8 @@ export interface TranslationStrings {
     deleteConfirm: string
     loadingOlder: string
     loadingNewer: string
+    /** Generic loading state (spinner label) */
+    loading: string
   }
   system: {
     chatCreated: string
@@ -202,6 +204,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       deleteConfirm: 'Удалить сообщение?',
       loadingOlder: 'Загрузка...',
       loadingNewer: 'Загрузка...',
+      loading: 'Загрузка...',
     },
     system: {
       chatCreated: 'Чат создан с участниками: {participants}',
@@ -351,6 +354,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       deleteConfirm: 'Delete message?',
       loadingOlder: 'Loading...',
       loadingNewer: 'Loading...',
+      loading: 'Loading...',
     },
     system: {
       chatCreated: 'Chat created with participants: {participants}',
@@ -500,6 +504,7 @@ export const translations: Record<Locale, TranslationStrings> = {
       deleteConfirm: '删除消息？',
       loadingOlder: '加载中...',
       loadingNewer: '加载中...',
+      loading: '加载中...',
     },
     system: {
       chatCreated: '聊天已创建，参与者：{participants}',

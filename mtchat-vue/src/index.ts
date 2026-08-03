@@ -64,6 +64,7 @@ export {
   MtAccordion,
   MtAccordionPanel,
   MtTag,
+  MtSpinner,
   vTooltip,
 } from './primitives'
 
@@ -95,6 +96,7 @@ export type {
   MtAccordionEmits,
   MtAccordionPanelProps,
   MtTagProps,
+  MtSpinnerProps,
   MtTooltipOptions,
 } from './registry'
 

@@ -697,6 +697,10 @@ export interface UseChatReturn {
   currentDialog: import('vue').Ref<DialogListItem | null>
   isConnected: import('vue').Ref<boolean>
   isLoading: import('vue').Ref<boolean> | import('vue').ComputedRef<boolean>
+  /** Dialog list is loading (sidebar) */
+  isLoadingDialogs: import('vue').Ref<boolean>
+  /** Messages of the open dialog are loading (message window) */
+  isLoadingMessages: import('vue').Ref<boolean>
   error: import('vue').Ref<Error | null>
   /** ID of the first unread message (for divider) */
   firstUnreadMessageId: import('vue').Ref<string | null>

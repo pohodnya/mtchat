@@ -248,6 +248,16 @@ export interface MtTagProps {
   value: string
 }
 
+// ============ Spinner ============
+
+export interface MtSpinnerProps {
+  /** Diameter in px. Default: 32 */
+  size?: number
+  /** Accessible label announced by screen readers */
+  label?: string
+}
+
+
 // ============ Component Registry ============
 
 /**
@@ -268,6 +278,7 @@ export interface ComponentRegistry {
   MtAccordion: Component
   MtAccordionPanel: Component
   MtTag: Component
+  MtSpinner: Component
 
   // Directives (use unknown to allow different directive implementations)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
