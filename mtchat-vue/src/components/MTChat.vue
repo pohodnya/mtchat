@@ -201,8 +201,8 @@ async function handleSelectDialog(dialog: DialogListItem) {
   if (isMobile.value) {
     mobileView.value = 'chat'
   }
-  await chat.selectDialog(dialog.id)
   emit('dialog-selected', dialog)
+  await chat.selectDialog(dialog.id)
 }
 
 function handleSidebarSearch(query: string) {
