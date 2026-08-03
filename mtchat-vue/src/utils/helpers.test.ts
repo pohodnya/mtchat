@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getInitials, truncateText, getSenderDisplayName } from './helpers'
+import { getInitials, truncateText, getSenderDisplayName, isAbortError } from './helpers'
 import type { DialogParticipant } from '../types'
 
 describe('getInitials', () => {
@@ -100,5 +100,34 @@ describe('getSenderDisplayName', () => {
   it('handles empty participants array', () => {
     // Falls back to truncated ID (first 8 chars)
     expect(getSenderDisplayName('user-1-long-id', [], 'user-2', 'You')).toBe('user-1-l')
+  })
+})
+
+describe('isAbortError', () => {
+  it('detects the rejection of an aborted fetch', async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    const rejection = await fetch('http://localhost/never', { signal: controller.signal })
+      .then(() => null)
+      .catch((e) => e)
+
+    expect(isAbortError(rejection)).toBe(true)
+  })
+
+  it('detects a DOMException named AbortError', () => {
+    expect(isAbortError(new DOMException('The operation was aborted.', 'AbortError'))).toBe(true)
+  })
+
+  it('rejects real request failures', () => {
+    // What MTChatApi.request throws for a non-ok response
+    expect(isAbortError(new Error('HTTP 403'))).toBe(false)
+    expect(isAbortError(new TypeError('Failed to fetch'))).toBe(false)
+  })
+
+  it('rejects non-errors', () => {
+    expect(isAbortError('AbortError')).toBe(false)
+    expect(isAbortError(null)).toBe(false)
+    expect(isAbortError(undefined)).toBe(false)
   })
 })

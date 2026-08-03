@@ -33,3 +33,18 @@ export function getSenderDisplayName(
   if (participant?.display_name) return participant.display_name
   return senderId === currentUserId ? youLabel : senderId.slice(0, 8)
 }
+
+/**
+ * Whether a rejection is a request we cancelled ourselves.
+ *
+ * Aborting a fetch rejects it like any other failure, so every catch that
+ * handles request errors has to tell the two apart: a cancelled request is not
+ * a problem to report, retry, or use to conclude anything about the dialog
+ * (e.g. "there are no more messages").
+ *
+ * Browsers reject with a DOMException named 'AbortError'; happy-dom and older
+ * polyfills use a plain Error with the same name, hence the duck-typing.
+ */
+export function isAbortError(e: unknown): boolean {
+  return e instanceof Error && e.name === 'AbortError'
+}
