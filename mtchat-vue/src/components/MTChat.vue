@@ -201,7 +201,16 @@ async function handleSelectDialog(dialog: DialogListItem) {
   if (isMobile.value) {
     mobileView.value = 'chat'
   }
+  // Still report the click: it is a deliberate selection, and the host may have
+  // state to re-sync even when nothing changes here.
   emit('dialog-selected', dialog)
+  // Already open - don't run selectDialog again. It starts by clearing the
+  // messages, resetting the pagination cursors and re-subscribing, so a second
+  // run throws away a loaded dialog and refetches it, flashing an empty message
+  // area. Deliberately guarded here rather than inside selectDialog: confirmJoin
+  // below re-selects the id that is already open on purpose, to reload the
+  // dialog with participant rights after joining.
+  if (dialog.id === chat.currentDialog.value?.id) return
   await chat.selectDialog(dialog.id)
 }
 
