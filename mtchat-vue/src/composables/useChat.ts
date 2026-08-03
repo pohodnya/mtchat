@@ -984,6 +984,15 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   async function loadParticipants(): Promise<void> {
     if (!currentDialog.value) return
 
+    // Don't load participants if not a participant, mirroring loadMessages: the
+    // endpoint answers 403 for can-join dialogs (no reading before join), so the
+    // request is doomed. Its failure was swallowed by the catch below, which made
+    // this an invisible wasted round-trip on every dialog the user has not joined.
+    if (!currentDialog.value.i_am_participant) {
+      participants.value = []
+      return
+    }
+
     const signal = dialogRequests.signal
 
     try {
