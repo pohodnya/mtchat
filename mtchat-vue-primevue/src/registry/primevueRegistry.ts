@@ -19,6 +19,7 @@ import {
   PrimeAccordion,
   PrimeAccordionPanel,
   PrimeTag,
+  PrimeSpinner,
 } from '../primitives'
 
 /**
@@ -37,5 +38,6 @@ export const primevueRegistry: ComponentRegistry = {
   MtAccordion: PrimeAccordion,
   MtAccordionPanel: PrimeAccordionPanel,
   MtTag: PrimeTag,
+  MtSpinner: PrimeSpinner,
   vTooltip: Tooltip,
 }

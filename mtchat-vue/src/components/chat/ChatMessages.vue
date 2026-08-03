@@ -24,7 +24,7 @@ import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 
 // Registry components
-const { MtMenu } = useRegistry()
+const { MtMenu, MtSpinner } = useRegistry()
 
 const props = defineProps<{
   messages: Message[]
@@ -41,6 +41,8 @@ const props = defineProps<{
   /** Cache for reply messages not in current list */
   replyMessagesCache: Map<string, Message | null>
   theme?: string
+  /** Messages of the open dialog are being loaded (initial load, not pagination) */
+  isLoading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -684,13 +686,21 @@ defineExpose({
       </template>
     </DynamicScroller>
 
+    <!-- Initial load of the open dialog: the message area would otherwise sit
+         empty until the response arrives, which reads as a chat with no messages -->
+    <div v-if="isLoading && messages.length === 0" class="chat-messages__loading">
+      <component :is="MtSpinner" :size="36" :label="t.chat.loading" />
+    </div>
+
     <!-- Loading overlay for jumping to message -->
     <div v-if="isJumpingToMessage" class="chat-messages__loading-overlay">
+      <component :is="MtSpinner" :size="16" :label="t.chat.loading" />
       <span>{{ t.chat.loadingOlder }}</span>
     </div>
 
     <!-- Loading older indicator -->
     <div v-if="isLoadingOlder" class="chat-messages__loading-overlay">
+      <component :is="MtSpinner" :size="16" :label="t.chat.loading" />
       <span>{{ t.chat.loadingOlder }}</span>
     </div>
 
@@ -807,6 +817,19 @@ defineExpose({
   font-size: 12px;
   color: var(--mtchat-text-secondary);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-messages__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+  background: var(--mtchat-bg);
 }
 
 /* Date divider */

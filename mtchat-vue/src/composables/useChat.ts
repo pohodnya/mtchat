@@ -1628,6 +1628,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     currentDialog,
     isConnected,
     isLoading,
+    // Exposed alongside the combined isLoading so the UI can show a spinner in
+    // the part that is actually loading: the dialog list or the message window.
+    isLoadingDialogs,
+    isLoadingMessages,
     error,
     firstUnreadMessageId,
     replyToMessage,

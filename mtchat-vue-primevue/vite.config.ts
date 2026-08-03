@@ -52,6 +52,7 @@ export default defineConfig({
         'primevue/accordionpanel',
         'primevue/accordionheader',
         'primevue/accordioncontent',
+        'primevue/progressspinner',
         'primevue/tooltip',
       ],
       output: {
@@ -72,6 +73,7 @@ export default defineConfig({
           'primevue/accordionpanel': 'PrimeVueAccordionPanel',
           'primevue/accordionheader': 'PrimeVueAccordionHeader',
           'primevue/accordioncontent': 'PrimeVueAccordionContent',
+          'primevue/progressspinner': 'PrimeVueProgressSpinner',
         },
       },
     },

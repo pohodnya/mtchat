@@ -11,7 +11,7 @@ import { useRegistry } from '../../registry/useRegistry'
 import Icon from '../Icon.vue'
 
 // Registry components
-const { MtContextMenu, MtTag } = useRegistry()
+const { MtContextMenu, MtTag, MtSpinner } = useRegistry()
 
 const props = defineProps<{
   participatingDialogs: DialogListItem[]
@@ -26,6 +26,8 @@ const props = defineProps<{
   /** Current object ID. When it changes, archived load state resets. */
   objectId?: string
   currentUserId?: string
+  /** Dialog list is being loaded (shows a spinner instead of the empty state) */
+  isLoading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -313,7 +315,14 @@ defineExpose({
           </div>
         </div>
 
-        <div v-if="sortedActiveDialogs.length === 0" class="chat-sidebar__empty">
+        <!-- Loading takes precedence over the empty state: an empty list that is
+             still loading is not "no chats", and showing that text first reads as
+             a wrong answer that then flips. -->
+        <div v-if="isLoading && sortedActiveDialogs.length === 0" class="chat-sidebar__loading">
+          <component :is="MtSpinner" :size="28" :label="t.chat.loading" />
+        </div>
+
+        <div v-else-if="sortedActiveDialogs.length === 0" class="chat-sidebar__empty">
           {{ searchInput
             ? t.search.noResults
             : (activeTab === 'participating' ? t.chat.noActiveChats : t.chat.noAvailableChats)
@@ -588,6 +597,12 @@ defineExpose({
   text-align: center;
   color: var(--mtchat-text-secondary);
   font-size: 14px;
+}
+
+.chat-sidebar__loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
 }
 
 /* Archived section */
