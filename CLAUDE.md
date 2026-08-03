@@ -476,6 +476,71 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-08-03 - Cancel Stale Dialog Requests When Switching Dialogs
+- **Fixed foreign data landing in the open dialog** when switching dialogs
+  quickly (BUG-7020). The loaders in `useChat` wrote their response into shared
+  state without checking which dialog it was requested for, so a response that
+  arrived after a switch overwrote the new dialog's messages, its participant
+  list (read receipts are derived from it) and its pagination cursors — the
+  latter sending the next scroll-load into another dialog.
+- **`AbortSignal` support** in `MTChatApi`: the single `request()` chokepoint
+  passes it to `fetch`, and it is an optional argument on `getDialog`,
+  `getDialogByObject`, `getMessages`, `getMessage`, `getParticipants`. Dialog
+  list requests deliberately stay uncancellable — they are not tied to an open
+  dialog and must survive switching. Mutations are never cancelled.
+- **One `AbortController` per open dialog** in `useChat`; `selectDialog`,
+  `leaveDialog`, archiving the open dialog and the `objectId` watcher cancel the
+  previous scope and open a fresh one (a spent controller would abort the *next*
+  load before it reached the network).
+- **`AbortError` is filtered in every `catch`** — new `isAbortError()` helper in
+  `utils/helpers.ts`. Without it a cancellation would surface as an error toast
+  via the `error` emit, clear the current dialog's messages on a stale 403, make
+  `loadOlderMessages` conclude there is no more history, or cache a live quoted
+  message as deleted in `fetchReplyMessage`.
+- Each loader also re-checks `signal.aborted` after its `await`, for the case
+  where the response arrived just before the abort (no rejection to catch), and
+  only the run that still owns a loading flag clears it.
+- **`dialog-selected` is now emitted synchronously on selection**, before the
+  dialog is loaded (`MTChat.vue`). Emitting it after the load reported
+  selections in the order their requests finished; hosts that feed the event
+  back into the `dialogId` prop (URL sync) were dragged away from the dialog
+  they had just opened. Documented in `docs/sdk/events.md` (+ ru).
+- `subscribedDialogId` is claimed before the first `await`, so two overlapping
+  `selectDialog` calls can no longer leave a WebSocket channel subscribed with
+  nothing tracking it.
+- **The dialog that is already open is no longer reselected.** Clicking the open
+  dialog in the sidebar re-ran `selectDialog`, which clears the messages, resets
+  the pagination cursors and re-subscribes — throwing away a loaded dialog and
+  refetching it, with the message area flashing empty. Guarded in
+  `handleSelectDialog`, not inside `selectDialog`, because `confirmJoin`
+  re-selects the open id on purpose to reload the dialog with participant rights
+  after joining. This also removes the duplicated work when a host-supplied
+  `dialogId` (e.g. restored from the URL) and the user's click land on the same
+  dialog — previously the click cancelled the auto-open mid-flight.
+- **`loadParticipants` no longer fires for can-join dialogs.** Unlike
+  `loadMessages` it had no `i_am_participant` check, so every dialog the user had
+  not joined cost a request that the API answers with 403 by design (no reading
+  before join). The failure was swallowed in the `catch`, making it an invisible
+  wasted round-trip. The 403 branch is kept — a stale client-side flag (user
+  removed server-side) can still produce one.
+
+### 2026-08-03 - Loading Spinner in Dialog List and Message Area
+- **New registry primitive `MtSpinner`** (`MtSpinnerProps`: `size`, `label`)
+  with a native CSS implementation in `@mtchat/vue` and a `PrimeSpinner`
+  adapter on PrimeVue's `ProgressSpinner` in `@mtchat/vue-primevue`.
+  `ProgressSpinner` has no size prop, so `size` maps onto width/height; its
+  `p-progressspinner-color` animation (which repaints the stroke through four
+  theme colors) is pinned to `--mtchat-primary`.
+- **Dialog list** shows the spinner instead of the empty state while loading —
+  previously "no chats" was displayed before the list arrived.
+- **Message area** shows the spinner while the open dialog's messages load and
+  the list is still empty; the existing "loading older" and "jump to message"
+  overlays gained one too.
+- **`useChat` now exposes `isLoadingDialogs` and `isLoadingMessages`** next to
+  the combined `isLoading`, so each part of the UI can indicate only its own
+  loading (the combined flag would spin the sidebar while switching dialogs).
+- New i18n key `chat.loading` (ru/en/zh).
+
 ### 2026-07-01 - Documented Previously Undocumented SDK Props/Events
 - `docs/sdk/components.md` (+ ru) gains a full `Props` reference table for
   `<MTChat>`/`<MTChatPrime>` — several props shipped in earlier releases
