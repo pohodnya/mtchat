@@ -7,6 +7,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
 import { MTChatClient } from '../sdk/client'
 import { logger } from '../utils/logger'
+import { isAbortError } from '../utils/helpers'
 import type {
   Message,
   DialogListItem,
@@ -71,6 +72,24 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
   // Track subscribed dialog
   let subscribedDialogId: string | null = null
+
+  // Requests that belong to the dialog currently open: messages, participants,
+  // pagination, jumps. Switching dialogs aborts them, so a response for a dialog
+  // the user has left can never overwrite the messages, participants or
+  // pagination cursors of the one they are looking at now.
+  //
+  // Dialog list requests deliberately stay outside this controller - they are
+  // not tied to an open dialog and must survive switching.
+  let dialogRequests = new AbortController()
+
+  /**
+   * Cancel everything in flight for the previous dialog and open a fresh scope.
+   */
+  function resetDialogRequests(): AbortSignal {
+    dialogRequests.abort()
+    dialogRequests = new AbortController()
+    return dialogRequests.signal
+  }
 
   // ============ Connection ============
 
@@ -178,9 +197,13 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     if (oType && oId) {
       if (mode === 'inline') {
-        await loadDialogByObject(oType, oId)
-        if (currentDialog.value) {
-          subscribe(currentDialog.value.id)
+        const dialog = await loadDialogByObject(oType, oId)
+        // Act on what this call loaded, not on whatever currentDialog happens to
+        // hold: if the object changed mid-request, currentDialog now belongs to
+        // the newer object and loading its messages here would duplicate work
+        // the newer call is already doing.
+        if (dialog) {
+          subscribe(dialog.id)
           await loadMessages()
           await loadParticipants()
         }
@@ -204,27 +227,51 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     objType: string,
     objId: string
   ): Promise<DialogListItem | null> {
+    const signal = dialogRequests.signal
+
     try {
       isLoadingDialogs.value = true
       error.value = null
-      const dialog = await client.api.getDialogByObject(objType, objId)
+      // Assigns currentDialog, so it belongs to the dialog scope even though it
+      // is reached through loadDialogs: switching object (or dialog) has to
+      // cancel it, or a late response would open the previous object's dialog.
+      const dialog = await client.api.getDialogByObject(objType, objId, signal)
+      // Abort can land after the response arrived but before this line runs, in
+      // which case the rejection never happens and only the flag tells us.
+      if (signal.aborted) return null
       if (dialog) {
         currentDialog.value = dialog
       }
       return dialog
     } catch (e) {
+      // Cancelled by a switch: report "nothing to open" so loadDialogs stops
+      // here instead of loading messages for whatever is open now.
+      if (isAbortError(e)) return null
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
+      // Deliberately unguarded, unlike the message loaders: this flag is shared
+      // with the dialog list loads, which are never cancelled, so skipping the
+      // reset risks leaving isLoading stuck on with nobody to clear it. The cost
+      // is a brief flicker if a cancelled load clears it during the next one.
       isLoadingDialogs.value = false
     }
   }
 
   async function selectDialog(id: string): Promise<void> {
+    // Drop everything still loading for the dialog we are leaving
+    const signal = resetDialogRequests()
+
     // Unsubscribe from previous dialog
     if (subscribedDialogId && subscribedDialogId !== id) {
       client.unsubscribe(subscribedDialogId)
     }
+
+    // Claim the subscription slot before any await: two overlapping selectDialog
+    // calls would otherwise both write it after their fetch, in whichever order
+    // the responses arrive, leaving one channel subscribed with nothing tracking
+    // it - a leak that no request cancellation can undo.
+    subscribedDialogId = id
 
     // Clear messages and cache from previous dialog
     messages.value = []
@@ -233,6 +280,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     pendingReplyFetches.clear()
     hasMoreMessages.value = true
     isLoadingOlder.value = false
+    // Cancelled pagination loads no longer clear their own flags (see their
+    // finally blocks), so the switch has to normalize them here or a stuck flag
+    // would block loading in the dialog we are opening.
+    isLoadingNewer.value = false
     oldestMessageId.value = null
 
     // Find dialog in our lists (active, archived, or available)
@@ -247,7 +298,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     // If not found, fetch it
     if (!dialog) {
       try {
-        const fetched = await client.api.getDialog(id)
+        const fetched = await client.api.getDialog(id, signal)
+        // Abort landed between the response and this line: a newer selectDialog
+        // owns currentDialog now, so drop what we fetched.
+        if (signal.aborted) return
         dialog = {
           ...fetched,
           participants_count: fetched.participants_count ?? 0,
@@ -256,13 +310,15 @@ export function useChat(options: UseChatOptions): UseChatReturn {
           can_join: fetched.can_join ?? false,
         }
       } catch (e) {
+        // Cancelled because a newer selectDialog took over: that call owns the
+        // state now, so leave currentDialog alone and stay quiet.
+        if (isAbortError(e)) return
         error.value = e instanceof Error ? e : new Error(String(e))
         throw e
       }
     }
 
     currentDialog.value = dialog
-    subscribedDialogId = id
 
     // Subscribe and load messages
     client.subscribe(id)
@@ -326,6 +382,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
       // If we left the current dialog, clear it
       if (currentDialog.value?.id === id) {
+        // Cancel loads for the dialog we just left, otherwise a response still in
+        // flight would write its messages back into the cleared state below.
+        // Reset rather than plain abort: a spent controller would abort the next
+        // load too, before it even reaches the network.
+        resetDialogRequests()
         client.unsubscribe(id)
         subscribedDialogId = null
         currentDialog.value = null
@@ -358,6 +419,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
       // Clear current dialog if it was archived
       if (currentDialog.value?.id === dialogId) {
+        // See leaveDialog - don't let an in-flight load refill the cleared state
+        resetDialogRequests()
         currentDialog.value = null
         messages.value = []
       }
@@ -507,13 +570,26 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       return
     }
 
+    // Captured, not read after the await: by then dialogRequests already points
+    // at the next dialog's scope, and this run needs to know whether *it* was
+    // the one cancelled.
+    const signal = dialogRequests.signal
+
     try {
       isLoadingMessages.value = true
       error.value = null
 
       // Default limit for pagination
       const limit = opts?.limit ?? 50
-      const response = await client.api.getMessages(currentDialog.value.id, { ...opts, limit })
+      const response = await client.api.getMessages(
+        currentDialog.value.id,
+        { ...opts, limit },
+        signal
+      )
+
+      // Abort landed after the response arrived: no rejection to catch, so the
+      // flag is the only thing standing between a dead response and the state.
+      if (signal.aborted) return
 
       if (opts?.before) {
         // Prepend older messages
@@ -539,6 +615,9 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         newestMessageId.value = newestInResponse.id
       }
     } catch (e) {
+      // Cancelled by a dialog switch: clearing messages or raising the error
+      // here would hit the dialog the user is looking at now.
+      if (isAbortError(e)) return
       // 403 = not a participant, expected for potential participants
       const err = e instanceof Error ? e : new Error(String(e))
       if (err.message.includes('403') || err.message.includes('Forbidden')) {
@@ -549,7 +628,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = err
       throw e
     } finally {
-      isLoadingMessages.value = false
+      // A cancelled run must not clear the spinner: the switch that cancelled it
+      // has already started the next load, which owns the spinner now.
+      if (!signal.aborted) {
+        isLoadingMessages.value = false
+      }
     }
   }
 
@@ -565,15 +648,23 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     // Need oldest message ID for cursor
     if (!oldestMessageId.value) return
 
+    const signal = dialogRequests.signal
+
     try {
       isLoadingOlder.value = true
       error.value = null
 
       const limit = 50
-      const response = await client.api.getMessages(currentDialog.value.id, {
-        before: oldestMessageId.value,
-        limit,
-      })
+      const response = await client.api.getMessages(
+        currentDialog.value.id,
+        {
+          before: oldestMessageId.value,
+          limit,
+        },
+        signal
+      )
+
+      if (signal.aborted) return
 
       // Prepend older messages
       if (response.messages.length > 0) {
@@ -586,13 +677,19 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       // Check if there are more messages
       hasMoreMessages.value = response.messages.length >= limit
     } catch (e) {
+      // A cancelled page load says nothing about whether more messages exist -
+      // concluding hasMoreMessages = false here would silently break history
+      // loading in the dialog the user switched to.
+      if (isAbortError(e)) return
       const err = e instanceof Error ? e : new Error(String(e))
       // Don't set error for pagination failures - just stop loading more
       logger.warn('Failed to load older messages:', err)
       hasMoreMessages.value = false
     } finally {
-      isLoadingOlder.value = false
-      enableScrollCooldown()
+      if (!signal.aborted) {
+        isLoadingOlder.value = false
+        enableScrollCooldown()
+      }
     }
   }
 
@@ -608,15 +705,23 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     // Need newest message ID for cursor
     if (!newestMessageId.value) return
 
+    const signal = dialogRequests.signal
+
     try {
       isLoadingNewer.value = true
       error.value = null
 
       const limit = 50
-      const response = await client.api.getMessages(currentDialog.value.id, {
-        after: newestMessageId.value,
-        limit,
-      })
+      const response = await client.api.getMessages(
+        currentDialog.value.id,
+        {
+          after: newestMessageId.value,
+          limit,
+        },
+        signal
+      )
+
+      if (signal.aborted) return
 
       // Append newer messages
       if (response.messages.length > 0) {
@@ -629,12 +734,15 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       // Check if there are more messages after
       hasMoreAfter.value = response.has_more_after ?? false
     } catch (e) {
+      if (isAbortError(e)) return
       const err = e instanceof Error ? e : new Error(String(e))
       logger.warn('Failed to load newer messages:', err)
       hasMoreAfter.value = false
     } finally {
-      isLoadingNewer.value = false
-      enableScrollCooldown()
+      if (!signal.aborted) {
+        isLoadingNewer.value = false
+        enableScrollCooldown()
+      }
     }
   }
 
@@ -648,13 +756,17 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     // Don't reset if not a participant
     if (!currentDialog.value.i_am_participant) return
 
+    const signal = dialogRequests.signal
+
     try {
       isLoadingMessages.value = true
       jumpCooldown.value = true
       error.value = null
 
       const limit = 50
-      const response = await client.api.getMessages(currentDialog.value.id, { limit })
+      const response = await client.api.getMessages(currentDialog.value.id, { limit }, signal)
+
+      if (signal.aborted) return
 
       // Replace messages with latest
       messages.value = response.messages
@@ -669,11 +781,14 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         newestMessageId.value = response.messages[response.messages.length - 1].id
       }
     } catch (e) {
+      if (isAbortError(e)) return
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoadingMessages.value = false
-      enableScrollCooldown()
+      if (!signal.aborted) {
+        isLoadingMessages.value = false
+        enableScrollCooldown()
+      }
     }
   }
 
@@ -718,9 +833,13 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     if (!currentDialog.value) return null
 
+    const signal = dialogRequests.signal
+
     try {
       pendingReplyFetches.add(messageId)
-      const message = await client.api.getMessage(currentDialog.value.id, messageId)
+      const message = await client.api.getMessage(currentDialog.value.id, messageId, signal)
+
+      if (signal.aborted) return null
 
       // Update cache (create new Map for reactivity)
       const newCache = new Map(replyMessagesCache.value)
@@ -729,6 +848,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
       return message
     } catch (e) {
+      // Cancelled by a dialog switch. Caching null here would mark the quoted
+      // message as deleted, and the cache outlives this dialog only until the
+      // next switch clears it - so a real reply would render as "deleted".
+      if (isAbortError(e)) return null
       // Message not found (deleted or doesn't exist)
       const newCache = new Map(replyMessagesCache.value)
       newCache.set(messageId, null)
@@ -761,13 +884,20 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
 
     // 3. Load messages around target
+    const signal = dialogRequests.signal
     isJumpingToMessage.value = true
     jumpCooldown.value = true
     try {
-      const response = await client.api.getMessages(currentDialog.value.id, {
-        around: messageId,
-        limit: 50,
-      })
+      const response = await client.api.getMessages(
+        currentDialog.value.id,
+        {
+          around: messageId,
+          limit: 50,
+        },
+        signal
+      )
+
+      if (signal.aborted) return false
 
       // 4. Replace messages with the new set
       messages.value = response.messages
@@ -784,6 +914,9 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       // Check if the target message was found
       return response.messages.some((m) => m.id === messageId)
     } catch (e) {
+      // Cancelled by a dialog switch - the jump target is in a dialog that is no
+      // longer open, so there is nothing to report or scroll to.
+      if (isAbortError(e)) return false
       logger.warn('Failed to jump to message:', e)
       return false
     } finally {
@@ -851,14 +984,22 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   async function loadParticipants(): Promise<void> {
     if (!currentDialog.value) return
 
+    const signal = dialogRequests.signal
+
     try {
-      const loadedParticipants = await client.api.getParticipants(currentDialog.value.id)
+      const loadedParticipants = await client.api.getParticipants(currentDialog.value.id, signal)
+
+      if (signal.aborted) return
+
       participants.value = loadedParticipants
 
       // Populate onlineUsers from is_online field
       const online = loadedParticipants.filter((p) => p.is_online).map((p) => p.user_id)
       onlineUsers.value = new Set(online)
     } catch (e) {
+      // Cancelled by a dialog switch: this list belongs to a dialog the user has
+      // left, and read receipts are derived from it (see MTChat.vue).
+      if (isAbortError(e)) return
       // 403 = no access, clear participants
       const err = e instanceof Error ? e : new Error(String(e))
       if (err.message.includes('403') || err.message.includes('Forbidden')) {
@@ -1431,6 +1572,11 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       client.unsubscribe(subscribedDialogId)
       subscribedDialogId = null
     }
+    // Same reason as the unsubscribe above: loads for the old object's dialog
+    // must not land in the new object's context. Must be a reset, not a plain
+    // abort: loadDialogs() below goes on to load the new object's messages in
+    // inline mode, and a spent controller would cancel them on the spot.
+    resetDialogRequests()
     currentDialog.value = null
     archivedDialogs.value = []
     searchQuery.value = '' // Reset search so the old query doesn't filter the new object's dialogs
@@ -1467,6 +1613,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     if (subscribedDialogId) {
       client.unsubscribe(subscribedDialogId)
     }
+    // Don't leave requests running against a torn-down composable
+    dialogRequests.abort()
     client.disconnect()
   })
 

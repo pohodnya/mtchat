@@ -89,6 +89,8 @@ export class MTChatApi {
     options: {
       params?: Record<string, string>
       body?: unknown
+      /** Abort in-flight request (see isAbortError) */
+      signal?: AbortSignal
     } = {}
   ): Promise<T> {
     const url = this.buildUrl(path, options.params)
@@ -97,6 +99,7 @@ export class MTChatApi {
       method,
       headers: this.getHeaders(),
       body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: options.signal,
     })
 
     if (!response.ok) {
@@ -170,10 +173,11 @@ export class MTChatApi {
   /**
    * Get dialog by ID
    */
-  async getDialog(dialogId: string): Promise<Dialog> {
+  async getDialog(dialogId: string, signal?: AbortSignal): Promise<Dialog> {
     const response = await this.request<ApiResponse<Dialog>>(
       'GET',
-      `/api/v1/dialogs/${dialogId}`
+      `/api/v1/dialogs/${dialogId}`,
+      { signal }
     )
     return response.data
   }
@@ -182,10 +186,15 @@ export class MTChatApi {
    * Get dialog by business object (for inline mode)
    * Returns null if no dialog exists for this object
    */
-  async getDialogByObject(objectType: string, objectId: string): Promise<DialogListItem | null> {
+  async getDialogByObject(
+    objectType: string,
+    objectId: string,
+    signal?: AbortSignal
+  ): Promise<DialogListItem | null> {
     const response = await this.request<ApiResponse<DialogListItem | null>>(
       'GET',
-      `/api/v1/dialogs/by-object/${objectType}/${objectId}`
+      `/api/v1/dialogs/by-object/${objectType}/${objectId}`,
+      { signal }
     )
     return response.data
   }
@@ -275,10 +284,11 @@ export class MTChatApi {
   /**
    * Get dialog participants
    */
-  async getParticipants(dialogId: string): Promise<DialogParticipant[]> {
+  async getParticipants(dialogId: string, signal?: AbortSignal): Promise<DialogParticipant[]> {
     const response = await this.request<ApiResponse<DialogParticipant[]>>(
       'GET',
-      `/api/v1/dialogs/${dialogId}/participants`
+      `/api/v1/dialogs/${dialogId}/participants`,
+      { signal }
     )
     return response.data
   }
@@ -294,7 +304,11 @@ export class MTChatApi {
    * - before: Load messages before the specified ID (infinite scroll up)
    * - around: Load messages centered around the specified ID (jump to message)
    */
-  async getMessages(dialogId: string, options?: PaginationOptions): Promise<MessagesResponse> {
+  async getMessages(
+    dialogId: string,
+    options?: PaginationOptions,
+    signal?: AbortSignal
+  ): Promise<MessagesResponse> {
     const params: Record<string, string> = {}
     if (options?.limit) params.limit = String(options.limit)
     if (options?.before) params.before = options.before
@@ -304,7 +318,7 @@ export class MTChatApi {
     const response = await this.request<ApiResponse<MessagesResponse>>(
       'GET',
       `/api/v1/dialogs/${dialogId}/messages`,
-      { params }
+      { params, signal }
     )
     return response.data
   }
@@ -327,10 +341,11 @@ export class MTChatApi {
   /**
    * Get a specific message
    */
-  async getMessage(dialogId: string, messageId: string): Promise<Message> {
+  async getMessage(dialogId: string, messageId: string, signal?: AbortSignal): Promise<Message> {
     const response = await this.request<ApiResponse<Message>>(
       'GET',
-      `/api/v1/dialogs/${dialogId}/messages/${messageId}`
+      `/api/v1/dialogs/${dialogId}/messages/${messageId}`,
+      { signal }
     )
     return response.data
   }
