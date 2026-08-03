@@ -58,6 +58,18 @@ function onDialogSelected(dialog: DialogListItem) {
 </template>
 ```
 
+### `dialog-selected`
+
+Emitted **synchronously when the user picks a dialog**, before its messages and participants are loaded -- not after. This matters if you feed the event back into the component, which is the common case when you keep the selected dialog in the URL and bind that value to the `dialogId` prop:
+
+```vue
+<MTChat :config="config" :dialog-id="dialogIdFromUrl" @dialog-selected="onDialogSelected" />
+```
+
+Because the event fires on selection rather than on completion, the value you receive always reflects the user's latest choice. If it were emitted after loading, quick switching between dialogs would report them in the order their requests happened to finish, and the stale value written back into `dialogId` would drag the user away from the dialog they just opened.
+
+The flip side: the event has already been emitted if loading the dialog then fails (e.g. it was deleted meanwhile), so a URL updated from this event can point at a dialog that did not open. Listen to `error` if you want to handle that.
+
 ### `object-navigate`
 
 By default, the object link shown in the chat header and info panel (the link to the dialog's `object_url`, e.g. the order/tender it's attached to) is a plain `<a href target="_blank">` -- clicking it navigates the browser away from your SPA.
@@ -213,6 +225,8 @@ const chat = useChat(options)
 | `currentDialog` | `Ref<DialogListItem \| null>` | Selected dialog |
 | `isConnected` | `Ref<boolean>` | WebSocket connection status |
 | `isLoading` | `ComputedRef<boolean>` | Any loading operation in progress |
+| `isLoadingDialogs` | `Ref<boolean>` | Dialog list is loading -- use it to show a spinner in the list only |
+| `isLoadingMessages` | `Ref<boolean>` | Messages of the open dialog are loading -- use it to show a spinner in the message area only |
 | `error` | `Ref<Error \| null>` | Last error |
 | `firstUnreadMessageId` | `Ref<string \| null>` | First unread message ID |
 | `replyToMessage` | `Ref<Message \| null>` | Message being replied to |

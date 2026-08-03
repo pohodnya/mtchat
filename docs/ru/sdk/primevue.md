@@ -74,6 +74,8 @@ PrimeVue-пакет заменяет следующие внутренние к�
 | `MtRadioButton` | `RadioButton` |
 | `MtTabs` / `MtTab` | `Tabs` / `Tab` |
 | `MtAccordion` / `MtAccordionPanel` | `Accordion` / `AccordionPanel` |
+| `MtTag` | `Tag` |
+| `MtSpinner` | `ProgressSpinner` |
 
 ## Ручная настройка registry
 

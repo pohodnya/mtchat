@@ -70,6 +70,8 @@ const config: MTChatConfig = {
 | `MtRadioButton` | `RadioButton` |
 | `MtTabs` / `MtTab` | `Tabs` / `Tab` |
 | `MtAccordion` / `MtAccordionPanel` | `Accordion` / `AccordionPanel` |
+| `MtTag` | `Tag` |
+| `MtSpinner` | `ProgressSpinner` |
 
 ## Theme Integration
 
