@@ -475,7 +475,7 @@ docker compose up -d
 
 ## Changelog
 
-### 2026-08-03 - Cancel Stale Dialog Requests When Switching Dialogs
+### 2026-08-03 (v0.4.22) - Cancel Stale Dialog Requests When Switching Dialogs
 - **Fixed foreign data landing in the open dialog** when switching dialogs
   quickly (BUG-7020). The loaders in `useChat` wrote their response into shared
   state without checking which dialog it was requested for, so a response that
@@ -522,6 +522,7 @@ docker compose up -d
   before join). The failure was swallowed in the `catch`, making it an invisible
   wasted round-trip. The 403 branch is kept — a stale client-side flag (user
   removed server-side) can still produce one.
+- Also ships the Loading Spinner work below in the tagged release.
 
 ### 2026-08-03 - Loading Spinner in Dialog List and Message Area
 - **New registry primitive `MtSpinner`** (`MtSpinnerProps`: `size`, `label`)
