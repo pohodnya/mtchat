@@ -10,7 +10,6 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use jsonwebtoken::decode;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -68,9 +67,9 @@ pub async fn jwt_auth(request: Request, next: Next) -> Response {
     };
 
     // Validate signature and ensure the configured user-id claim exists
-    match decode::<JwtClaims>(token, &config.decoding_key, &config.validation) {
-        Ok(data) => {
-            if data.claims.user_id(&config.user_id_claim).is_none() {
+    match config.decode_claims(token) {
+        Some(claims) => {
+            if claims.user_id(&config.user_id_claim).is_none() {
                 tracing::debug!(
                     "JWT validation failed: missing or non-string claim '{}'",
                     config.user_id_claim
@@ -79,8 +78,8 @@ pub async fn jwt_auth(request: Request, next: Next) -> Response {
             }
             next.run(request).await
         }
-        Err(e) => {
-            tracing::debug!("JWT validation failed: {}", e);
+        None => {
+            tracing::debug!("JWT validation failed: signature matched none of the configured keys");
             (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
         }
     }
@@ -123,12 +122,12 @@ where
         };
 
         // Decode and extract user_id from the configured claim
-        match decode::<JwtClaims>(token, &config.decoding_key, &config.validation) {
-            Ok(data) => match data.claims.user_id(&config.user_id_claim) {
+        match config.decode_claims(token) {
+            Some(claims) => match claims.user_id(&config.user_id_claim) {
                 Some(id) => Ok(JwtUserId(id)),
                 None => Err((StatusCode::UNAUTHORIZED, "Invalid token").into_response()),
             },
-            Err(_) => Err((StatusCode::UNAUTHORIZED, "Invalid token").into_response()),
+            None => Err((StatusCode::UNAUTHORIZED, "Invalid token").into_response()),
         }
     }
 }

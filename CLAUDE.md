@@ -237,6 +237,7 @@ Optional JWT authentication for Chat API. When enabled, validates token signatur
 |----------|---------|-------------|
 | `JWT_AUTH_ENABLED` | `false` | Enable JWT authentication for Chat API |
 | `JWT_SECRET` | (required if enabled) | Secret key for HS256 signature verification |
+| `JWT_SECRETS` | -- | Comma-separated HS256 secrets; token accepted if it verifies against any. Takes precedence over `JWT_SECRET` |
 | `JWT_USER_ID_CLAIM` | `sub` | Claim name to read the user identifier from |
 
 **How it works:**
