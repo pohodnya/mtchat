@@ -359,7 +359,8 @@ Authenticated with a JWT bearer token when `JWT_AUTH_ENABLED=true`, or with the 
 | `REDIS_URL` | No | -- | Redis URL (enables presence, jobs) |
 | `ADMIN_API_TOKEN` | No | -- | Management API auth token |
 | `JWT_AUTH_ENABLED` | No | `false` | Enable JWT authentication for Chat API |
-| `JWT_SECRET` | No | -- | HS256 secret, required when JWT auth is enabled |
+| `JWT_SECRET` | No | -- | HS256 secret, required when JWT auth is enabled (unless `JWT_SECRETS` is set) |
+| `JWT_SECRETS` | No | -- | Comma-separated HS256 secrets; a token is accepted if it verifies against any of them. Takes precedence over `JWT_SECRET` |
 | `JWT_USER_ID_CLAIM` | No | `sub` | JWT claim used as the MTChat user ID |
 | `WEBHOOK_URL` | No | -- | Outgoing webhook endpoint |
 | `WEBHOOK_SECRET` | No | -- | Webhook HMAC signing secret |

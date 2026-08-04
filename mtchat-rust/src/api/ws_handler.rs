@@ -1,11 +1,9 @@
 use axum::extract::{Query, State, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use jsonwebtoken::decode;
 use std::collections::HashMap;
 
 use crate::config::JwtConfig;
-use crate::middleware::JwtClaims;
 use crate::ws;
 
 use super::AppState;
@@ -42,22 +40,20 @@ fn extract_user_id(params: &HashMap<String, String>) -> Result<String, Response>
             (StatusCode::UNAUTHORIZED, "token query parameter required").into_response()
         })?;
 
-        let token_data = decode::<JwtClaims>(token, &config.decoding_key, &config.validation)
-            .map_err(|e| {
-                tracing::debug!("WebSocket JWT validation failed: {}", e);
-                (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
-            })?;
+        let claims = config.decode_claims(token).ok_or_else(|| {
+            tracing::debug!(
+                "WebSocket JWT validation failed: signature matched none of the configured keys"
+            );
+            (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
+        })?;
 
-        return token_data
-            .claims
-            .user_id(&config.user_id_claim)
-            .ok_or_else(|| {
-                tracing::debug!(
-                    "WebSocket JWT validation failed: missing claim '{}'",
-                    config.user_id_claim
-                );
-                (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
-            });
+        return claims.user_id(&config.user_id_claim).ok_or_else(|| {
+            tracing::debug!(
+                "WebSocket JWT validation failed: missing claim '{}'",
+                config.user_id_claim
+            );
+            (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
+        });
     }
 
     // JWT disabled - use user_id query parameter
