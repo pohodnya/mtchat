@@ -1,6 +1,6 @@
 {
   "name": "@mtchat/vue",
-  "version": "0.4.23",
+  "version": "0.4.24",
   "description": "MultitenancyChat Vue.js SDK - embeddable chat component",
   "type": "module",
   "main": "./dist/mtchat-vue.umd.cjs",
