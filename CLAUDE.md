@@ -285,6 +285,59 @@ const config: MTChatConfig = {
 }
 ```
 
+**Serving several host applications from one instance:** set `JWT_SECRETS` to a
+comma-separated list of every signer's secret. A token is accepted when its
+signature verifies against any of them, so two stands (e.g. staging + demo) that
+sign with different keys can share one MTChat deployment. Signature verification
+stays in force — this widens the set of trusted issuers, it does not disable
+validation. Note that the stands then share one chat database: dialogs are
+visible to both, isolated only by tenant id (`scopeLevel0`).
+
+### Adding a secret env var: the chart is the bottleneck
+
+`templates/secret.yaml` lists every key **explicitly** — it does not iterate over
+whatever is passed in. A key that has no `{{- if .Values.secret.FOO }}` block is
+silently dropped: no error, no warning, the variable simply never reaches the
+pod. Adding an env var to the Rust code is therefore only half the change.
+
+A new secret env var needs all three of these:
+
+1. a `{{- if .Values.secret.FOO }}` block in `deploy/helm/mtchat/templates/secret.yaml`
+2. the key declared in `deploy/helm/mtchat/values.yaml` under `secret:`
+3. the key added to the `or` guard at the top of `secret.yaml` (that condition
+   decides whether the Secret is rendered at all)
+
+The deployment injects the whole Secret via `envFrom: secretRef`, so
+`api-deployment.yaml` needs no change once the key is in the Secret.
+
+**Consumers pin a published chart version.** Infrastructure repos depend on the
+OCI chart, not on this repo's working tree:
+
+```yaml
+dependencies:
+  - name: mtchat
+    version: "0.4.23"
+    repository: "oci://ghcr.io/pohodnya/charts"
+```
+
+So a template fix only reaches a deployment after a release is tagged **and** the
+consumer bumps its pinned version. Symptom of a missed bump: the value is present
+in Vault / CI, but absent from the Kubernetes Secret.
+
+Verify which template is actually in play before debugging further upstream:
+
+```bash
+helm template t oci://ghcr.io/pohodnya/charts/mtchat --version <ver> \
+  --set-json 'secret={"FOO":"bar"}' | grep -A20 '^kind: Secret'
+```
+
+If `FOO` is missing from `stringData`, the chart is too old — the app config is a
+red herring.
+
+**`Chart.yaml` version in git is a placeholder.** The `helm-publish` job rewrites
+`version`/`appVersion` from the git tag before packaging, so the committed values
+do not need bumping per release and do not indicate what was published.
+
 ## Vue Component
 
 ### Full Mode (chat list)
