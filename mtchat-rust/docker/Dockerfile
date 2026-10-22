@@ -30,6 +30,12 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Distrust the compromised eMudhra (emSign) roots until Debian ships a fixed
+# ca-certificates (Alpine equivalent: ca-certificates>=20261020-r0)
+RUN sed -i -E 's|^(mozilla/emSign_.*\.crt)$|!\1|' /etc/ca-certificates.conf \
+    && update-ca-certificates --fresh \
+    && ! grep -q '^mozilla/emSign_' /etc/ca-certificates.conf
+
 WORKDIR /app
 
 COPY --from=builder /app/target/release/multitenancy-chat-api .

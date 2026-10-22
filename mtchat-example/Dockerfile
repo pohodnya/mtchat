@@ -28,6 +28,8 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
+
 COPY --from=app-builder /build/mtchat-example/dist /usr/share/nginx/html
 COPY mtchat-example/nginx.conf /etc/nginx/conf.d/default.conf
 
