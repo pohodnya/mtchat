@@ -37,7 +37,7 @@ apalis-redis = "0.7.3"
 apalis-cron = "0.7.3"
 
 # S3
-aws-sdk-s3 = "1.68"
+aws-sdk-s3 = { version = "1.68", default-features = false, features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"] }
 aws-config = { version = "1.5", features = ["behavior-version-latest"] }
 
 # Serialization
