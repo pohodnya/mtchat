@@ -413,7 +413,7 @@ pub async fn send_message(
                 participants.iter().map(|p| p.user_id.clone()).collect();
             ws::broadcast_dialog_unarchived(&state.connections, dialog_id, &participant_ids).await;
         }
-        ws::broadcast_message(&state.connections, dialog_id, &message).await;
+        ws::broadcast_message(&state.connections, &state.participants, &message).await;
     };
 
     let webhook_future = state
@@ -536,7 +536,7 @@ pub async fn edit_message(
     tx.commit().await?;
 
     // Broadcast via WebSocket after transaction is committed
-    ws::broadcast_message_edited(&state.connections, &updated).await;
+    ws::broadcast_message_edited(&state.connections, &state.participants, &updated).await;
 
     Ok(Json(ApiResponse { data: updated }))
 }
@@ -565,7 +565,13 @@ pub async fn delete_message(
     state.messages.delete(message_id).await?;
 
     // Broadcast via WebSocket
-    ws::broadcast_message_deleted(&state.connections, dialog_id, message_id).await;
+    ws::broadcast_message_deleted(
+        &state.connections,
+        &state.participants,
+        dialog_id,
+        message_id,
+    )
+    .await;
 
     Ok(StatusCode::NO_CONTENT)
 }

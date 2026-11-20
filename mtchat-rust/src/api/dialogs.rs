@@ -537,8 +537,9 @@ pub async fn join_dialog(
     tx.commit().await?;
 
     // Broadcast and webhook after transaction is committed
-    ws::broadcast_message(&state.connections, dialog_id, &system_msg).await;
-    ws::broadcast_participant_joined(&state.connections, dialog_id, &user_id).await;
+    ws::broadcast_message(&state.connections, &state.participants, &system_msg).await;
+    ws::broadcast_participant_joined(&state.connections, &state.participants, dialog_id, &user_id)
+        .await;
     state
         .webhooks
         .send(WebhookEvent::participant_joined(&dialog, &participant))
@@ -604,8 +605,9 @@ pub async fn leave_dialog(
     tx.commit().await?;
 
     // Broadcast and webhook after transaction is committed
-    ws::broadcast_message(&state.connections, dialog_id, &system_msg).await;
-    ws::broadcast_participant_left(&state.connections, dialog_id, &user_id).await;
+    ws::broadcast_message(&state.connections, &state.participants, &system_msg).await;
+    ws::broadcast_participant_left(&state.connections, &state.participants, dialog_id, &user_id)
+        .await;
     state
         .webhooks
         .send(WebhookEvent::participant_left(&dialog, &user_id))
