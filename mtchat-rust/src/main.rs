@@ -241,6 +241,8 @@ async fn main() {
                 .put(api::messages::edit_message)
                 .delete(api::messages::delete_message),
         )
+        // Unread badge
+        .route("/unread", get(api::participants::unread_count))
         // Upload API
         .route("/upload/presign", post(api::upload::presign_upload))
         .route(
