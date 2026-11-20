@@ -18,6 +18,11 @@ pub struct ParticipantResponse {
     pub is_online: bool,
 }
 
+#[derive(Debug, Serialize)]
+pub struct UnreadCountResponse {
+    pub count: i64,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct MarkAsReadRequest {
     pub last_read_message_id: Uuid,
@@ -127,4 +132,16 @@ pub async fn mark_as_read(
     Ok(Json(serde_json::json!({
         "success": true
     })))
+}
+
+/// Total unread messages of the current user, for a global badge.
+pub async fn unread_count(
+    State(state): State<AppState>,
+    UserId(user_id): UserId,
+) -> Result<Json<ApiResponse<UnreadCountResponse>>, ApiError> {
+    let count = state.participants.count_unread_total(&user_id).await?;
+
+    Ok(Json(ApiResponse {
+        data: UnreadCountResponse { count },
+    }))
 }

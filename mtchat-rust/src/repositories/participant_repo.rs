@@ -268,6 +268,20 @@ impl ParticipantRepository {
         Ok(result.rows_affected() > 0)
     }
 
+    /// Total unread messages of a user across the dialogs they participate in.
+    /// Archived dialogs are excluded: they are hidden from the main list and
+    /// get unarchived automatically when a new message arrives.
+    pub async fn count_unread_total(&self, user_id: &UserId) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar(
+            r#"SELECT COALESCE(SUM(unread_count), 0)::BIGINT
+               FROM dialog_participants
+               WHERE user_id = $1 AND NOT is_archived"#,
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     /// Increment unread_count for all participants except the author
     pub async fn increment_unread(
         &self,

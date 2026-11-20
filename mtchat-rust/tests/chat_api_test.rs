@@ -1409,3 +1409,68 @@ async fn test_missing_user_id_returns_error() {
 
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
+
+// ============ Unread Count Tests ============
+
+async fn get_unread_count(client: &Client, base_url: &str, user_id: Uuid) -> i64 {
+    let resp = client
+        .get(format!("{}/api/v1/unread?user_id={}", base_url, user_id))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp.json().await.unwrap();
+    body["data"]["count"].as_i64().unwrap()
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
+async fn test_unread_count_sums_participating_dialogs_except_archived() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let sender = Uuid::new_v4();
+    let reader = Uuid::new_v4();
+    let resp = client
+        .post(format!("{}/api/v1/management/dialogs", base_url))
+        .header("Authorization", &auth_header)
+        .json(&json!({
+            "object_id": Uuid::new_v4(),
+            "object_type": "test",
+            "participants": [
+                { "user_id": sender, "display_name": "Sender" },
+                { "user_id": reader, "display_name": "Reader" }
+            ]
+        }))
+        .send()
+        .await
+        .expect("Create dialog failed");
+    assert!(resp.status().is_success());
+    let body: Value = resp.json().await.unwrap();
+    let dialog_id = body["data"]["id"].as_str().unwrap().to_string();
+
+    for content in ["first", "second"] {
+        let resp = client
+            .post(format!(
+                "{}/api/v1/dialogs/{}/messages?user_id={}",
+                base_url, dialog_id, sender
+            ))
+            .json(&json!({ "content": content }))
+            .send()
+            .await
+            .unwrap();
+        assert!(resp.status().is_success());
+    }
+
+    assert_eq!(get_unread_count(&client, &base_url, reader).await, 2);
+    assert_eq!(get_unread_count(&client, &base_url, sender).await, 0);
+
+    archive_test_dialog(&client, &base_url, &dialog_id, reader).await;
+    assert_eq!(get_unread_count(&client, &base_url, reader).await, 0);
+
+    // Cleanup
+    delete_test_dialog(&client, &base_url, &auth_header, &dialog_id).await;
+}
