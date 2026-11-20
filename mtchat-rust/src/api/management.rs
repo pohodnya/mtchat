@@ -203,7 +203,13 @@ pub async fn management_create_dialog(
 
     // Broadcast events after transaction is committed
     for participant in req.participants.iter() {
-        ws::broadcast_participant_joined(&state.connections, dialog.id, &participant.user_id).await;
+        ws::broadcast_participant_joined(
+            &state.connections,
+            &state.participants,
+            dialog.id,
+            &participant.user_id,
+        )
+        .await;
     }
 
     Ok(Json(ApiResponse { data: dialog }))
@@ -320,7 +326,13 @@ pub async fn management_add_participant(
         .await?;
 
     // Broadcast participant joined event (for dialog list updates)
-    ws::broadcast_participant_joined(&state.connections, dialog_id, &req.user_id).await;
+    ws::broadcast_participant_joined(
+        &state.connections,
+        &state.participants,
+        dialog_id,
+        &req.user_id,
+    )
+    .await;
 
     Ok(StatusCode::CREATED)
 }
@@ -332,7 +344,8 @@ pub async fn management_remove_participant(
     state.participants.remove(dialog_id, &user_id).await?;
 
     // Broadcast participant left event (for dialog list updates)
-    ws::broadcast_participant_left(&state.connections, dialog_id, &user_id).await;
+    ws::broadcast_participant_left(&state.connections, &state.participants, dialog_id, &user_id)
+        .await;
 
     Ok(StatusCode::NO_CONTENT)
 }

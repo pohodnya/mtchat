@@ -117,6 +117,7 @@ pub async fn mark_as_read(
     // Broadcast WebSocket event
     ws::broadcast_read(
         &state.connections,
+        &state.participants,
         dialog_id,
         &user_id,
         req.last_read_message_id,

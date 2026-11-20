@@ -226,21 +226,35 @@ async fn broadcast_presence(
     }
 }
 
-/// Broadcast an event to all connected users
-async fn broadcast_to_all(connections: &Connections, event: &WsEvent) {
-    let json = match serde_json::to_string(event) {
-        Ok(j) => j,
+/// Broadcast an event to the current participants of a dialog, plus `extra` users.
+///
+/// Dialog events must never reach users outside the dialog: the payload
+/// carries message content, so a global broadcast would leak it to every
+/// connected user regardless of tenant.
+async fn broadcast_to_dialog(
+    connections: &Connections,
+    participants: &ParticipantRepository,
+    dialog_id: Uuid,
+    event: &WsEvent,
+    extra: &[&str],
+) {
+    let mut user_ids = match participants
+        .get_dialog_participants_user_ids(&[dialog_id])
+        .await
+    {
+        Ok(ids) => ids,
         Err(e) => {
-            tracing::warn!("Failed to serialize WsEvent: {}", e);
+            tracing::warn!("Failed to get participants for dialog {}: {}", dialog_id, e);
             return;
         }
     };
-
-    for entry in connections.iter() {
-        if entry.value().send(json.clone()).await.is_err() {
-            tracing::debug!("Failed to send to user {}", entry.key());
+    for user_id in extra {
+        if !user_ids.iter().any(|id| id == user_id) {
+            user_ids.push(user_id.to_string());
         }
     }
+
+    broadcast_to_users(connections, event, &user_ids).await;
 }
 
 /// Broadcast an event to specific users
@@ -264,7 +278,7 @@ async fn broadcast_to_users(connections: &Connections, event: &WsEvent, user_ids
 
 pub async fn broadcast_message(
     connections: &Connections,
-    _dialog_id: Uuid,
+    participants: &ParticipantRepository,
     message: &crate::domain::Message,
 ) {
     let event = WsEvent::MessageNew {
@@ -275,11 +289,12 @@ pub async fn broadcast_message(
         sent_at: message.sent_at,
         message_type: message.message_type.as_str().to_string(),
     };
-    broadcast_to_all(connections, &event).await;
+    broadcast_to_dialog(connections, participants, message.dialog_id, &event, &[]).await;
 }
 
 pub async fn broadcast_read(
     connections: &Connections,
+    participants: &ParticipantRepository,
     dialog_id: Uuid,
     user_id: &str,
     last_read_message_id: Uuid,
@@ -289,10 +304,14 @@ pub async fn broadcast_read(
         user_id: user_id.to_string(),
         last_read_message_id,
     };
-    broadcast_to_all(connections, &event).await;
+    broadcast_to_dialog(connections, participants, dialog_id, &event, &[]).await;
 }
 
-pub async fn broadcast_message_edited(connections: &Connections, message: &crate::domain::Message) {
+pub async fn broadcast_message_edited(
+    connections: &Connections,
+    participants: &ParticipantRepository,
+    message: &crate::domain::Message,
+) {
     let last_edited_at = match message.last_edited_at {
         Some(ts) => ts,
         None => return,
@@ -304,11 +323,12 @@ pub async fn broadcast_message_edited(connections: &Connections, message: &crate
         content: message.content.clone(),
         last_edited_at,
     };
-    broadcast_to_all(connections, &event).await;
+    broadcast_to_dialog(connections, participants, message.dialog_id, &event, &[]).await;
 }
 
 pub async fn broadcast_message_deleted(
     connections: &Connections,
+    participants: &ParticipantRepository,
     dialog_id: Uuid,
     message_id: Uuid,
 ) {
@@ -316,11 +336,12 @@ pub async fn broadcast_message_deleted(
         id: message_id,
         dialog_id,
     };
-    broadcast_to_all(connections, &event).await;
+    broadcast_to_dialog(connections, participants, dialog_id, &event, &[]).await;
 }
 
 pub async fn broadcast_participant_joined(
     connections: &Connections,
+    participants: &ParticipantRepository,
     dialog_id: Uuid,
     user_id: &str,
 ) {
@@ -328,15 +349,22 @@ pub async fn broadcast_participant_joined(
         dialog_id,
         user_id: user_id.to_string(),
     };
-    broadcast_to_all(connections, &event).await;
+    broadcast_to_dialog(connections, participants, dialog_id, &event, &[]).await;
 }
 
-pub async fn broadcast_participant_left(connections: &Connections, dialog_id: Uuid, user_id: &str) {
+/// The departed user is already removed from the dialog, so they are added
+/// explicitly to learn that they left.
+pub async fn broadcast_participant_left(
+    connections: &Connections,
+    participants: &ParticipantRepository,
+    dialog_id: Uuid,
+    user_id: &str,
+) {
     let event = WsEvent::ParticipantLeft {
         dialog_id,
         user_id: user_id.to_string(),
     };
-    broadcast_to_all(connections, &event).await;
+    broadcast_to_dialog(connections, participants, dialog_id, &event, &[user_id]).await;
 }
 
 /// Broadcast dialog archived event to specific users.
@@ -358,4 +386,27 @@ pub async fn broadcast_dialog_unarchived(
     tracing::debug!(dialog_id = %dialog_id, user_ids = ?user_ids, "Broadcasting dialog.unarchived");
     let event = WsEvent::DialogUnarchived { dialog_id };
     broadcast_to_users(connections, &event, user_ids).await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn broadcast_to_users_skips_unlisted_connections() {
+        let connections: Connections = Arc::new(DashMap::new());
+        let (member_tx, mut member_rx) = mpsc::channel::<String>(10);
+        let (outsider_tx, mut outsider_rx) = mpsc::channel::<String>(10);
+        connections.insert("member".to_string(), member_tx);
+        connections.insert("outsider".to_string(), outsider_tx);
+
+        let event = WsEvent::MessageDeleted {
+            id: Uuid::new_v4(),
+            dialog_id: Uuid::new_v4(),
+        };
+        broadcast_to_users(&connections, &event, &["member".to_string()]).await;
+
+        assert!(member_rx.try_recv().unwrap().contains("message.deleted"));
+        assert!(outsider_rx.try_recv().is_err());
+    }
 }
