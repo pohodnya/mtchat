@@ -636,6 +636,8 @@ pub async fn archive_dialog(
         .set_archived(dialog_id, &user_id, true)
         .await?;
 
+    ws::broadcast_dialog_archived(&state.connections, dialog_id, &[user_id]).await;
+
     Ok(Json(serde_json::json!({ "status": "archived" })))
 }
 
@@ -656,6 +658,8 @@ pub async fn unarchive_dialog(
         .participants
         .set_archived(dialog_id, &user_id, false)
         .await?;
+
+    ws::broadcast_dialog_unarchived(&state.connections, dialog_id, &[user_id]).await;
 
     Ok(Json(serde_json::json!({ "status": "unarchived" })))
 }

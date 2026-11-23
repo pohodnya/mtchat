@@ -135,11 +135,25 @@ pub async fn mark_as_read(
 }
 
 /// Total unread messages of the current user, for a global badge.
+///
+/// With `X-Scope-Config` only dialogs of that scope are counted, the same set
+/// as `GET /dialogs?type=participating`; without it, all of the user's dialogs.
 pub async fn unread_count(
     State(state): State<AppState>,
     UserId(user_id): UserId,
+    OptionalScopeConfig(scope_config): OptionalScopeConfig,
 ) -> Result<Json<ApiResponse<UnreadCountResponse>>, ApiError> {
-    let count = state.participants.count_unread_total(&user_id).await?;
+    let scope = scope_config.as_ref().map(|s| {
+        (
+            s.scope_level0.as_slice(),
+            s.scope_level1.as_slice(),
+            s.scope_level2.as_slice(),
+        )
+    });
+    let count = state
+        .participants
+        .count_unread_total(&user_id, scope)
+        .await?;
 
     Ok(Json(ApiResponse {
         data: UnreadCountResponse { count },

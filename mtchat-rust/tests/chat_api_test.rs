@@ -8,9 +8,12 @@
 //! ```
 
 use base64::Engine;
+use futures::StreamExt;
 use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
 use std::env;
+use std::time::Duration;
+use tokio_tungstenite::tungstenite::Message as WsMessage;
 use uuid::Uuid;
 
 fn get_base_url() -> String {
@@ -1470,6 +1473,294 @@ async fn test_unread_count_sums_participating_dialogs_except_archived() {
 
     archive_test_dialog(&client, &base_url, &dialog_id, reader).await;
     assert_eq!(get_unread_count(&client, &base_url, reader).await, 0);
+
+    // Cleanup
+    delete_test_dialog(&client, &base_url, &auth_header, &dialog_id).await;
+}
+
+async fn get_scoped_unread_count(
+    client: &Client,
+    base_url: &str,
+    user_id: Uuid,
+    scope_header: &str,
+) -> i64 {
+    let resp = client
+        .get(format!("{}/api/v1/unread?user_id={}", base_url, user_id))
+        .header("X-Scope-Config", scope_header)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp.json().await.unwrap();
+    body["data"]["count"].as_i64().unwrap()
+}
+
+async fn create_dialog_with_access_scopes(
+    client: &Client,
+    base_url: &str,
+    auth_header: &str,
+    participants: &[Uuid],
+    access_scopes: Value,
+) -> String {
+    let resp = client
+        .post(format!("{}/api/v1/management/dialogs", base_url))
+        .header("Authorization", auth_header)
+        .json(&json!({
+            "object_id": Uuid::new_v4(),
+            "object_type": "test",
+            "participants": participants
+                .iter()
+                .map(|id| json!({ "user_id": id, "display_name": "Test User" }))
+                .collect::<Vec<_>>(),
+            "access_scopes": access_scopes
+        }))
+        .send()
+        .await
+        .expect("Create dialog failed");
+    assert!(resp.status().is_success());
+    let body: Value = resp.json().await.unwrap();
+    body["data"]["id"].as_str().unwrap().to_string()
+}
+
+async fn send_test_messages(
+    client: &Client,
+    base_url: &str,
+    dialog_id: &str,
+    sender: Uuid,
+    count: usize,
+) {
+    for i in 0..count {
+        let resp = client
+            .post(format!(
+                "{}/api/v1/dialogs/{}/messages?user_id={}",
+                base_url, dialog_id, sender
+            ))
+            .json(&json!({ "content": format!("message {}", i) }))
+            .send()
+            .await
+            .unwrap();
+        assert!(resp.status().is_success());
+    }
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
+async fn test_unread_count_is_scoped_by_tenant() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let sender = Uuid::new_v4();
+    let reader = Uuid::new_v4();
+    let tenant_a = Uuid::new_v4();
+    let tenant_b = Uuid::new_v4();
+
+    let dialog_a = create_dialog_with_access_scopes(
+        &client,
+        &base_url,
+        &auth_header,
+        &[sender, reader],
+        json!([{ "scope_level0": [tenant_a], "scope_level1": [], "scope_level2": ["chat"] }]),
+    )
+    .await;
+    let dialog_b = create_dialog_with_access_scopes(
+        &client,
+        &base_url,
+        &auth_header,
+        &[sender, reader],
+        json!([{ "scope_level0": [tenant_b], "scope_level1": [], "scope_level2": ["chat"] }]),
+    )
+    .await;
+    send_test_messages(&client, &base_url, &dialog_a, sender, 1).await;
+    send_test_messages(&client, &base_url, &dialog_b, sender, 2).await;
+
+    let scope_a = encode_scope_config(tenant_a, &[], &["chat"]);
+    let scope_b = encode_scope_config(tenant_b, &[], &["chat"]);
+    assert_eq!(
+        get_scoped_unread_count(&client, &base_url, reader, &scope_a).await,
+        1
+    );
+    assert_eq!(
+        get_scoped_unread_count(&client, &base_url, reader, &scope_b).await,
+        2
+    );
+
+    // Without the header every dialog of the user is counted, as before.
+    assert_eq!(get_unread_count(&client, &base_url, reader).await, 3);
+
+    // Cleanup
+    delete_test_dialog(&client, &base_url, &auth_header, &dialog_a).await;
+    delete_test_dialog(&client, &base_url, &auth_header, &dialog_b).await;
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
+async fn test_unread_count_with_scope_counts_dialog_without_access_scopes() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let sender = Uuid::new_v4();
+    let reader = Uuid::new_v4();
+    let dialog_id = create_dialog_with_access_scopes(
+        &client,
+        &base_url,
+        &auth_header,
+        &[sender, reader],
+        json!([]),
+    )
+    .await;
+    send_test_messages(&client, &base_url, &dialog_id, sender, 2).await;
+
+    let scope_header = encode_scope_config(Uuid::new_v4(), &["dept"], &["role"]);
+    assert_eq!(
+        get_scoped_unread_count(&client, &base_url, reader, &scope_header).await,
+        2
+    );
+
+    // Cleanup
+    delete_test_dialog(&client, &base_url, &auth_header, &dialog_id).await;
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
+async fn test_unread_count_with_scope_treats_empty_level_as_wildcard() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let sender = Uuid::new_v4();
+    let reader = Uuid::new_v4();
+    let dialog_id = create_dialog_with_access_scopes(
+        &client,
+        &base_url,
+        &auth_header,
+        &[sender, reader],
+        json!([{ "scope_level0": [], "scope_level1": ["dept"], "scope_level2": [] }]),
+    )
+    .await;
+    send_test_messages(&client, &base_url, &dialog_id, sender, 1).await;
+
+    // Empty levels in the dialog match any tenant and any role.
+    let any_tenant = encode_scope_config(Uuid::new_v4(), &["dept"], &["any-role"]);
+    assert_eq!(
+        get_scoped_unread_count(&client, &base_url, reader, &any_tenant).await,
+        1
+    );
+
+    // A non-empty level still has to overlap.
+    let other_dept = encode_scope_config(Uuid::new_v4(), &["other-dept"], &["any-role"]);
+    assert_eq!(
+        get_scoped_unread_count(&client, &base_url, reader, &other_dept).await,
+        0
+    );
+
+    // Cleanup
+    delete_test_dialog(&client, &base_url, &auth_header, &dialog_id).await;
+}
+
+// ============ Archive Events Tests ============
+
+type WsStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+async fn connect_ws(base_url: &str, user_id: Uuid) -> WsStream {
+    let ws_url = format!(
+        "{}/api/v1/ws?user_id={}",
+        base_url.replacen("http", "ws", 1),
+        user_id
+    );
+    let (mut stream, _) = tokio_tungstenite::connect_async(ws_url)
+        .await
+        .expect("WebSocket connect failed");
+    let first = next_ws_event(&mut stream, Duration::from_secs(5))
+        .await
+        .expect("connected event expected");
+    assert_eq!(first["type"], "connected");
+    stream
+}
+
+async fn next_ws_event(stream: &mut WsStream, wait: Duration) -> Option<Value> {
+    loop {
+        let msg = tokio::time::timeout(wait, stream.next())
+            .await
+            .ok()??
+            .ok()?;
+        if let WsMessage::Text(text) = msg {
+            return serde_json::from_str(&text).ok();
+        }
+    }
+}
+
+/// Collects events of the given type that arrive within `wait`.
+async fn ws_events_of_type(stream: &mut WsStream, event_type: &str, wait: Duration) -> Vec<Value> {
+    let deadline = tokio::time::Instant::now() + wait;
+    let mut events = vec![];
+    while let Some(remaining) = deadline.checked_duration_since(tokio::time::Instant::now()) {
+        match next_ws_event(stream, remaining).await {
+            Some(event) if event["type"] == event_type => events.push(event),
+            Some(_) => {}
+            None => break,
+        }
+    }
+    events
+}
+
+#[tokio::test]
+#[ignore] // Requires running server
+async fn test_manual_archive_and_unarchive_notify_only_that_user() {
+    let client = Client::new();
+    let base_url = get_base_url();
+    let auth_header = get_admin_token()
+        .map(|t| format!("Bearer {}", t))
+        .unwrap_or_default();
+
+    let user_id = Uuid::new_v4();
+    let other_id = Uuid::new_v4();
+    let dialog_id = create_dialog_with_access_scopes(
+        &client,
+        &base_url,
+        &auth_header,
+        &[user_id, other_id],
+        json!([]),
+    )
+    .await;
+
+    let mut user_ws = connect_ws(&base_url, user_id).await;
+    let mut other_ws = connect_ws(&base_url, other_id).await;
+
+    for (action, event_type) in [
+        ("archive", "dialog.archived"),
+        ("unarchive", "dialog.unarchived"),
+    ] {
+        let resp = client
+            .post(format!(
+                "{}/api/v1/dialogs/{}/{}?user_id={}",
+                base_url, dialog_id, action, user_id
+            ))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let user_events = ws_events_of_type(&mut user_ws, event_type, Duration::from_secs(1)).await;
+        assert_eq!(user_events.len(), 1, "{} must reach the user", event_type);
+        assert_eq!(user_events[0]["dialog_id"], dialog_id.as_str());
+
+        let other_events =
+            ws_events_of_type(&mut other_ws, event_type, Duration::from_millis(500)).await;
+        assert!(
+            other_events.is_empty(),
+            "{} must not reach other participants",
+            event_type
+        );
+    }
 
     // Cleanup
     delete_test_dialog(&client, &base_url, &auth_header, &dialog_id).await;

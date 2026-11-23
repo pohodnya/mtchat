@@ -6,6 +6,7 @@ mod attachment_repo;
 mod dialog_repo;
 mod message_repo;
 mod participant_repo;
+mod scope_filter;
 mod scope_repo;
 
 pub use attachment_repo::AttachmentRepository;

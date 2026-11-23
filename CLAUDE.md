@@ -164,6 +164,7 @@ GET  /api/v1/dialogs/by-object/{type}/{id}/list  # All accessible dialogs for ob
 POST /api/v1/dialogs/{id}/join            # Join chat
 POST /api/v1/dialogs/{id}/leave           # Leave chat
 POST /api/v1/dialogs/{id}/read            # Mark messages as read
+GET  /api/v1/unread                       # Total unread count (non-archived; scoped by X-Scope-Config if sent)
 POST /api/v1/dialogs/{id}/archive         # Archive chat for current user
 POST /api/v1/dialogs/{id}/unarchive       # Unarchive chat for current user
 POST /api/v1/dialogs/{id}/pin             # Pin chat for current user
@@ -528,6 +529,30 @@ docker compose up -d
 | String identifiers (user_id, object_id) | ✅ |
 
 ## Changelog
+
+### 2026-11-23 - Scoped Unread Count, Shared SDK Client, Manual Archive Events
+- **`GET /api/v1/unread` honours `X-Scope-Config`**: with the header only the
+  dialogs of that scope are summed, the same set as `GET /dialogs?type=participating`;
+  without it the count is unchanged (all non-archived dialogs of the user). The
+  participant scope condition moved to `repositories/scope_filter.rs`
+  (`participant_scope_condition` + `scope_binds`) and is used by both
+  `DialogRepository::find_participating` and `ParticipantRepository::count_unread_total`,
+  so the list and the badge cannot drift apart.
+- **Manual archive/unarchive emit WS events**: `POST /dialogs/{id}/archive|unarchive`
+  now send `dialog.archived` / `dialog.unarchived` to the acting user only (all their
+  connections), so an unread badge in another tab updates.
+- **SDK shared client**: `MTChatApi.getUnreadCount(signal?)`; `MTChatClient.config`
+  is public read-only; `useChat` accepts `client?: Ref<MTChatClient | null>` — it then
+  never connects, disconnects or recreates the client, removes its own handlers on
+  unmount, moves them and reloads data when the client is replaced, loads right away
+  if the client is already connected, and skips per-dialog `subscribe`/`unsubscribe`.
+  `MTChat`/`MTChatPrime` get a `client` prop; `config` becomes optional then and
+  `userId`/`userProfile`/`locale` come from `client.config`. Without `client` nothing
+  changes. Documented in `docs/sdk/components.md`, `docs/sdk/events.md`,
+  `docs/api/chat.md`, `docs/api/websocket.md` (+ ru).
+- Tests: `scope_filter` unit tests; ignored integration tests for the scoped unread
+  count and archive events (`tokio-tungstenite` dev-dependency, already in the lock
+  via axum); Vitest specs for `useChat` with an external client and `MTChat` with `client`.
 
 ### 2026-08-03 - Cancel Stale Dialog Requests When Switching Dialogs
 - **Fixed foreign data landing in the open dialog** when switching dialogs
