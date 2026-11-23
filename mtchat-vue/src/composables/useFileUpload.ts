@@ -4,7 +4,7 @@
  * Manages file uploads with progress tracking and validation
  */
 
-import { ref, computed, type Ref, type ComputedRef } from 'vue'
+import { ref, computed, toValue, type Ref, type ComputedRef, type MaybeRefOrGetter } from 'vue'
 import type { PendingAttachment, AttachmentInput } from '../types'
 import { ATTACHMENT_LIMITS, isAllowedFileType, isValidFileSize } from '../types'
 import type { MTChatApi } from '../sdk/api'
@@ -12,8 +12,8 @@ import type { MTChatApi } from '../sdk/api'
 export interface UseFileUploadOptions {
   /** Dialog ID for upload */
   dialogId: Ref<string | undefined> | ComputedRef<string | undefined>
-  /** API client instance */
-  api: MTChatApi
+  /** API client instance. A getter or ref is read on each upload, so a replaced client is picked up */
+  api: MaybeRefOrGetter<MTChatApi>
   /** Callback on upload error */
   onError?: (error: string) => void
 }
@@ -127,7 +127,8 @@ export function useFileUpload(options: UseFileUploadOptions): UseFileUploadRetur
       updateItem(pending.id, { status: 'uploading', progress: 0 })
 
       // Get presigned URL
-      const { upload_url, s3_key } = await api.getPresignedUploadUrl(
+      const currentApi = toValue(api)
+      const { upload_url, s3_key } = await currentApi.getPresignedUploadUrl(
         dialogId.value,
         pending.filename,
         pending.contentType,
@@ -135,7 +136,7 @@ export function useFileUpload(options: UseFileUploadOptions): UseFileUploadRetur
       )
 
       // Upload to S3
-      await api.uploadFile(upload_url, pending.file, (progress) => {
+      await currentApi.uploadFile(upload_url, pending.file, (progress) => {
         updateItem(pending.id, { progress })
       })
 

@@ -79,6 +79,7 @@ defineExpose({
     <MTChat
       ref="mtchatRef"
       :config="config"
+      :client="client"
       :mode="mode"
       :object-id="objectId"
       :object-type="objectType"

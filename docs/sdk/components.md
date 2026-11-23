@@ -77,7 +77,8 @@ Full prop reference for `<MTChat>` (`@mtchat/vue`). `<MTChatPrime>` (`@mtchat/vu
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `config` | `MTChatConfig` | **required** | SDK configuration |
+| `config` | `MTChatConfig` | -- | SDK configuration. Required unless `client` is passed |
+| `client` | `MTChatClient \| null` | -- | External client owned by the host application; `userId`, `userProfile` and `locale` are taken from `client.config`. See [Shared Client](#shared-client) |
 | `mode` | `'full' \| 'inline'` | `'full'` | Display mode -- see [Full Mode](full-mode.md) / [Inline Mode](inline-mode.md) |
 | `objectId` | `string` | -- | Inline mode: business object ID |
 | `objectType` | `string` | -- | Inline mode: business object type (e.g. `'order'`, `'tender'`) |
@@ -89,8 +90,38 @@ Full prop reference for `<MTChat>` (`@mtchat/vue`). `<MTChatPrime>` (`@mtchat/vu
 | `searchPlaceholder` | `string` | -- | Full mode: override the search input placeholder text |
 | `showContextMenu` | `boolean` | `true` | Full mode: enable the right-click context menu on dialog items |
 | `theme` | `string` | `'light'` | Theme name, applied as CSS class `mtchat--${theme}`. On `<MTChatPrime>` this is narrowed to `'light' \| 'dark' \| undefined` (`undefined` auto-detects from the PrimeVue dark mode selector) -- see [PrimeVue](primevue.md) |
-| `token` | `string` | -- | JWT token for authentication, overrides `config.token` |
+| `token` | `string` | -- | JWT token for authentication, overrides `config.token`. Ignored when `client` is passed |
 | `interceptObjectNavigation` | `boolean` | `false` | Replace the default `<a href>` navigation to the dialog's `object_url` with a client-side `object-navigate` emit, so the host app can handle navigation itself (e.g. via `vue-router`) instead of a full-page browser navigation. See [Events](events.md#component-events) |
+
+## Shared Client
+
+By default every `<MTChat>` creates, connects and closes its own `MTChatClient`. An application that shows several chats at once (a chat page, an object chat, an unread badge in the header) can create one client per browser tab and pass it to every component with the `client` prop:
+
+```vue
+<script setup lang="ts">
+import { onUnmounted, shallowRef } from 'vue'
+import { MTChat, MTChatClient } from '@mtchat/vue'
+
+const client = shallowRef(new MTChatClient(config))
+client.value.connect()
+onUnmounted(() => client.value.disconnect())
+</script>
+
+<template>
+  <MTChat :client="client" mode="full" />
+</template>
+```
+
+With `client`:
+
+- `config` is not needed: `userId`, `userProfile` and `locale` are taken from `client.config`. When both are passed, `client` wins.
+- The application owns the client: the component does not connect, disconnect or recreate it, and the `token` prop is ignored. To change the token or scope, create a new client and pass it in -- the component moves its handlers to the new client and reloads its data. The open dialog stays open, unless the new client gets 403 or 404 for it (e.g. another organization): then it is closed.
+- The component removes its WebSocket handlers from the client on unmount, so other chats on the same client keep working.
+- If the client is already connected on mount, the data is loaded right away.
+- Whether a component uses an external client is fixed when it is created: switching between `config` and `client` on a mounted component is not supported.
+- Without `config` the component waits for a client: while `client` is `null` or not passed it renders the empty state and loads nothing. Setting `client` to `null` on a mounted component (e.g. chats turned off) clears its dialogs, messages and the open dialog; a client passed later loads the data again.
+- Responses still in flight for the previous client are ignored after `client` is replaced or set to `null`, so the lists never show dialogs of the previous scope.
+- The unread badge can use the same client: `client.api.getUnreadCount()` returns the number of unread messages within the client's scope (`GET /api/v1/unread`).
 
 ## Quick Links
 

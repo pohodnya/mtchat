@@ -4,7 +4,7 @@
  * Reactive chat state management for Vue 3
  */
 
-import { ref, computed, watch, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
+import { ref, shallowRef, computed, watch, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
 import { MTChatClient } from '../sdk/client'
 import { logger } from '../utils/logger'
 import { isAbortError } from '../utils/helpers'
@@ -20,14 +20,38 @@ import type {
   WsEvent,
 } from '../types'
 
+/** 403 or 404 from the API: the dialog is gone or out of the client's reach */
+function isNoAccessError(e: unknown): boolean {
+  const status = (e as { status?: unknown } | null)?.status
+  return status === 403 || status === 404
+}
+
 /**
  * Vue composable for chat functionality
  */
 export function useChat(options: UseChatOptions): UseChatReturn {
-  const { config, autoConnect = true, mode, dialogId, objectId, objectType } = options
+  const { config, client: externalClient, autoConnect = true, mode, dialogId, objectId, objectType } = options
 
-  // Initialize client
-  let client = new MTChatClient(config.value)
+  // With an external client the host owns its lifecycle: useChat never connects,
+  // disconnects or recreates it, and only attaches/detaches its own handlers.
+  const isExternalClient = externalClient !== undefined
+  if (!isExternalClient && !config) {
+    throw new Error('useChat: either `config` or `client` must be provided')
+  }
+
+  // A ref so that `api` read in a render is re-read when the client is replaced
+  const client = shallowRef<MTChatClient | null>(
+    isExternalClient ? externalClient.value : new MTChatClient(config!.value)
+  )
+
+  function currentUserId(): string | undefined {
+    return isExternalClient ? client.value?.config.userId : config!.value.userId
+  }
+
+  function requireClient(): MTChatClient {
+    if (!client.value) throw new Error('MTChat client is not available')
+    return client.value
+  }
 
   // Reactive state
   const messages: Ref<Message[]> = ref([])
@@ -91,19 +115,47 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     return dialogRequests.signal
   }
 
+  // Dialog list loads are not cancelled, but a swap of the external client or
+  // of the object bumps this: a late list from the previous client (possibly
+  // another organization) or object must not overwrite the current lists, nor
+  // clear the loading flag while the current list is still loading.
+  let listGeneration = 0
+
+  // Set once the archive was asked for (it is loaded lazily, when the sidebar
+  // opens it): a client swap then has to reload it, since the sidebar keeps
+  // its own "already loaded" state and will not ask again.
+  let isArchiveRequested = false
+
   // ============ Connection ============
 
+  // No-ops with an external client: its connection is shared with other chats
+  // and owned by the host.
   function connect(): void {
-    client.connect()
+    if (isExternalClient) return
+    requireClient().connect()
   }
 
   function disconnect(): void {
-    client.disconnect()
+    if (isExternalClient) return
+    requireClient().disconnect()
+  }
+
+  // Per-dialog WS subscriptions are skipped on a shared client: the server
+  // ignores them today, and once it doesn't, one chat unsubscribing would cut
+  // off another chat on the same client unless subscriptions are ref-counted.
+  function subscribeOnClient(id: string): void {
+    if (!isExternalClient) client.value?.subscribe(id)
+  }
+
+  function unsubscribeOnClient(id: string): void {
+    if (!isExternalClient) client.value?.unsubscribe(id)
   }
 
   // ============ Dialogs ============
 
   async function loadParticipatingDialogs(): Promise<void> {
+    if (!client.value) return
+    const generation = listGeneration
     try {
       isLoadingDialogs.value = true
       error.value = null
@@ -111,83 +163,107 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
       // Load only active dialogs (non-archived)
       // Archived dialogs are loaded lazily when accordion is opened
-      const active = await client.api.getParticipatingDialogs(search, false)
+      const active = await requireClient().api.getParticipatingDialogs(search, false)
+      if (generation !== listGeneration) return
       participatingDialogs.value = active
     } catch (e) {
+      if (generation !== listGeneration) return
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoadingDialogs.value = false
+      if (generation === listGeneration) isLoadingDialogs.value = false
     }
   }
 
   async function loadArchivedDialogs(): Promise<void> {
+    isArchiveRequested = true
+    // Without a client the archive loads once one is set (see the client watcher)
+    if (!client.value) return
+    const generation = listGeneration
     try {
       isLoadingDialogs.value = true
       error.value = null
       const search = searchQuery.value || undefined
 
-      const archived = await client.api.getParticipatingDialogs(search, true)
+      const archived = await requireClient().api.getParticipatingDialogs(search, true)
+      if (generation !== listGeneration) return
       archivedDialogs.value = archived
     } catch (e) {
+      if (generation !== listGeneration) return
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoadingDialogs.value = false
+      if (generation === listGeneration) isLoadingDialogs.value = false
     }
   }
 
   async function loadAvailableDialogs(): Promise<void> {
+    if (!client.value) return
+    const generation = listGeneration
     try {
       isLoadingDialogs.value = true
       error.value = null
       const search = searchQuery.value || undefined
-      availableDialogs.value = await client.api.getAvailableDialogs(search)
+      const available = await requireClient().api.getAvailableDialogs(search)
+      if (generation !== listGeneration) return
+      availableDialogs.value = available
     } catch (e) {
+      if (generation !== listGeneration) return
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoadingDialogs.value = false
+      if (generation === listGeneration) isLoadingDialogs.value = false
     }
   }
 
   async function loadDialogsByObject(oType: string, oId: string): Promise<void> {
+    if (!client.value) return
+    const generation = listGeneration
     try {
       isLoadingDialogs.value = true
       error.value = null
       const search = searchQuery.value || undefined
-      participatingDialogs.value = await client.api.getDialogsByObject({
+      const dialogs = await requireClient().api.getDialogsByObject({
 		  objectType: oType,
 		  objectId: oId,
 		  search,
 		  archived: false,
 		  type: 'participating'
 	  })
+      if (generation !== listGeneration) return
+      participatingDialogs.value = dialogs
     } catch (e) {
+      if (generation !== listGeneration) return
       error.value = e instanceof Error ? e : new Error(String(e))
       throw e
     } finally {
-      isLoadingDialogs.value = false
+      if (generation === listGeneration) isLoadingDialogs.value = false
     }
   }
 
   async function loadArchivedDialogsByObject(oType: string, oId: string): Promise<void> {
+    isArchiveRequested = true
+    if (!client.value) return
+    const generation = listGeneration
 	try {
 	  isLoadingDialogs.value = true
 	  error.value = null
       const search = searchQuery.value || undefined
-      archivedDialogs.value = await client.api.getDialogsByObject({
+      const dialogs = await requireClient().api.getDialogsByObject({
 		  objectType: oType,
 		  objectId: oId,
 		  search,
 		  archived: true,
 		  type: 'participating'
 	  })
+      if (generation !== listGeneration) return
+      archivedDialogs.value = dialogs
     } catch (e) {
+		  if (generation !== listGeneration) return
 		  error.value = e instanceof Error ? e : new Error(String(e))
 		  throw e
 	  } finally {
-		  isLoadingDialogs.value = false
+		  if (generation === listGeneration) isLoadingDialogs.value = false
 	  }
   }
 
@@ -211,7 +287,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         await loadDialogsByObject(oType, oId)
       }
     } else {
+      const generation = listGeneration
       await loadParticipatingDialogs()
+      // A stale chain would otherwise go on to load (and toggle the loading flag) in the new generation
+      if (generation !== listGeneration) return
       await loadAvailableDialogs()
     }
   }
@@ -227,6 +306,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     objType: string,
     objId: string
   ): Promise<DialogListItem | null> {
+    if (!client.value) return null
     const signal = dialogRequests.signal
 
     try {
@@ -235,7 +315,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       // Assigns currentDialog, so it belongs to the dialog scope even though it
       // is reached through loadDialogs: switching object (or dialog) has to
       // cancel it, or a late response would open the previous object's dialog.
-      const dialog = await client.api.getDialogByObject(objType, objId, signal)
+      const dialog = await requireClient().api.getDialogByObject(objType, objId, signal)
       // Abort can land after the response arrived but before this line runs, in
       // which case the rejection never happens and only the flag tells us.
       if (signal.aborted) return null
@@ -264,7 +344,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     // Unsubscribe from previous dialog
     if (subscribedDialogId && subscribedDialogId !== id) {
-      client.unsubscribe(subscribedDialogId)
+      unsubscribeOnClient(subscribedDialogId)
     }
 
     // Claim the subscription slot before any await: two overlapping selectDialog
@@ -298,7 +378,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     // If not found, fetch it
     if (!dialog) {
       try {
-        const fetched = await client.api.getDialog(id, signal)
+        const fetched = await requireClient().api.getDialog(id, signal)
         // Abort landed between the response and this line: a newer selectDialog
         // owns currentDialog now, so drop what we fetched.
         if (signal.aborted) return
@@ -321,7 +401,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     currentDialog.value = dialog
 
     // Subscribe and load messages
-    client.subscribe(id)
+    subscribeOnClient(id)
     await loadMessages()
     await loadParticipants()
   }
@@ -332,7 +412,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     try {
       isActionLoading.value = true
       error.value = null
-      await client.api.joinDialog(id, profile)
+      await requireClient().api.joinDialog(id, profile)
 
       // Move dialog from available to participating (immutable updates)
       const dialogIndex = availableDialogs.value.findIndex((d) => d.id === id)
@@ -369,7 +449,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     try {
       isActionLoading.value = true
       error.value = null
-      await client.api.leaveDialog(id)
+      await requireClient().api.leaveDialog(id)
 
       // Remove from participating (immutable update)
       participatingDialogs.value = participatingDialogs.value.filter((d) => d.id !== id)
@@ -387,7 +467,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
         // Reset rather than plain abort: a spent controller would abort the next
         // load too, before it even reaches the network.
         resetDialogRequests()
-        client.unsubscribe(id)
+        unsubscribeOnClient(id)
         subscribedDialogId = null
         currentDialog.value = null
         messages.value = []
@@ -407,7 +487,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     try {
       isActionLoading.value = true
       error.value = null
-      await client.api.archiveDialog(dialogId)
+      await requireClient().api.archiveDialog(dialogId)
 
       // Move from active to archived (immutable updates)
       const idx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
@@ -436,7 +516,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     try {
       isActionLoading.value = true
       error.value = null
-      await client.api.unarchiveDialog(dialogId)
+      await requireClient().api.unarchiveDialog(dialogId)
 
       // Move from archived to active (immutable updates)
       const idx = archivedDialogs.value.findIndex((d) => d.id === dialogId)
@@ -463,7 +543,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   async function pinDialog(dialogId: string): Promise<void> {
     try {
       error.value = null
-      await client.api.pinDialog(dialogId)
+      await requireClient().api.pinDialog(dialogId)
 
       // Update local state (immutable)
       const idx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
@@ -488,7 +568,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   async function unpinDialog(dialogId: string): Promise<void> {
     try {
       error.value = null
-      await client.api.unpinDialog(dialogId)
+      await requireClient().api.unpinDialog(dialogId)
 
       // Update local state (immutable)
       const idx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
@@ -523,7 +603,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
       const newEnabled = !(dialog?.notifications_enabled ?? true)
 
-      await client.api.setDialogNotifications(dialogId, newEnabled)
+      await requireClient().api.setDialogNotifications(dialogId, newEnabled)
 
       // Update local state in active dialogs (immutable)
       const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialogId)
@@ -581,7 +661,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
       // Default limit for pagination
       const limit = opts?.limit ?? 50
-      const response = await client.api.getMessages(
+      const response = await requireClient().api.getMessages(
         currentDialog.value.id,
         { ...opts, limit },
         signal
@@ -655,7 +735,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
 
       const limit = 50
-      const response = await client.api.getMessages(
+      const response = await requireClient().api.getMessages(
         currentDialog.value.id,
         {
           before: oldestMessageId.value,
@@ -712,7 +792,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
 
       const limit = 50
-      const response = await client.api.getMessages(
+      const response = await requireClient().api.getMessages(
         currentDialog.value.id,
         {
           after: newestMessageId.value,
@@ -764,7 +844,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       error.value = null
 
       const limit = 50
-      const response = await client.api.getMessages(currentDialog.value.id, { limit }, signal)
+      const response = await requireClient().api.getMessages(currentDialog.value.id, { limit }, signal)
 
       if (signal.aborted) return
 
@@ -837,7 +917,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     try {
       pendingReplyFetches.add(messageId)
-      const message = await client.api.getMessage(currentDialog.value.id, messageId, signal)
+      const message = await requireClient().api.getMessage(currentDialog.value.id, messageId, signal)
 
       if (signal.aborted) return null
 
@@ -888,7 +968,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     isJumpingToMessage.value = true
     jumpCooldown.value = true
     try {
-      const response = await client.api.getMessages(
+      const response = await requireClient().api.getMessages(
         currentDialog.value.id,
         {
           around: messageId,
@@ -944,7 +1024,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     if (!lastReadId) return
 
     try {
-      await client.api.markAsRead(currentDialog.value.id, lastReadId)
+      await requireClient().api.markAsRead(currentDialog.value.id, lastReadId)
 
       const dialogId = currentDialog.value.id
 
@@ -996,7 +1076,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     const signal = dialogRequests.signal
 
     try {
-      const loadedParticipants = await client.api.getParticipants(currentDialog.value.id, signal)
+      const loadedParticipants = await requireClient().api.getParticipants(currentDialog.value.id, signal)
 
       if (signal.aborted) return
 
@@ -1082,7 +1162,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     try {
       error.value = null
-      const updated = await client.api.editMessage(currentDialog.value.id, messageId, content)
+      const updated = await requireClient().api.editMessage(currentDialog.value.id, messageId, content)
 
       // Update in local list
       const idx = messages.value.findIndex((m) => m.id === messageId)
@@ -1107,7 +1187,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     try {
       error.value = null
-      await client.api.deleteMessage(currentDialog.value.id, messageId)
+      await requireClient().api.deleteMessage(currentDialog.value.id, messageId)
 
       // Remove from local list
       messages.value = messages.value.filter((m) => m.id !== messageId)
@@ -1125,7 +1205,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
 
     try {
       error.value = null
-      const message = await client.api.sendMessage(
+      const message = await requireClient().api.sendMessage(
         currentDialog.value.id,
         content,
         {
@@ -1166,12 +1246,12 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   // ============ Subscriptions ============
 
   function subscribe(id: string): void {
-    client.subscribe(id)
+    subscribeOnClient(id)
     subscribedDialogId = id
   }
 
   function unsubscribe(id: string): void {
-    client.unsubscribe(id)
+    unsubscribeOnClient(id)
     if (subscribedDialogId === id) {
       subscribedDialogId = null
     }
@@ -1204,7 +1284,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     updateDialogLastMessage(message)
 
     // Increment unread_count for messages from other users (not system messages)
-    const isFromOtherUser = message.sender_id !== config.value.userId
+    const isFromOtherUser = message.sender_id !== currentUserId()
     const isSystemMessage = msgType === 'system'
     const isCurrentlyViewingDialog = currentDialog.value?.id === message.dialog_id
 
@@ -1252,7 +1332,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     if (!dialog_id || !user_id) return
 
     // Check if current user joined a new dialog - reload dialog lists
-    if (user_id === config.value.userId) {
+    if (user_id === currentUserId()) {
       loadDialogs().catch(() => {})
       return
     }
@@ -1288,7 +1368,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     if (!dialog_id || !user_id) return
 
     // Check if current user left a dialog - reload dialog lists
-    if (user_id === config.value.userId) {
+    if (user_id === currentUserId()) {
       loadDialogs().catch(() => {})
       return
     }
@@ -1319,6 +1399,34 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
   }
 
+  /**
+   * Resync the active and archived lists after an archive event for a dialog
+   * this instance does not know. Loads them the way the sidebar does: by object
+   * when objectType/objectId are set. Inline mode has no lists to resync.
+   */
+  function reloadArchiveLists(): void {
+    if (mode === 'inline') return
+    const oType = objectType?.value
+    const oId = objectId?.value
+    if (oType && oId) {
+      loadDialogsByObject(oType, oId).catch(() => {})
+    } else {
+      loadParticipatingDialogs().catch(() => {})
+    }
+    reloadArchive()
+  }
+
+  function reloadArchive(): void {
+    if (mode === 'inline') return
+    const oType = objectType?.value
+    const oId = objectId?.value
+    if (oType && oId) {
+      loadArchivedDialogsByObject(oType, oId).catch(() => {})
+    } else {
+      loadArchivedDialogs().catch(() => {})
+    }
+  }
+
   function handleDialogArchived(event: WsEvent): void {
     const dialog_id = event.dialog_id || event.payload?.dialog_id
     if (!dialog_id) return
@@ -1335,10 +1443,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       ]
       // Add to archived list with is_archived flag
       archivedDialogs.value = [{ ...dialog, is_archived: true }, ...archivedDialogs.value]
-    } else {
-      // Dialog not in participating list - reload to sync state
-      loadParticipatingDialogs().catch(() => {})
-      loadArchivedDialogs().catch(() => {})
+    } else if (!archivedDialogs.value.some((d) => d.id === dialog_id)) {
+      // Unknown dialog - resync. One already in the archived list was moved by
+      // archiveDialog (the server echoes manual archiving) or an earlier event.
+      reloadArchiveLists()
     }
 
     // Update current dialog if it's the one being archived
@@ -1363,10 +1471,10 @@ export function useChat(options: UseChatOptions): UseChatReturn {
       ]
       // Add to active list with is_archived flag removed
       participatingDialogs.value = [{ ...dialog, is_archived: false }, ...participatingDialogs.value]
-    } else {
-      // Dialog not found in archived list - reload to sync state
-      loadParticipatingDialogs().catch(() => {})
-      loadArchivedDialogs().catch(() => {})
+    } else if (!participatingDialogs.value.some((d) => d.id === dialog_id)) {
+      // Unknown dialog - resync. One already in the active list was moved by
+      // unarchiveDialog (the server echoes it) or an earlier event.
+      reloadArchiveLists()
     }
 
     // Update current dialog if it's the one being unarchived
@@ -1396,7 +1504,7 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     }
 
     // Only handle unread count if it's the current user's read receipt
-    if (readByUserId === config.value.userId) {
+    if (readByUserId === currentUserId()) {
       // Update unread count in active dialogs
       const activeIdx = participatingDialogs.value.findIndex((d) => d.id === dialog_id)
       if (activeIdx !== -1) {
@@ -1514,117 +1622,310 @@ export function useChat(options: UseChatOptions): UseChatReturn {
   // Track if we've connected before (to distinguish reconnect from initial connect)
   let hasConnectedBefore = false
 
-  function setupClientHandlers(): void {
-    client.on('connected', async () => {
-      isConnected.value = true
+  // Removers for the handlers this instance put on the client. A shared client
+  // outlives the chat, so they must be taken off on unmount and client swap.
+  let clientHandlerRemovers: Array<() => void> = []
 
-      // On reconnect, reload data that may have changed while disconnected
-      if (hasConnectedBefore) {
-        // Reload dialog list using unified dispatcher (respects objectType/objectId)
-        loadDialogs().catch(() => {})
-
-        // Reload current dialog messages (do not re-select — user is already viewing it)
-        if (currentDialog.value?.i_am_participant) {
-          loadMessages().catch(() => {})
-          loadParticipants().catch(() => {})
-        }
-      }
-
-      hasConnectedBefore = true
-    })
-
-    client.on('disconnected', () => {
-      isConnected.value = false
-      // Clear online users - we don't know their status when disconnected
-      onlineUsers.value = new Set()
-    })
-
-    // Real-time presence updates from server
-    client.on('presence.update', handlePresenceUpdate)
-
-    // Other events
-    client.on('message.new', handleMessageNew)
-    client.on('message.read', handleMessageRead)
-    client.on('message.edited', handleMessageEdited)
-    client.on('message.deleted', handleMessageDeleted)
-    client.on('participant.joined', handleParticipantJoined)
-    client.on('participant.left', handleParticipantLeft)
-    client.on('dialog.archived', handleDialogArchived)
-    client.on('dialog.unarchived', handleDialogUnarchived)
+  /**
+   * Reload data that may have changed while this instance was not listening.
+   */
+  function reloadData(): void {
+    // Reload dialog list using unified dispatcher (respects objectType/objectId)
+    loadDialogs().catch(() => {})
+    reloadOpenDialog()
   }
 
-  onMounted(async () => {
-    setupClientHandlers()
+  function isInlineObjectChat(): boolean {
+    return mode === 'inline' && !!objectType?.value && !!objectId?.value
+  }
 
-    // Auto-connect
-    if (autoConnect) {
-      connect()
+  /**
+   * Reload current dialog messages (do not re-select — user is already viewing it).
+   * Inline mode with an object: loadDialogs already reloads them.
+   */
+  function reloadOpenDialog(): void {
+    if (!isInlineObjectChat() && currentDialog.value?.i_am_participant) {
+      loadMessages().catch(() => {})
+      loadParticipants().catch(() => {})
     }
+  }
 
+  /**
+   * Reload after the host swapped the client. The new client may belong to
+   * another organization (or the same one with a fresh token), so the open
+   * dialog is checked first: one it cannot reach is closed rather than left
+   * on screen with the previous client's data.
+   */
+  async function reloadAfterClientSwap(): Promise<void> {
+    const openDialogId = currentDialog.value!.id
+    const signal = dialogRequests.signal
+    // Not after the check: the previous client's lists would stay on screen meanwhile
+    loadDialogs().catch(() => {})
+    try {
+      await requireClient().api.getDialog(openDialogId, signal)
+    } catch (e) {
+      if (!signal.aborted && isNoAccessError(e)) {
+        closeCurrentDialog()
+      }
+    }
+    if (signal.aborted || currentDialog.value?.id !== openDialogId) return
+    reloadOpenDialog()
+  }
+
+  function closeCurrentDialog(): void {
+    resetDialogRequests()
+    if (subscribedDialogId) {
+      unsubscribeOnClient(subscribedDialogId)
+      subscribedDialogId = null
+    }
+    currentDialog.value = null
+    messages.value = []
+    participants.value = []
+    firstUnreadMessageId.value = null
+    replyToMessage.value = null
+    editingMessage.value = null
+    // Aborted loads leave their flags to the next load, and there is none
+    isLoadingMessages.value = false
+    isLoadingOlder.value = false
+    isLoadingNewer.value = false
+    isJumpingToMessage.value = false
+  }
+
+  async function loadInitialData(): Promise<void> {
     // Load dialogs based on mode and available props
     await loadDialogs()
     // Open initial dialog if provided (separate from list loading)
     if (mode !== 'inline' && dialogId?.value) {
       await selectDialog(dialogId.value)
     }
+  }
+
+  /**
+   * Drop everything loaded through a client that is gone, so nothing renders
+   * dialogs or messages that can no longer be acted on.
+   */
+  function clearChatState(): void {
+    subscribedDialogId = null
+    currentDialog.value = null
+    messages.value = []
+    participants.value = []
+    participatingDialogs.value = []
+    availableDialogs.value = []
+    archivedDialogs.value = []
+    firstUnreadMessageId.value = null
+    replyToMessage.value = null
+    editingMessage.value = null
+    replyMessagesCache.value = new Map()
+    pendingReplyFetches.clear()
+    hasMoreMessages.value = true
+    hasMoreAfter.value = false
+    isLoadingDialogs.value = false
+    isLoadingMessages.value = false
+    isLoadingOlder.value = false
+    isLoadingNewer.value = false
+    oldestMessageId.value = null
+    newestMessageId.value = null
+    error.value = null
+  }
+
+  function removeClientHandlers(): void {
+    clientHandlerRemovers.forEach((remove) => remove())
+    clientHandlerRemovers = []
+  }
+
+  function setupClientHandlers(target: MTChatClient): void {
+    removeClientHandlers()
+
+    clientHandlerRemovers = [
+      target.on('connected', async () => {
+        isConnected.value = true
+
+        // On reconnect, reload data that may have changed while disconnected
+        if (hasConnectedBefore) {
+          reloadData()
+        }
+
+        hasConnectedBefore = true
+      }),
+
+      target.on('disconnected', () => {
+        isConnected.value = false
+        // Clear online users - we don't know their status when disconnected
+        onlineUsers.value = new Set()
+      }),
+
+      // Real-time presence updates from server
+      target.on('presence.update', handlePresenceUpdate),
+
+      // Other events
+      target.on('message.new', handleMessageNew),
+      target.on('message.read', handleMessageRead),
+      target.on('message.edited', handleMessageEdited),
+      target.on('message.deleted', handleMessageDeleted),
+      target.on('participant.joined', handleParticipantJoined),
+      target.on('participant.left', handleParticipantLeft),
+      target.on('dialog.archived', handleDialogArchived),
+      target.on('dialog.unarchived', handleDialogUnarchived),
+    ]
+  }
+
+  /**
+   * Attach to an external client. Its `connected` event may already be in the
+   * past, so the connection state is read from the client directly.
+   */
+  function attachExternalClient(target: MTChatClient): void {
+    setupClientHandlers(target)
+    isConnected.value = target.isConnected
+    // A later `connected` from this client is a reconnect and must reload data
+    hasConnectedBefore = target.isConnected
+  }
+
+  let isMounted = false
+
+  onMounted(async () => {
+    isMounted = true
+
+    if (isExternalClient) {
+      // The ref may have changed since setup while the swap watcher skipped it
+      client.value = externalClient.value
+      // No client yet: the swap watcher loads data once the host provides one
+      if (!client.value) return
+      attachExternalClient(client.value)
+      await loadInitialData()
+      return
+    }
+
+    setupClientHandlers(requireClient())
+
+    // Auto-connect
+    if (autoConnect) {
+      connect()
+    }
+
+    await loadInitialData()
   })
 
-  // Watch objectId changes: reload dialog list and reset open dialog.
-  // Registered synchronously in useChat body (not inside onMounted) so that
-  // Vue's current instance context is active and the watch fires correctly.
-  watch(objectId, () => {
-    if (!objectId.value || !objectType?.value) return
-    // Unsubscribe from current dialog WebSocket channel.
-    // Without this, events from the old dialog keep arriving and mutate
-    // participatingDialogs/messages in the context of the new object.
-    if (subscribedDialogId) {
-      client.unsubscribe(subscribedDialogId)
-      subscribedDialogId = null
-    }
-    // Same reason as the unsubscribe above: loads for the old object's dialog
-    // must not land in the new object's context. Must be a reset, not a plain
-    // abort: loadDialogs() below goes on to load the new object's messages in
-    // inline mode, and a spent controller would cancel them on the spot.
-    resetDialogRequests()
-    currentDialog.value = null
+  /**
+   * Leave the previous object: its dialog and lists must not show or load in
+   * the context of the new one.
+   */
+  function resetObjectState(): void {
+    // Unsubscribes from the old dialog and drops its loads and messages, so
+    // nothing of it lands in the new object's context. Its requests are reset,
+    // not just aborted: loadDialogs() goes on to load the new object's messages
+    // in inline mode, and a spent controller would cancel them on the spot.
+    closeCurrentDialog()
+    listGeneration++
     archivedDialogs.value = []
+    // The sidebar asks for the new object's archive itself if it is open
+    isArchiveRequested = false
     searchQuery.value = '' // Reset search so the old query doesn't filter the new object's dialogs
-    loadDialogs()
-  })
+  }
+
+  /**
+   * Move to the client the host set (e.g. new token or organization), or drop
+   * everything when it removed the client.
+   */
+  function swapExternalClient(next: MTChatClient | null): void {
+    removeClientHandlers()
+    // Responses for the old client's scope must not land in the new one
+    resetDialogRequests()
+    listGeneration++
+    client.value = next
+    archivedDialogs.value = []
+
+    if (!next) {
+      isConnected.value = false
+      onlineUsers.value = new Set()
+      clearChatState()
+      return
+    }
+
+    attachExternalClient(next)
+  }
+
+  if (isExternalClient) {
+    // One watcher for both: a client swap and an object change in the same tick
+    // must load the lists once, through the new client and for the new object.
+    watch([externalClient, objectId], ([next, nextObjectId], [, prevObjectId]) => {
+      // Before mount onMounted attaches to whatever client is current then
+      if (!isMounted) return
+
+      const isObjectChanged = nextObjectId !== prevObjectId && !!nextObjectId && !!objectType.value
+      const isClientChanged = next !== client.value
+      if (isObjectChanged) resetObjectState()
+      if (isClientChanged) swapExternalClient(next)
+      if (!client.value) return
+
+      if (isObjectChanged) {
+        loadDialogs().catch(() => {})
+        return
+      }
+      if (!isClientChanged) return
+
+      if (isArchiveRequested) reloadArchive()
+      // The inline dialog is found again by the object: the old one may be out
+      // of the new client's reach while the object has another dialog there
+      if (isInlineObjectChat()) closeCurrentDialog()
+      if (currentDialog.value) {
+        reloadAfterClientSwap().catch(() => {})
+      } else {
+        loadInitialData().catch(() => {})
+      }
+    })
+  } else {
+    // Watch objectId changes: reload dialog list and reset open dialog.
+    // Registered synchronously in useChat body (not inside onMounted) so that
+    // Vue's current instance context is active and the watch fires correctly.
+    watch(objectId, () => {
+      if (!objectId.value || !objectType?.value) return
+      resetObjectState()
+      loadDialogs().catch(() => {})
+    })
+  }
 
   // Watch dialogId changes: open the specified dialog reactively.
   // dialogId is passed as a Ref, so changes after mount are tracked.
   // Without this watch, dialogId would be read only once at useChat init time.
   watch(dialogId, async (newId) => {
+    if (!client.value) return
     if (!newId) return
     if (newId === currentDialog.value?.id) return
     await selectDialog(newId)
   })
 
-  // Watch for token changes: recreate client with fresh token to avoid stale JWT on reconnect
-  watch(
-    () => config.value.token,
-    () => {
-      const wasConnected = client.isConnected
-      client.disconnect()
-      client = new MTChatClient(config.value)
-      setupClientHandlers()
-      if (wasConnected) {
-        client.connect()
-        if (subscribedDialogId) {
-          client.subscribe(subscribedDialogId)
+  // Watch for token changes: recreate client with fresh token to avoid stale JWT on reconnect.
+  // An external client is recreated by its owner instead.
+  if (!isExternalClient) {
+    watch(
+      () => config!.value.token,
+      () => {
+        const previous = requireClient()
+        const wasConnected = previous.isConnected
+        previous.disconnect()
+        const next = new MTChatClient(config!.value)
+        client.value = next
+        setupClientHandlers(next)
+        if (wasConnected) {
+          next.connect()
+          if (subscribedDialogId) {
+            next.subscribe(subscribedDialogId)
+          }
         }
-      }
-    },
-  )
+      },
+    )
+  }
 
   onUnmounted(() => {
     if (subscribedDialogId) {
-      client.unsubscribe(subscribedDialogId)
+      unsubscribeOnClient(subscribedDialogId)
     }
     // Don't leave requests running against a torn-down composable
     dialogRequests.abort()
-    client.disconnect()
+    if (!isExternalClient) {
+      client.value?.disconnect()
+    }
+    removeClientHandlers()
   })
 
   return {
@@ -1657,8 +1958,8 @@ export function useChat(options: UseChatOptions): UseChatReturn {
     isJumpingToMessage,
     jumpCooldown,
 
-    // API access for file uploads — getter so it stays current after token-watch recreates client
-    get api() { return client.api },
+    // API access for file uploads — getter so it stays current after the client is recreated or swapped
+    get api() { return client.value?.api ?? null },
 
     // Methods
     connect,

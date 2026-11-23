@@ -550,6 +550,29 @@ docker compose up -d
   `userId`/`userProfile`/`locale` come from `client.config`. Without `client` nothing
   changes. Documented in `docs/sdk/components.md`, `docs/sdk/events.md`,
   `docs/api/chat.md`, `docs/api/websocket.md` (+ ru).
+- **SDK, also in this release:**
+  - `MTChatClient.setToken(token)` refreshes the JWT without recreating the client
+    (REST right away, WebSocket on its next reconnect; handlers and subscriptions kept).
+  - **Breaking (types):** `UseChatReturn.api` is now `MTChatApi | null` (a getter that
+    follows a replaced client; `null` while an external client is not set).
+  - `useFileUpload({ api })` accepts a getter or ref and reads it on each upload.
+  - API errors thrown by `MTChatApi` carry the HTTP `status` field.
+  - `useChat` resyncs on `dialog.archived`/`dialog.unarchived`: the echo of its own
+    archive/unarchive is ignored; for an unknown dialog it reloads the active and
+    archived lists (by object when `objectType`/`objectId` are set); inline mode
+    reloads nothing.
+  - On a client swap the archive of the previous client is dropped and, if it was
+    requested, reloaded through the new client; lists load right away, the open
+    dialog's messages only after the new client confirms access. The inline chat of
+    an object instead looks its dialog up by the object again through the new client.
+    A swap and an object change in the same tick load once (one watcher for both).
+  - With an external client set to `null` the list loaders resolve without an error;
+    an archive requested meanwhile is loaded once a client is set. An object change
+    (also while there is no client) resets the open dialog with its messages,
+    participants and reply/edit state, the archive and the search.
+  - `MTChatPrime` needs the new `@mtchat/vue` (`client` prop, `getUnreadCount`,
+    nullable `api`); its `@mtchat/vue` peer range must be raised to the release
+    that ships these changes.
 - Tests: `scope_filter` unit tests; ignored integration tests for the scoped unread
   count and archive events (`tokio-tungstenite` dev-dependency, already in the lock
   via axum); Vitest specs for `useChat` with an external client and `MTChat` with `client`.

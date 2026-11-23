@@ -582,8 +582,14 @@ export type ChatMode = 'full' | 'inline'
  * MTChat component props
  */
 export interface MTChatProps {
-  /** SDK configuration */
-  config: MTChatConfig
+  /** SDK configuration. Optional when `client` is passed */
+  config?: MTChatConfig
+  /**
+   * External client owned by the host application. `userId`, `userProfile`
+   * and `locale` are then taken from `client.config`. Pass either `config` or `client`.
+   * Without both (or with `client` = `null`) the chat renders empty until a client is set.
+   */
+  client?: import('../sdk/client').MTChatClient | null
   /** Display mode: 'full' (with dialog list) or 'inline' (single chat) */
   mode?: ChatMode
   /** For inline mode: object ID to show chat for */
@@ -660,8 +666,19 @@ export interface VirtualItem {
  * useChat composable options
  */
 export interface UseChatOptions {
-  /** SDK configuration — must be a Ref so useChat can watch token changes and recreate the client */
-  config: import('vue').Ref<MTChatConfig>
+  /**
+   * SDK configuration — must be a Ref so useChat can watch token changes and recreate the client.
+   * Required unless `client` is passed.
+   */
+  config?: import('vue').Ref<MTChatConfig>
+  /**
+   * External client owned by the host application (e.g. one client shared by
+   * several chats in a browser tab). When passed, useChat does not create,
+   * connect, disconnect or recreate a client: it only attaches its handlers,
+   * detaches them on unmount, and re-attaches and reloads data when the Ref
+   * points to another client. `null` means no client yet — nothing is loaded.
+   */
+  client?: import('vue').Ref<import('../sdk/client').MTChatClient | null>
   /** Auto-connect on mount (default: true) */
   autoConnect?: boolean
   /** Display mode — affects data loading strategy in full mode */
@@ -728,8 +745,8 @@ export interface UseChatReturn {
   /** Cooldown after jump to prevent scroll cascade */
   jumpCooldown: import('vue').Ref<boolean>
 
-  // API access for file uploads
-  api: import('../sdk/api').MTChatApi
+  // API access for file uploads. `null` while an external client is not set
+  api: import('../sdk/api').MTChatApi | null
 
   // Methods
   connect: () => void

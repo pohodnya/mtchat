@@ -17,7 +17,7 @@ export type WsEventHandler = (event: WsEvent) => void
 export class MTChatClient {
   public readonly api: MTChatApi
   private ws: MTChatWebSocket
-  private config: MTChatConfig
+  public readonly config: MTChatConfig
   private eventHandlers: Map<string, Set<WsEventHandler>> = new Map()
 
   constructor(config: MTChatConfig) {
