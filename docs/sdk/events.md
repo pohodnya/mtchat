@@ -215,7 +215,7 @@ const chat = useChat(options)
 
 **External client.** Pass `client: Ref<MTChatClient | null>` instead of `config` to use a client owned by the application (see [Shared Client](components.md#shared-client)). `useChat` then:
 
-- does not create, connect, disconnect or recreate a client (`autoConnect` and token changes are ignored);
+- does not create, connect, disconnect or recreate a client (`autoConnect` and token changes are ignored); refresh the token with `client.setToken(newToken)` -- it does not trigger a reload;
 - removes its handlers from the client on unmount;
 - when `client.value` changes, moves its handlers to the new client and reloads data; the open dialog stays open unless the new client gets 403 or 404 for it, then it is closed; in inline mode with `objectType`/`objectId` the dialog is looked up by the object again through the new client (none found -- the chat is empty); while it is `null`, nothing is loaded, and loaders called meanwhile (e.g. `loadArchivedDialogs`) resolve without an error -- an archive asked for then is loaded once a client is set;
 - loads data right away if the client is already connected on mount;

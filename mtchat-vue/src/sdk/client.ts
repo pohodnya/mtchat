@@ -17,11 +17,11 @@ export type WsEventHandler = (event: WsEvent) => void
 export class MTChatClient {
   public readonly api: MTChatApi
   private ws: MTChatWebSocket
-  public readonly config: MTChatConfig
+  private currentConfig: MTChatConfig
   private eventHandlers: Map<string, Set<WsEventHandler>> = new Map()
 
   constructor(config: MTChatConfig) {
-    this.config = config
+    this.currentConfig = config
 
     // Initialize REST API client (with optional JWT token)
     this.api = new MTChatApi(config.baseUrl, config.userId, config.scopeConfig, config.token)
@@ -55,6 +55,25 @@ export class MTChatClient {
       reconnectInterval: config.reconnectInterval,
       heartbeatInterval: config.heartbeatInterval,
     })
+  }
+
+  /**
+   * Config the client was created with; `token` reflects the latest `setToken`
+   */
+  get config(): MTChatConfig {
+    return this.currentConfig
+  }
+
+  /**
+   * Replace the JWT token without recreating the client: REST requests use it
+   * right away, WebSocket on its next (re)connect. The open connection,
+   * subscriptions and event handlers are kept.
+   */
+  setToken(token: string): void {
+    // A copy, so the caller's config object is not mutated
+    this.currentConfig = { ...this.currentConfig, token }
+    this.api.setToken(token)
+    this.ws.setToken(token)
   }
 
   /**

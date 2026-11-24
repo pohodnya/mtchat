@@ -36,6 +36,13 @@ export class MTChatApi {
   }
 
   /**
+   * Replace the JWT token used by subsequent requests
+   */
+  setToken(token: string): void {
+    this.token = token
+  }
+
+  /**
    * Encode scope config as base64 JSON for X-Scope-Config header
    * Converts camelCase to snake_case for backend compatibility
    */

@@ -344,6 +344,26 @@ describe('useChat with external client', () => {
     expect(subscribe).not.toHaveBeenCalled()
     expect(unsubscribe).not.toHaveBeenCalled()
   })
+
+  it('keeps the loaded dialogs and the open dialog when the token is refreshed', async () => {
+    const client = createClient({ connected: true, dialogs: [buildDialog('dialog-1')] })
+    vi.mocked(client.api.getMessages).mockResolvedValue({ messages: [buildMessage('message-1', 'dialog-1')] })
+    const { chat } = await mountChat({ client: shallowRef(client) })
+    await chat.selectDialog('dialog-1')
+    vi.mocked(client.api.getParticipatingDialogs).mockClear()
+    vi.mocked(client.api.getAvailableDialogs).mockClear()
+    vi.mocked(client.api.getMessages).mockClear()
+
+    client.setToken('new-token')
+    await flushPromises()
+
+    expect(client.api.getParticipatingDialogs).not.toHaveBeenCalled()
+    expect(client.api.getAvailableDialogs).not.toHaveBeenCalled()
+    expect(client.api.getMessages).not.toHaveBeenCalled()
+    expect(chat.currentDialog.value?.id).toBe('dialog-1')
+    expect(chat.messages.value.map((message) => message.id)).toEqual(['message-1'])
+    expect(chat.isLoading.value).toBe(false)
+  })
 })
 
 describe('useChat after a client swap', () => {

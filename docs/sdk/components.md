@@ -115,7 +115,7 @@ onUnmounted(() => client.value.disconnect())
 With `client`:
 
 - `config` is not needed: `userId`, `userProfile` and `locale` are taken from `client.config`. When both are passed, `client` wins.
-- The application owns the client: the component does not connect, disconnect or recreate it, and the `token` prop is ignored. To change the token or scope, create a new client and pass it in -- the component moves its handlers to the new client and reloads its data. The open dialog stays open, unless the new client gets 403 or 404 for it (e.g. another organization): then it is closed.
+- The application owns the client: the component does not connect, disconnect or recreate it, and the `token` prop is ignored. When the access token is refreshed, call `client.setToken(newToken)` instead of creating a new client: REST requests use the new token right away, the WebSocket uses it on its next reconnect, the open connection is kept and the components do not reload anything. To change the scope (e.g. another organization), create a new client and pass it in -- the component moves its handlers to the new client and reloads its data. The open dialog stays open, unless the new client gets 403 or 404 for it (e.g. another organization): then it is closed.
 - The component removes its WebSocket handlers from the client on unmount, so other chats on the same client keep working.
 - If the client is already connected on mount, the data is loaded right away.
 - Whether a component uses an external client is fixed when it is created: switching between `config` and `client` on a mounted component is not supported.

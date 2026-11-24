@@ -69,6 +69,14 @@ export class MTChatWebSocket {
     return `${url}?user_id=${userId}`
   }
 
+  /**
+   * Replace the JWT token for the next (re)connect. An open connection is kept.
+   */
+  setToken(token: string): void {
+    this.options.token = token
+    this.wsUrl = this.buildWsUrl()
+  }
+
   connect(): void {
     if (
       this.ws?.readyState === WebSocket.OPEN ||
