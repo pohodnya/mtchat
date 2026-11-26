@@ -10,6 +10,8 @@
 import { computed, ref, toRef, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useChat } from '../composables/useChat'
 import { provideI18n } from '../i18n'
+import { logger } from '../utils/logger'
+import type { MTChatClient } from '../sdk/client'
 import type { MTChatConfig, ChatMode, DialogListItem, Message, Attachment, ObjectNavigateEvent } from '../types'
 
 // Sub-components
@@ -26,7 +28,14 @@ import Icon from './Icon.vue'
 // Props
 const props = withDefaults(
   defineProps<{
-    config: MTChatConfig
+    /** SDK configuration. Optional when `client` is passed */
+    config?: MTChatConfig
+    /**
+     * External client owned by the host. `userId`, `userProfile` and `locale`
+     * come from `client.config`; the host manages its connection and token.
+     * Without both (or with `client` = `null`) the chat renders empty until a client is set.
+     */
+    client?: MTChatClient | null
     mode?: ChatMode
     objectId?: string
     objectType?: string
@@ -75,10 +84,29 @@ const emit = defineEmits<{
   'object-navigate': [payload: ObjectNavigateEvent]
 }>()
 
-// i18n
-const { t, localeRef } = provideI18n(props.config.locale ?? 'ru')
+// `client` = null still means an external client, just not set yet
+const isExternalClient = props.client !== undefined || !props.config
 
-watch(() => props.config.locale, (newLocale) => {
+watch(
+  () => props.client !== undefined || !props.config,
+  (isExternalNow) => {
+    if (isExternalNow !== isExternalClient) {
+      logger.warn('Switching between `client` and `config` after creation is not supported, remount the chat instead')
+    }
+  },
+)
+
+// Source of userId, userProfile and locale: the one the chat was created with
+const chatConfig = computed<MTChatConfig | undefined>(() =>
+  isExternalClient ? props.client?.config : props.config
+)
+const currentUserId = computed(() => chatConfig.value?.userId ?? '')
+const userProfile = computed(() => chatConfig.value?.userProfile)
+
+// i18n
+const { t, localeRef } = provideI18n(chatConfig.value?.locale ?? 'ru')
+
+watch(() => chatConfig.value?.locale, (newLocale) => {
   if (newLocale && newLocale !== localeRef.value) {
     localeRef.value = newLocale
   }
@@ -86,13 +114,16 @@ watch(() => props.config.locale, (newLocale) => {
 
 // Merge token prop into config (prop takes precedence)
 const effectiveConfig = computed<MTChatConfig>(() => ({
-  ...props.config,
-  token: props.token ?? props.config.token,
+  ...chatConfig.value!,
+  token: props.token ?? chatConfig.value?.token,
 }))
 
-// Chat composable — pass props as Refs so useChat can watch them reactively
+// Chat composable — pass props as Refs so useChat can watch them reactively.
+// Whether the chat uses an external client is fixed when the component is created.
 const chat = useChat({
-  config: effectiveConfig,
+  ...(isExternalClient
+    ? { client: computed(() => props.client ?? null) }
+    : { config: effectiveConfig }),
   mode: props.mode,
   dialogId: toRef(props, 'dialogId'),
   objectId: toRef(props, 'objectId'),
@@ -289,7 +320,7 @@ function handleEditLastMessage() {
   const messages = chat.messages.value
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i]
-    if (msg.sender_id === props.config.userId && msg.message_type !== 'system') {
+    if (msg.sender_id === currentUserId.value && msg.message_type !== 'system') {
       handleEdit(msg)
       break
     }
@@ -538,7 +569,7 @@ defineExpose({
       :show-tabs="showTabs"
       :show-context-menu="showContextMenu"
       :object-id="props.objectId"
-      :current-user-id="props.config.userId"
+      :current-user-id="currentUserId"
       :is-loading="chat.isLoadingDialogs.value"
       :style="isDesktop ? { width: `${sidebarWidth}px` } : undefined"
       @select-dialog="handleSelectDialog"
@@ -623,7 +654,7 @@ defineExpose({
         ref="messagesRef"
         :messages="chat.messages.value"
         :participants="chat.participants.value"
-        :current-user-id="config.userId"
+        :current-user-id="currentUserId"
         :first-unread-message-id="chat.firstUnreadMessageId.value"
         :is-loading-older="chat.isLoadingOlder.value"
         :is-loading-newer="chat.isLoadingNewer.value"
@@ -648,12 +679,12 @@ defineExpose({
 
       <!-- Input -->
       <ChatInput
-        v-if="hasDialog"
+        v-if="hasDialog && chat.api"
         ref="inputRef"
         :dialog-id="chat.currentDialog.value!.id"
         :api="chat.api"
         :participants="chat.participants.value"
-        :current-user-id="config.userId"
+        :current-user-id="currentUserId"
         :reply-to-message="chat.replyToMessage.value"
         :editing-message="chat.editingMessage.value"
         :is-loading="chat.isLoading.value"
@@ -689,7 +720,7 @@ defineExpose({
           :intercept-object-navigation="!isInlineMode && interceptObjectNavigation"
           :participants="chat.participants.value"
           :participants-count="chat.currentDialog.value?.participants_count || 0"
-          :current-user-id="config.userId"
+          :current-user-id="currentUserId"
           @close="showInfoPanel = false"
           @object-navigate="emit('object-navigate', $event)"
         />
@@ -707,10 +738,10 @@ defineExpose({
     <!-- Join Dialog Modal -->
     <JoinDialog
       :show="showJoinDialog"
-      :profile-name="config.userProfile.displayName"
-      :company="config.userProfile.company"
-      :email="config.userProfile.email"
-      :phone="config.userProfile.phone"
+      :profile-name="userProfile?.displayName ?? ''"
+      :company="userProfile?.company ?? ''"
+      :email="userProfile?.email"
+      :phone="userProfile?.phone"
       :loading="isJoining"
       :theme="theme"
       @cancel="showJoinDialog = false"

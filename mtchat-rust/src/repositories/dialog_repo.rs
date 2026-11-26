@@ -5,6 +5,8 @@ use uuid::Uuid;
 
 use crate::domain::{Dialog, Message};
 
+use super::scope_filter::{participant_scope_condition, scope_binds};
+
 /// Type alias for external user identifier
 type UserId = str;
 
@@ -149,12 +151,9 @@ impl DialogRepository {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<Dialog>, sqlx::Error> {
-        let (has_scope, scope_level0, scope_level1, scope_level2) = match scope {
-            Some((s0, s1, s2)) => (true, s0, s1, s2),
-            None => (false, &[][..], &[][..], &[][..]),
-        };
+        let (has_scope, scope_level0, scope_level1, scope_level2) = scope_binds(scope);
 
-        sqlx::query_as::<_, Dialog>(
+        let sql = format!(
             r#"SELECT d.* FROM dialogs d
                INNER JOIN dialog_participants dp ON dp.dialog_id = d.id
                WHERE dp.user_id = $1
@@ -167,33 +166,24 @@ impl DialogRepository {
                    )
                  ))
                  AND ($3::boolean IS NULL OR dp.is_archived = $3)
-                 AND (
-                   NOT $6::boolean
-                   OR NOT EXISTS (
-                     SELECT 1 FROM dialog_access_scopes s WHERE s.dialog_id = d.id
-                   )
-                   OR EXISTS (
-                     SELECT 1 FROM dialog_access_scopes s
-                     WHERE s.dialog_id = d.id
-                       AND (s.scope_level0 = '{}' OR s.scope_level0 && $7)
-                       AND (s.scope_level1 = '{}' OR s.scope_level1 && $8)
-                       AND (s.scope_level2 = '{}' OR s.scope_level2 && $9)
-                   )
-                 )
+                 AND {scope_condition}
                ORDER BY d.created_at DESC
                LIMIT $4 OFFSET $5"#,
-        )
-        .bind(user_id)
-        .bind(search)
-        .bind(archived)
-        .bind(limit)
-        .bind(offset)
-        .bind(has_scope)
-        .bind(scope_level0)
-        .bind(scope_level1)
-        .bind(scope_level2)
-        .fetch_all(&self.pool)
-        .await
+            scope_condition = participant_scope_condition("d.id", 6),
+        );
+
+        sqlx::query_as::<_, Dialog>(&sql)
+            .bind(user_id)
+            .bind(search)
+            .bind(archived)
+            .bind(limit)
+            .bind(offset)
+            .bind(has_scope)
+            .bind(scope_level0)
+            .bind(scope_level1)
+            .bind(scope_level2)
+            .fetch_all(&self.pool)
+            .await
     }
 
     /// Find dialogs available to user via scope (not yet participating)

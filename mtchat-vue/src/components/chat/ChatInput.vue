@@ -47,7 +47,7 @@ const editorIsEmpty = ref(true)
 const dialogIdRef = computed(() => props.dialogId)
 const fileUpload = useFileUpload({
   dialogId: dialogIdRef,
-  api: props.api,
+  api: () => props.api,
 })
 
 // Helpers

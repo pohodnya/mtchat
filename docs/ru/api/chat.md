@@ -203,6 +203,28 @@ POST /api/v1/dialogs/{id}/read?user_id={uuid}
 
 ---
 
+## Число непрочитанных
+
+Общее число непрочитанных сообщений текущего пользователя, например для бейджа на иконке чатов.
+
+```
+GET /api/v1/unread?user_id={uuid}
+```
+
+```json
+{
+  "data": { "count": 12 }
+}
+```
+
+- Сумма `unread_count` по диалогам, где пользователь участник. Архивные диалоги не учитываются.
+- С заголовком `X-Scope-Config` считаются только диалоги этого скоупа -- тот же набор, что `GET /api/v1/dialogs?type=participating` с тем же заголовком. Без заголовка считаются все диалоги пользователя.
+- Возвращается полное число, ограничения сверху нет.
+
+Сервер число не присылает. Запрашивайте его заново после WebSocket-событий, которые могут его изменить: `message.new`, `message.read`, `participant.joined`, `participant.left`, `dialog.archived`, `dialog.unarchived`.
+
+---
+
 ## Архивация / Разархивация
 
 Персональное состояние -- не влияет на других участников.
@@ -211,6 +233,8 @@ POST /api/v1/dialogs/{id}/read?user_id={uuid}
 POST /api/v1/dialogs/{id}/archive?user_id={uuid}
 POST /api/v1/dialogs/{id}/unarchive?user_id={uuid}
 ```
+
+Отправляет `dialog.archived` / `dialog.unarchived` во все WebSocket-соединения текущего пользователя (включая другие вкладки) и больше никому.
 
 ---
 

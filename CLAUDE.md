@@ -164,6 +164,7 @@ GET  /api/v1/dialogs/by-object/{type}/{id}/list  # All accessible dialogs for ob
 POST /api/v1/dialogs/{id}/join            # Join chat
 POST /api/v1/dialogs/{id}/leave           # Leave chat
 POST /api/v1/dialogs/{id}/read            # Mark messages as read
+GET  /api/v1/unread                       # Total unread count (non-archived; scoped by X-Scope-Config if sent)
 POST /api/v1/dialogs/{id}/archive         # Archive chat for current user
 POST /api/v1/dialogs/{id}/unarchive       # Unarchive chat for current user
 POST /api/v1/dialogs/{id}/pin             # Pin chat for current user
@@ -528,6 +529,53 @@ docker compose up -d
 | String identifiers (user_id, object_id) | ✅ |
 
 ## Changelog
+
+### 2026-11-23 - Scoped Unread Count, Shared SDK Client, Manual Archive Events
+- **`GET /api/v1/unread` honours `X-Scope-Config`**: with the header only the
+  dialogs of that scope are summed, the same set as `GET /dialogs?type=participating`;
+  without it the count is unchanged (all non-archived dialogs of the user). The
+  participant scope condition moved to `repositories/scope_filter.rs`
+  (`participant_scope_condition` + `scope_binds`) and is used by both
+  `DialogRepository::find_participating` and `ParticipantRepository::count_unread_total`,
+  so the list and the badge cannot drift apart.
+- **Manual archive/unarchive emit WS events**: `POST /dialogs/{id}/archive|unarchive`
+  now send `dialog.archived` / `dialog.unarchived` to the acting user only (all their
+  connections), so an unread badge in another tab updates.
+- **SDK shared client**: `MTChatApi.getUnreadCount(signal?)`; `MTChatClient.config`
+  is public read-only; `useChat` accepts `client?: Ref<MTChatClient | null>` — it then
+  never connects, disconnects or recreates the client, removes its own handlers on
+  unmount, moves them and reloads data when the client is replaced, loads right away
+  if the client is already connected, and skips per-dialog `subscribe`/`unsubscribe`.
+  `MTChat`/`MTChatPrime` get a `client` prop; `config` becomes optional then and
+  `userId`/`userProfile`/`locale` come from `client.config`. Without `client` nothing
+  changes. Documented in `docs/sdk/components.md`, `docs/sdk/events.md`,
+  `docs/api/chat.md`, `docs/api/websocket.md` (+ ru).
+- **SDK, also in this release:**
+  - `MTChatClient.setToken(token)` refreshes the JWT without recreating the client
+    (REST right away, WebSocket on its next reconnect; handlers and subscriptions kept).
+  - **Breaking (types):** `UseChatReturn.api` is now `MTChatApi | null` (a getter that
+    follows a replaced client; `null` while an external client is not set).
+  - `useFileUpload({ api })` accepts a getter or ref and reads it on each upload.
+  - API errors thrown by `MTChatApi` carry the HTTP `status` field.
+  - `useChat` resyncs on `dialog.archived`/`dialog.unarchived`: the echo of its own
+    archive/unarchive is ignored; for an unknown dialog it reloads the active and
+    archived lists (by object when `objectType`/`objectId` are set); inline mode
+    reloads nothing.
+  - On a client swap the archive of the previous client is dropped and, if it was
+    requested, reloaded through the new client; lists load right away, the open
+    dialog's messages only after the new client confirms access. The inline chat of
+    an object instead looks its dialog up by the object again through the new client.
+    A swap and an object change in the same tick load once (one watcher for both).
+  - With an external client set to `null` the list loaders resolve without an error;
+    an archive requested meanwhile is loaded once a client is set. An object change
+    (also while there is no client) resets the open dialog with its messages,
+    participants and reply/edit state, the archive and the search.
+  - `MTChatPrime` needs the new `@mtchat/vue` (`client` prop, `getUnreadCount`,
+    nullable `api`); its `@mtchat/vue` peer range must be raised to the release
+    that ships these changes.
+- Tests: `scope_filter` unit tests; ignored integration tests for the scoped unread
+  count and archive events (`tokio-tungstenite` dev-dependency, already in the lock
+  via axum); Vitest specs for `useChat` with an external client and `MTChat` with `client`.
 
 ### 2026-08-03 - Cancel Stale Dialog Requests When Switching Dialogs
 - **Fixed foreign data landing in the open dialog** when switching dialogs

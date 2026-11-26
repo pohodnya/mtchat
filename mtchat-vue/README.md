@@ -110,6 +110,26 @@ const messages = await client.api.getMessages(dialogs[0].id, { limit: 50 })
 client.on('message.new', (event) => {
   console.log('new message', event)
 })
+
+// Total unread messages within the client's scope (e.g. for a badge)
+const unread = await client.api.getUnreadCount()
+
+// Refresh the JWT without recreating the client: REST uses it right away,
+// WebSocket on its next (re)connect
+client.setToken(newToken)
+
+// The config the client was created with (read-only; `token` follows setToken)
+client.config.userId
+```
+
+### Shared Client
+
+One client can serve several chats: pass it with the `client` prop instead of `config`.
+The component takes `userId`, `userProfile` and `locale` from `client.config` and never
+connects, disconnects or recreates the client -- the application does.
+
+```vue
+<MTChat :client="client" mode="full" />
 ```
 
 ## Package Contents

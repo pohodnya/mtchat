@@ -130,7 +130,7 @@ A user left a dialog.
 
 ### dialog.archived
 
-A dialog was archived (via auto-archive or manual action).
+A dialog was archived (via auto-archive or manual action). On manual archiving it is sent only to the user who archived the dialog.
 
 ```json
 {
@@ -141,7 +141,7 @@ A dialog was archived (via auto-archive or manual action).
 
 ### dialog.unarchived
 
-A dialog was unarchived (e.g., when a new message is sent to an archived dialog).
+A dialog was unarchived (e.g., when a new message is sent to an archived dialog, or manually). On manual unarchiving it is sent only to the user who unarchived the dialog.
 
 ```json
 {

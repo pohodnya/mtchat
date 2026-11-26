@@ -82,6 +82,7 @@ jsonwebtoken = "9"
 tokio-test = "0.4"
 fake = { version = "3.0", features = ["derive", "uuid", "chrono"] }
 wiremock = "0.6"
+tokio-tungstenite = "0.28"
 
 [profile.release]
 lto = "thin"

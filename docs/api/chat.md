@@ -256,6 +256,28 @@ Resets the `unread_count` to 0 and broadcasts a `message.read` WebSocket event t
 
 ---
 
+## Unread Count
+
+Total number of unread messages of the current user, e.g. for a badge on the chats icon.
+
+```
+GET /api/v1/unread?user_id={uuid}
+```
+
+```json
+{
+  "data": { "count": 12 }
+}
+```
+
+- Sums `unread_count` over the dialogs the user participates in. Archived dialogs are not counted.
+- With the `X-Scope-Config` header only the dialogs of that scope are counted -- the same set as `GET /api/v1/dialogs?type=participating` with the same header. Without the header all of the user's dialogs are counted.
+- The full number is returned, there is no upper limit.
+
+The server does not push the number. Re-request it after the WebSocket events that can change it: `message.new`, `message.read`, `participant.joined`, `participant.left`, `dialog.archived`, `dialog.unarchived`.
+
+---
+
 ## Archive / Unarchive
 
 Archive or unarchive a dialog for the current user. Per-user state -- other participants are not affected.
@@ -264,6 +286,8 @@ Archive or unarchive a dialog for the current user. Per-user state -- other part
 POST /api/v1/dialogs/{id}/archive?user_id={uuid}
 POST /api/v1/dialogs/{id}/unarchive?user_id={uuid}
 ```
+
+Sends `dialog.archived` / `dialog.unarchived` to all WebSocket connections of the current user (other tabs included), and to no one else.
 
 ---
 

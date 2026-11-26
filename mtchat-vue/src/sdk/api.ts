@@ -36,6 +36,13 @@ export class MTChatApi {
   }
 
   /**
+   * Replace the JWT token used by subsequent requests
+   */
+  setToken(token: string): void {
+    this.token = token
+  }
+
+  /**
    * Encode scope config as base64 JSON for X-Scope-Config header
    * Converts camelCase to snake_case for backend compatibility
    */
@@ -104,7 +111,7 @@ export class MTChatApi {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: { message: response.statusText } }))
-      throw new Error(error.error?.message || `HTTP ${response.status}`)
+      throw Object.assign(new Error(error.error?.message || `HTTP ${response.status}`), { status: response.status })
     }
 
     // Handle 204 No Content
@@ -336,6 +343,19 @@ export class MTChatApi {
         },
       }
     )
+  }
+
+  /**
+   * Total unread messages of the current user across non-archived dialogs,
+   * limited to the dialogs of the client's scope (X-Scope-Config).
+   */
+  async getUnreadCount(signal?: AbortSignal): Promise<number> {
+    const response = await this.request<ApiResponse<{ count: number }>>(
+      'GET',
+      '/api/v1/unread',
+      { signal }
+    )
+    return response.data.count
   }
 
   /**

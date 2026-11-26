@@ -5,6 +5,8 @@ use uuid::Uuid;
 
 use crate::domain::{DialogParticipant, JoinedAs, ParticipantProfile};
 
+use super::scope_filter::{participant_scope_condition, scope_binds};
+
 /// Type alias for external user identifier
 type UserId = str;
 
@@ -271,15 +273,33 @@ impl ParticipantRepository {
     /// Total unread messages of a user across the dialogs they participate in.
     /// Archived dialogs are excluded: they are hidden from the main list and
     /// get unarchived automatically when a new message arrives.
-    pub async fn count_unread_total(&self, user_id: &UserId) -> Result<i64, sqlx::Error> {
-        sqlx::query_scalar(
-            r#"SELECT COALESCE(SUM(unread_count), 0)::BIGINT
-               FROM dialog_participants
-               WHERE user_id = $1 AND NOT is_archived"#,
-        )
-        .bind(user_id)
-        .fetch_one(&self.pool)
-        .await
+    ///
+    /// `scope` narrows the sum to the dialogs of the caller's current scope with
+    /// the same filter as `DialogRepository::find_participating`, so the badge
+    /// matches the "My chats" list. `None` counts every dialog of the user.
+    pub async fn count_unread_total(
+        &self,
+        user_id: &UserId,
+        scope: Option<(&[String], &[String], &[String])>,
+    ) -> Result<i64, sqlx::Error> {
+        let (has_scope, scope_level0, scope_level1, scope_level2) = scope_binds(scope);
+
+        let sql = format!(
+            r#"SELECT COALESCE(SUM(dp.unread_count), 0)::BIGINT
+               FROM dialog_participants dp
+               WHERE dp.user_id = $1 AND NOT dp.is_archived
+                 AND {scope_condition}"#,
+            scope_condition = participant_scope_condition("dp.dialog_id", 2),
+        );
+
+        sqlx::query_scalar(&sql)
+            .bind(user_id)
+            .bind(has_scope)
+            .bind(scope_level0)
+            .bind(scope_level1)
+            .bind(scope_level2)
+            .fetch_one(&self.pool)
+            .await
     }
 
     /// Increment unread_count for all participants except the author
