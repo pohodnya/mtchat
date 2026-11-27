@@ -101,7 +101,30 @@ helm install mtchat ./helm/mtchat \
 More than one API replica requires Redis: WebSocket events and online status are
 shared between replicas through it (see `docs/guide/architecture.md`). Use a
 standalone Redis — Redis Cluster is not supported. Event delivery between
-replicas is at-most-once; clients restore the state on reconnect.
+replicas is at-most-once; clients restore the state on reconnect. The chart
+refuses to render more than one replica (`api.replicaCount`, or
+`api.autoscaling.maxReplicas` with autoscaling) without Redis: set
+`redis.enabled`, `redis.external.host`, `secret.REDIS_URL`, `existingSecret`
+or `REDIS_URL` in `api.extraEnv`.
+
+On SIGTERM an API pod releases the online status of its WebSocket connections
+(at most 15 s) and publishes the queued events to the other replicas (at most
+5 s). `api.terminationGracePeriodSeconds` (default 45) leaves room for that;
+keep it above 20 s with a margin, or the pod may be killed before queued events go out.
+
+#### Upgrading from 0.5.0 (rolling update)
+
+Pods of 0.5.0 track online status only in `online:<user>` (set on ping,
+removed when the user's last tab on that pod closes) and do not use the
+`mtchat:ws:events` channel. While old and new pods run side by side:
+
+- online status is temporarily inaccurate: an old pod may mark a user offline
+  while they still have a tab on a new pod (and the reverse); it settles once
+  every pod runs the new version and clients send their next ping;
+- events are shared only between new pods: a user connected to an old pod
+  misses events produced on other pods, as before the upgrade;
+- rolling back to 0.5.0 is safe: the new keys (`presence:conns:<user>`) expire
+  within 120 s and the channel is simply not used.
 
 ### Using a Values File
 

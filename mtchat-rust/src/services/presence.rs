@@ -20,7 +20,12 @@ use uuid::Uuid;
 /// about once a minute, so the TTL leaves room for a throttled ping.
 const ONLINE_TTL: i64 = 120;
 
-const SCRIPT_TIMEOUT: Duration = Duration::from_secs(2);
+/// TTL left on the online flag of a user whose last connection was on a
+/// stopping replica: a client that reconnects to another replica within it
+/// refreshes the flag, otherwise the user goes offline when it expires.
+const RELEASED_ONLINE_TTL: i64 = 30;
+
+pub const SCRIPT_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Adds or refreshes a connection and keeps the user online. Returns the
 /// number of live connections before the call, the refreshed one included
@@ -46,6 +51,21 @@ redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now)
 local left = redis.call('ZCARD', KEYS[1])
 if left == 0 then
   redis.call('DEL', KEYS[1], KEYS[2])
+end
+return left
+"#;
+
+/// Removes a connection of a stopping replica and returns the number of live
+/// connections left; when none is left the online flag gets a short TTL
+/// instead of being removed. KEYS: conns set, online flag. ARGV: conn id, TTL.
+const RELEASE_SCRIPT: &str = r#"
+local now = tonumber(redis.call('TIME')[1])
+redis.call('ZREM', KEYS[1], ARGV[1])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now)
+local left = redis.call('ZCARD', KEYS[1])
+if left == 0 then
+  redis.call('DEL', KEYS[1])
+  redis.call('EXPIRE', KEYS[2], tonumber(ARGV[2]))
 end
 return left
 "#;
@@ -140,6 +160,24 @@ impl PresenceService {
         let left =
             eval_script(redis, DISCONNECT_SCRIPT, user_id, vec![conn_id.to_string()]).await?;
         Ok(Some(left == 0))
+    }
+
+    /// Unregister a connection of a stopping replica without taking the user
+    /// offline right away: when it was the last connection, the online flag
+    /// expires after a short TTL unless the client reconnects elsewhere.
+    pub async fn release(&self, user_id: &str, conn_id: Uuid) -> Result<(), RedisError> {
+        let Some(redis) = &self.redis else {
+            return Ok(());
+        };
+
+        eval_script(
+            redis,
+            RELEASE_SCRIPT,
+            user_id,
+            vec![conn_id.to_string(), RELEASED_ONLINE_TTL.to_string()],
+        )
+        .await?;
+        Ok(())
     }
 
     /// Get list of online users from a list of user IDs (batch check)

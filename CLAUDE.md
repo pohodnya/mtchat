@@ -549,23 +549,46 @@ docker compose up -d
   removed and `presence.update(online=false)` sent only when no connection is left on
   any pod; connections of a crashed pod expire by score. A ping whose connection had
   expired while the user had no other one sends `presence.update(online=true)` again.
-- **Graceful shutdown**: on SIGTERM/SIGINT the pod releases the presence of its
-  connections (`ws::release_presence`, offline updates for users left with no
-  connection), stops refreshing them and flushes the publish queue.
+  When the disconnect script fails (Redis error or timeout), the offline update falls
+  back to local tracking and is delivered only on this pod, not published to the bus:
+  the user may still have a tab on another pod.
+- **Graceful shutdown**: on SIGTERM/SIGINT the pod stops refreshing presence, waits 4s
+  for presence scripts already in flight (so their ZADD cannot land after the release),
+  then removes its connections from the sorted sets (`ws::release_presence`,
+  `PresenceService::release`) and flushes the publish queue (5s). The release is capped
+  at 15s overall; the chart sets `api.terminationGracePeriodSeconds: 45`. No offline
+  update is sent on shutdown: clients reconnect to another pod within seconds, and
+  offline followed by online made every user of the pod blink on each deploy. A user
+  left with no connection keeps `online:<user>` for 30s; a reconnect extends it,
+  otherwise it expires and REST shows the user offline. **Known limitation**: connected
+  clients get no `presence.update(online=false)` for users who left during a deploy.
 - **Publishing off the request path**: `broadcast_*` deliver locally and enqueue the
-  bus message (bounded queue, 1024) for one background publisher task, which keeps the
-  order; a full queue drops the event with a warning. The Redis pool now has a
-  reconnect policy, as the subscriber does.
+  bus message (bounded queue, 8192, sized for presence storms after a pod restart) for
+  one background publisher task, which sends everything queued so far (up to 256) in
+  one pipeline and keeps the order; a full queue drops the event with a warning. A
+  panic while publishing costs one batch, not the task (`catch_unwind`); if the task is
+  gone anyway, dropped events are counted and an error is logged once. The Redis pool
+  now has a reconnect policy, as the subscriber does. Pool and subscriber use fred's
+  `default_command_timeout` (2s) and `max_command_buffer_len` (10000), so commands
+  that timed out while Redis was down are dropped instead of being sent after the
+  reconnect. The subscriber re-sends SUBSCRIBE every 30s (a no-op in Redis when
+  subscribed), since fred re-subscribes only on reconnect and its tracked channels
+  reflect the client's intent, not the server's state.
 - **Limits**: delivery between pods is at-most-once (events are lost during a
   subscription reconnect or buffer overflow; clients resync on reconnect), and only a
   standalone Redis is supported (presence scripts use keys in different slots).
 - **Redis is required for more than one API replica** (docs: configuration,
-  architecture, deploy README).
+  architecture, deploy README); the Helm chart fails to render several replicas
+  without Redis.
+- **Rolling update from 0.5.0**: old pods know only `online:<user>` and no bus, so while
+  both versions run online status is temporarily inaccurate and events are shared only
+  between new pods; rolling back to 0.5.0 is safe (see deploy README).
 - Tests: unit (bus message JSON, delivery from bus, no duplicates) and
   `tests/ws_bus_test.rs` (two pods on one Redis: cross-pod delivery, exactly-once with
   tabs on both pods, presence on two pods, crashed-pod expiry, refresh of live and
-  expired connections, expired member vs. offline, shutdown release); publisher order
-  and queue overflow in unit tests.
+  expired connections, expired member vs. offline, shutdown release without offline:
+  short TTL on `online:`); publisher order, batching, panic recovery, stopped
+  publisher, queue overflow and local-only offline on Redis failure in unit tests.
 
 ### 2026-11-23 - Scoped Unread Count, Shared SDK Client, Manual Archive Events
 - **`GET /api/v1/unread` honours `X-Scope-Config`**: with the header only the

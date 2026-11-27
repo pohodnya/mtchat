@@ -10,10 +10,11 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use fred::clients::{Pool, SubscriberClient};
 use fred::interfaces::{ClientLike, EventInterface, PubsubInterface};
-use futures::{SinkExt, StreamExt};
+use futures::{FutureExt, SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::future::Future;
+use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,7 +24,7 @@ use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
 use crate::repositories::ParticipantRepository;
-use crate::services::PresenceService;
+use crate::services::{PresenceService, PRESENCE_SCRIPT_TIMEOUT};
 
 pub type ConnectionTx = mpsc::Sender<String>;
 
@@ -33,11 +34,25 @@ pub const EVENTS_CHANNEL: &str = "mtchat:ws:events";
 const PUBLISH_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Events waiting to be published to the other replicas; when Redis stalls
-/// and the queue fills up, newer events are dropped.
-const PUBLISH_QUEUE_CAPACITY: usize = 1024;
+/// and the queue fills up, newer events are dropped. Reconnect storms after a
+/// replica restart produce a presence update per dialog participant.
+const PUBLISH_QUEUE_CAPACITY: usize = 8192;
+
+/// How many queued events are sent to Redis in one pipeline.
+const PUBLISH_BATCH_LIMIT: usize = 256;
+
+/// How often the subscriber re-sends SUBSCRIBE in case re-subscribing after a
+/// reconnect failed; fred retries it only on the next reconnect otherwise.
+const RESUBSCRIBE_INTERVAL: Duration = Duration::from_secs(30);
 
 /// How many users get their presence released at once on shutdown.
 const RELEASE_CONCURRENCY: usize = 32;
+
+/// On shutdown, presence scripts that passed the `closing` check just before
+/// it was set may still run on other pooled connections; their ZADD must not
+/// land after the release, or the connection stays in the set until it expires.
+const IN_FLIGHT_SCRIPTS_WAIT: Duration = Duration::from_secs(4);
+const _: () = assert!(IN_FLIGHT_SCRIPTS_WAIT.as_secs() >= 2 * PRESENCE_SCRIPT_TIMEOUT.as_secs());
 
 enum Outgoing {
     Event(String),
@@ -59,6 +74,8 @@ pub struct Connections {
     /// Queue of the background task that publishes events in order.
     publisher: Option<mpsc::Sender<Outgoing>>,
     dropped: Arc<AtomicU64>,
+    /// Set once the publisher task is gone, so that is logged only once.
+    publisher_closed: Arc<AtomicBool>,
     /// Set on shutdown, once the presence of local connections is released.
     closing: Arc<AtomicBool>,
 }
@@ -70,9 +87,19 @@ impl Default for Connections {
             pod_id: Uuid::new_v4(),
             publisher: None,
             dropped: Arc::new(AtomicU64::new(0)),
+            publisher_closed: Arc::new(AtomicBool::new(false)),
             closing: Arc::new(AtomicBool::new(false)),
         }
     }
+}
+
+/// Which replicas an event is delivered on.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Reach {
+    AllReplicas,
+    /// Used when Redis failed and other replicas may know better, e.g. that
+    /// the user still has a tab connected to them.
+    ThisReplica,
 }
 
 /// Event envelope published to [`EVENTS_CHANNEL`].
@@ -86,13 +113,16 @@ pub struct BusMessage {
 impl Connections {
     /// Connections that also publish every event to the other replicas.
     pub fn with_redis(publisher: Arc<Pool>) -> Self {
-        Self::with_publisher(PUBLISH_QUEUE_CAPACITY, move |payload| {
-            let publisher = publisher.clone();
+        Self::with_publisher(PUBLISH_QUEUE_CAPACITY, move |payloads| {
+            let pipeline = publisher.next().pipeline();
             async move {
-                publisher
-                    .next()
-                    .publish::<(), _, _>(EVENTS_CHANNEL, payload)
-                    .await
+                for payload in payloads {
+                    pipeline
+                        .publish::<(), _, _>(EVENTS_CHANNEL, payload)
+                        .await?;
+                }
+                pipeline.all::<fred::types::Value>().await?;
+                Ok(())
             }
         })
     }
@@ -101,7 +131,7 @@ impl Connections {
     /// so request handlers never wait for Redis and events keep their order.
     fn with_publisher<F, Fut>(capacity: usize, publish: F) -> Self
     where
-        F: Fn(String) -> Fut + Send + 'static,
+        F: Fn(Vec<String>) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<(), fred::error::Error>> + Send + 'static,
     {
         let (queue, outgoing) = mpsc::channel(capacity);
@@ -117,7 +147,7 @@ impl Connections {
     /// Local connections get the event directly and the replica skips its own
     /// messages from the subscription, so local delivery does not depend on
     /// Redis and nobody receives the event twice.
-    fn deliver(&self, user_ids: &[String], json: String) {
+    fn deliver(&self, user_ids: &[String], json: String, reach: Reach) {
         for user_id in user_ids {
             send_to_user(self, user_id, &json);
         }
@@ -125,7 +155,7 @@ impl Connections {
         let Some(queue) = &self.publisher else {
             return;
         };
-        if user_ids.is_empty() {
+        if user_ids.is_empty() || reach == Reach::ThisReplica {
             return;
         }
         let payload = match serde_json::to_string(&BusMessage {
@@ -139,12 +169,24 @@ impl Connections {
                 return;
             }
         };
-        if let Err(TrySendError::Full(_)) = queue.try_send(Outgoing::Event(payload)) {
-            let dropped = self.dropped.fetch_add(1, Ordering::Relaxed) + 1;
-            tracing::warn!(
-                "WebSocket bus queue is full, other replicas will miss the event ({} dropped so far)",
-                dropped
-            );
+        match queue.try_send(Outgoing::Event(payload)) {
+            Ok(()) => {}
+            Err(TrySendError::Full(_)) => {
+                let dropped = self.dropped.fetch_add(1, Ordering::Relaxed) + 1;
+                tracing::warn!(
+                    "WebSocket bus queue is full, other replicas will miss the event ({} dropped so far)",
+                    dropped
+                );
+            }
+            Err(TrySendError::Closed(_)) => {
+                let dropped = self.dropped.fetch_add(1, Ordering::Relaxed) + 1;
+                if !self.publisher_closed.swap(true, Ordering::Relaxed) {
+                    tracing::error!(
+                        "WebSocket bus publisher stopped, other replicas no longer get events ({} dropped so far)",
+                        dropped
+                    );
+                }
+            }
         }
     }
 
@@ -213,23 +255,37 @@ impl Connections {
 
         let connections = self.clone();
         tokio::spawn(async move {
-            // Keeps the client alive for as long as the loop runs.
-            let _subscriber = subscriber;
+            let mut resubscribe = tokio::time::interval(RESUBSCRIBE_INTERVAL);
+            resubscribe.tick().await;
             loop {
-                match messages.recv().await {
-                    Ok(message) => match message.value.as_str() {
-                        Some(payload) => {
-                            connections.deliver_from_bus(&payload);
+                tokio::select! {
+                    received = messages.recv() => match received {
+                        Ok(message) => match message.value.as_str() {
+                            Some(payload) => {
+                                connections.deliver_from_bus(&payload);
+                            }
+                            None => tracing::warn!("Non-string WebSocket bus message ignored"),
+                        },
+                        Err(RecvError::Lagged(skipped)) => tracing::warn!(
+                            "WebSocket bus subscriber lagged, {} events dropped",
+                            skipped
+                        ),
+                        Err(RecvError::Closed) => {
+                            tracing::error!("WebSocket bus subscriber stopped");
+                            break;
                         }
-                        None => tracing::warn!("Non-string WebSocket bus message ignored"),
                     },
-                    Err(RecvError::Lagged(skipped)) => tracing::warn!(
-                        "WebSocket bus subscriber lagged, {} events dropped",
-                        skipped
-                    ),
-                    Err(RecvError::Closed) => {
-                        tracing::error!("WebSocket bus subscriber stopped");
-                        break;
+                    // fred's tracked channels are what the client intends to
+                    // be subscribed to, not what the server has, and a
+                    // subscriber connection cannot ask the server. SUBSCRIBE to
+                    // a channel the connection is already subscribed to is a
+                    // no-op in Redis, so it is simply sent again.
+                    _ = resubscribe.tick() => {
+                        if subscriber.is_connected() {
+                            if let Err(e) = subscriber.subscribe(EVENTS_CHANNEL).await {
+                                tracing::warn!("Failed to re-subscribe to WebSocket bus: {}", e);
+                            }
+                        }
                     }
                 }
             }
@@ -238,61 +294,89 @@ impl Connections {
     }
 }
 
+/// Publishes queued events in order, everything queued so far in one batch.
 async fn run_publisher<F, Fut>(mut outgoing: mpsc::Receiver<Outgoing>, publish: F)
 where
-    F: Fn(String) -> Fut,
+    F: Fn(Vec<String>) -> Fut,
     Fut: Future<Output = Result<(), fred::error::Error>>,
 {
     while let Some(item) = outgoing.recv().await {
-        match item {
-            Outgoing::Event(payload) => {
-                match tokio::time::timeout(PUBLISH_TIMEOUT, publish(payload)).await {
-                    Ok(Ok(())) => {}
-                    Ok(Err(e)) => tracing::warn!(
-                        "Failed to publish WebSocket event, other replicas will miss it: {}",
-                        e
-                    ),
-                    Err(_) => tracing::warn!(
-                        "Publishing WebSocket event timed out, other replicas may miss it"
-                    ),
+        let mut batch = Vec::new();
+        let mut flushed = None;
+        let mut next = Some(item);
+        while let Some(item) = next.take() {
+            match item {
+                Outgoing::Event(payload) => batch.push(payload),
+                Outgoing::Flush(done) => {
+                    flushed = Some(done);
+                    break;
                 }
             }
-            Outgoing::Flush(done) => {
-                let _ = done.send(());
+            if batch.len() < PUBLISH_BATCH_LIMIT {
+                next = outgoing.try_recv().ok();
             }
+        }
+
+        if !batch.is_empty() {
+            let count = batch.len();
+            // A panic must cost one batch, not the task: with the task gone
+            // every later event would only be delivered locally.
+            let publishing = AssertUnwindSafe(async {
+                tokio::time::timeout(PUBLISH_TIMEOUT, publish(batch)).await
+            })
+            .catch_unwind();
+            match publishing.await {
+                Ok(Ok(Ok(()))) => {}
+                Ok(Ok(Err(e))) => tracing::warn!(
+                    "Failed to publish {} WebSocket events, other replicas will miss them: {}",
+                    count,
+                    e
+                ),
+                Ok(Err(_)) => tracing::warn!(
+                    "Publishing {} WebSocket events timed out, other replicas may miss them",
+                    count
+                ),
+                Err(_) => tracing::error!(
+                    "Publishing {} WebSocket events panicked, other replicas will miss them",
+                    count
+                ),
+            }
+        }
+        if let Some(done) = flushed {
+            let _ = done.send(());
         }
     }
 }
 
-/// Release the presence of every local connection before the replica stops,
-/// sending offline updates for users left with no connection elsewhere.
+/// Release the presence of every local connection before the replica stops.
 ///
 /// A stopped replica never reaches the cleanup in [`handle_socket`], so its
 /// connections would keep the users online until they expire, and closing
 /// the last tab on another replica would not send the offline update.
-pub async fn release_presence(
-    connections: &Connections,
-    presence: &PresenceService,
-    participants: &ParticipantRepository,
-) {
+///
+/// No offline update is sent: clients reconnect to another replica within
+/// seconds, and offline followed by online would make every user of the
+/// replica blink on each deploy. A user left with no connection keeps the
+/// online flag for a short TTL instead.
+pub async fn release_presence(connections: &Connections, presence: &PresenceService) {
     connections.closing.store(true, Ordering::SeqCst);
+    // Taken before the wait, so connections that close meanwhile, and skip
+    // their own cleanup because the replica is closing, are released too.
     let local: Vec<(String, Vec<Uuid>)> = connections
         .local
         .iter()
         .map(|entry| (entry.key().clone(), entry.value().keys().copied().collect()))
         .collect();
+    if presence.is_configured() {
+        tokio::time::sleep(IN_FLIGHT_SCRIPTS_WAIT).await;
+    }
 
     futures::stream::iter(local)
         .for_each_concurrent(RELEASE_CONCURRENCY, |(user_id, conn_ids)| async move {
-            let mut last_connection = false;
             for conn_id in conn_ids {
-                match presence.disconnect(&user_id, conn_id).await {
-                    Ok(last) => last_connection = last.unwrap_or(false),
-                    Err(e) => tracing::warn!("Failed to set user {} offline: {}", user_id, e),
+                if let Err(e) = presence.release(&user_id, conn_id).await {
+                    tracing::warn!("Failed to release presence of user {}: {}", user_id, e);
                 }
-            }
-            if last_connection {
-                broadcast_presence(connections, participants, &user_id, false).await;
             }
         })
         .await;
@@ -434,7 +518,14 @@ pub async fn handle_socket(
 
     // Broadcast presence update to users in shared dialogs
     if first_connection {
-        broadcast_presence(&connections, &participants, &user_id, true).await;
+        broadcast_presence(
+            &connections,
+            &participants,
+            &user_id,
+            true,
+            Reach::AllReplicas,
+        )
+        .await;
     }
 
     // Send connected event
@@ -477,6 +568,7 @@ pub async fn handle_socket(
                                         &participants,
                                         &user_id_for_loop,
                                         true,
+                                        Reach::AllReplicas,
                                     )
                                     .await;
                                 }
@@ -500,23 +592,35 @@ pub async fn handle_socket(
 
     // Cleanup: the user stays online while other connections remain on any replica
     let last_local = unregister_connection(&connections, &user_id, conn_id);
-    let last_connection = if connections.is_closing() {
-        false
+    let offline_reach = if connections.is_closing() {
+        None
     } else {
-        match presence.disconnect(&user_id, conn_id).await {
-            Ok(last) => last.unwrap_or(last_local),
-            Err(e) => {
-                tracing::warn!("Failed to set user {} offline: {}", user_id, e);
-                last_local
-            }
+        let disconnected = presence.disconnect(&user_id, conn_id).await;
+        if let Err(e) = &disconnected {
+            tracing::warn!("Failed to set user {} offline: {}", user_id, e);
         }
+        offline_reach(disconnected, last_local)
     };
-    if last_connection {
-        broadcast_presence(&connections, &participants, &user_id, false).await;
+    if let Some(reach) = offline_reach {
+        broadcast_presence(&connections, &participants, &user_id, false, reach).await;
     }
 
     send_task.abort();
     tracing::info!("WebSocket disconnected: {} ({})", user_id, conn_id);
+}
+
+/// Where to send the offline update after a connection closed, if anywhere.
+/// When Redis failed, only this replica's connections are known to be gone,
+/// so the update stays on this replica.
+fn offline_reach(
+    disconnected: Result<Option<bool>, fred::error::Error>,
+    last_local: bool,
+) -> Option<Reach> {
+    let (last_connection, reach) = match disconnected {
+        Ok(last) => (last.unwrap_or(last_local), Reach::AllReplicas),
+        Err(_) => (last_local, Reach::ThisReplica),
+    };
+    last_connection.then_some(reach)
 }
 
 /// Broadcast presence update to users who share dialogs with the target user
@@ -525,6 +629,7 @@ async fn broadcast_presence(
     participants: &ParticipantRepository,
     user_id: &str,
     is_online: bool,
+    reach: Reach,
 ) {
     // Get all dialogs this user participates in
     let dialog_ids = match participants.get_user_dialogs(user_id).await {
@@ -561,7 +666,7 @@ async fn broadcast_presence(
         .into_iter()
         .filter(|recipient_id| recipient_id != user_id)
         .collect();
-    broadcast_to_users(connections, &event, &recipient_ids).await;
+    deliver_event(connections, &event, &recipient_ids, reach);
 }
 
 /// Broadcast an event to the current participants of a dialog, plus `extra` users.
@@ -597,6 +702,10 @@ async fn broadcast_to_dialog(
 
 /// Broadcast an event to specific users
 async fn broadcast_to_users(connections: &Connections, event: &WsEvent, user_ids: &[String]) {
+    deliver_event(connections, event, user_ids, Reach::AllReplicas);
+}
+
+fn deliver_event(connections: &Connections, event: &WsEvent, user_ids: &[String], reach: Reach) {
     let json = match serde_json::to_string(event) {
         Ok(j) => j,
         Err(e) => {
@@ -605,7 +714,7 @@ async fn broadcast_to_users(connections: &Connections, event: &WsEvent, user_ids
         }
     };
 
-    connections.deliver(user_ids, json);
+    connections.deliver(user_ids, json, reach);
 }
 
 pub async fn broadcast_message(
@@ -879,12 +988,12 @@ mod tests {
         let remaining = Arc::new(AtomicU64::new(10));
         let sink = published.clone();
         // Earlier events take longer to publish, so concurrent publishing would reorder them.
-        let connections = Connections::with_publisher(16, move |payload| {
+        let connections = Connections::with_publisher(16, move |payloads| {
             let sink = sink.clone();
             let delay = remaining.fetch_sub(1, Ordering::SeqCst);
             async move {
                 tokio::time::sleep(Duration::from_millis(delay * 5)).await;
-                sink.lock().unwrap().push(payload);
+                sink.lock().unwrap().extend(payloads);
                 Ok(())
             }
         });
@@ -901,7 +1010,10 @@ mod tests {
         assert_eq!(published_dialog_ids(&published.lock().unwrap()), dialog_ids);
     }
 
-    #[tokio::test]
+    // The publisher task must not run between the broadcasts, or it would take
+    // events off the queue and fewer would be dropped; on a single-threaded
+    // runtime it runs only when the test yields.
+    #[tokio::test(flavor = "current_thread")]
     async fn full_publish_queue_drops_events_but_delivers_locally() {
         let connections =
             Connections::with_publisher(1, |_| futures::future::pending::<Result<(), _>>());
@@ -915,5 +1027,113 @@ mod tests {
         for _ in 0..3 {
             assert!(rx.try_recv().is_ok());
         }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn events_queued_together_are_published_in_one_batch() {
+        let batches = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let sink = batches.clone();
+        let connections = Connections::with_publisher(16, move |payloads: Vec<String>| {
+            sink.lock().unwrap().push(payloads.len());
+            async { Ok(()) }
+        });
+
+        for _ in 0..3 {
+            broadcast_to_users(&connections, &deleted_event(), &["user".to_string()]).await;
+        }
+        connections.flush_publisher(Duration::from_secs(5)).await;
+
+        assert_eq!(*batches.lock().unwrap(), vec![3]);
+    }
+
+    #[tokio::test]
+    async fn publisher_keeps_publishing_after_a_panic() {
+        let published = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let calls = Arc::new(AtomicU64::new(0));
+        let sink = published.clone();
+        let connections = Connections::with_publisher(16, move |payloads| {
+            if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                panic!("publisher bug");
+            }
+            sink.lock().unwrap().extend(payloads);
+            async { Ok(()) }
+        });
+        let lost = Uuid::new_v4();
+        let delivered = Uuid::new_v4();
+
+        for dialog_id in [lost, delivered] {
+            let event = WsEvent::DialogArchived { dialog_id };
+            broadcast_to_users(&connections, &event, &["user".to_string()]).await;
+            connections.flush_publisher(Duration::from_secs(5)).await;
+        }
+
+        assert_eq!(
+            published_dialog_ids(&published.lock().unwrap()),
+            vec![delivered.to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn stopped_publisher_counts_events_as_dropped() {
+        let (queue, outgoing) = mpsc::channel(16);
+        drop(outgoing);
+        let connections = Connections {
+            publisher: Some(queue),
+            ..Connections::default()
+        };
+        let (_, mut rx) = connect(&connections, "user");
+
+        broadcast_to_users(&connections, &deleted_event(), &["user".to_string()]).await;
+        broadcast_to_users(&connections, &deleted_event(), &["user".to_string()]).await;
+
+        assert_eq!(connections.dropped.load(Ordering::Relaxed), 2);
+        assert!(connections.publisher_closed.load(Ordering::Relaxed));
+        assert!(rx.try_recv().is_ok());
+        assert!(rx.try_recv().is_ok());
+    }
+
+    #[tokio::test]
+    async fn this_replica_events_are_not_published() {
+        let published = Arc::new(AtomicU64::new(0));
+        let counter = published.clone();
+        let connections = Connections::with_publisher(16, move |payloads: Vec<String>| {
+            counter.fetch_add(payloads.len() as u64, Ordering::SeqCst);
+            async { Ok(()) }
+        });
+        let (_, mut rx) = connect(&connections, "user");
+
+        deliver_event(
+            &connections,
+            &deleted_event(),
+            &["user".to_string()],
+            Reach::ThisReplica,
+        );
+        connections.flush_publisher(Duration::from_secs(5)).await;
+
+        assert!(rx.try_recv().is_ok());
+        assert_eq!(published.load(Ordering::SeqCst), 0);
+    }
+
+    fn redis_down() -> Result<Option<bool>, fred::error::Error> {
+        Err(fred::error::Error::new(
+            fred::error::ErrorKind::Timeout,
+            "presence script timed out",
+        ))
+    }
+
+    #[test]
+    fn offline_after_redis_failure_stays_on_this_replica() {
+        assert_eq!(offline_reach(redis_down(), true), Some(Reach::ThisReplica));
+        assert_eq!(offline_reach(redis_down(), false), None);
+    }
+
+    #[test]
+    fn offline_goes_to_all_replicas_when_last_connection_anywhere_closed() {
+        assert_eq!(
+            offline_reach(Ok(Some(true)), false),
+            Some(Reach::AllReplicas)
+        );
+        assert_eq!(offline_reach(Ok(Some(false)), true), None);
+        assert_eq!(offline_reach(Ok(None), true), Some(Reach::AllReplicas));
     }
 }

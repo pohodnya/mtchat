@@ -24,6 +24,16 @@ use multitenancy_chat_api::services::{PresenceService, S3Config, S3Service};
 use multitenancy_chat_api::webhooks::{WebhookConfig, WebhookSender};
 use multitenancy_chat_api::ws::{self, Connections};
 
+/// While Redis is down fred buffers commands and sends them after reconnecting.
+/// A command that timed out is dropped from the buffer instead of being sent
+/// late, e.g. a stale presence script; a full buffer fails new commands at once.
+const REDIS_COMMAND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+const REDIS_COMMAND_BUFFER_LEN: usize = 10_000;
+
+/// Keeps the shutdown, publish queue flush included, well inside the pod's
+/// termination grace period (`api.terminationGracePeriodSeconds` in the chart).
+const PRESENCE_RELEASE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+
 #[tokio::main]
 async fn main() {
     rustls::crypto::ring::default_provider()
@@ -113,7 +123,9 @@ async fn main() {
                         ),
                         ..Default::default()
                     };
+                    c.max_command_buffer_len = REDIS_COMMAND_BUFFER_LEN;
                 })
+                .with_performance_config(|p| p.default_command_timeout = REDIS_COMMAND_TIMEOUT)
                 // Without a policy fred never reconnects, and every command
                 // fails until restart after Redis restarts or the network blips.
                 .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
@@ -136,9 +148,13 @@ async fn main() {
                         ),
                         ..Default::default()
                     };
+                    c.max_command_buffer_len = REDIS_COMMAND_BUFFER_LEN;
                 })
-                // fred's default of 32 buffered messages drops events under bursts
-                .with_performance_config(|p| p.broadcast_channel_capacity = 4096)
+                .with_performance_config(|p| {
+                    // fred's default of 32 buffered messages drops events under bursts
+                    p.broadcast_channel_capacity = 4096;
+                    p.default_command_timeout = REDIS_COMMAND_TIMEOUT;
+                })
                 .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
                 .build_subscriber_client()
                 .expect("Failed to create Redis subscriber");
@@ -349,12 +365,16 @@ async fn main() {
         .with_graceful_shutdown(async move {
             shutdown_signal().await;
             tracing::info!("Shutting down, releasing presence of WebSocket connections");
-            ws::release_presence(
-                &shutdown_state.connections,
-                &shutdown_state.presence,
-                &shutdown_state.participants,
-            )
-            .await;
+            let release =
+                ws::release_presence(&shutdown_state.connections, &shutdown_state.presence);
+            if tokio::time::timeout(PRESENCE_RELEASE_TIMEOUT, release)
+                .await
+                .is_err()
+            {
+                tracing::warn!(
+                    "Releasing presence timed out, the remaining connections expire on their own"
+                );
+            }
         })
         .await
         .unwrap();

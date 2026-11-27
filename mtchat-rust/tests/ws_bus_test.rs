@@ -5,16 +5,13 @@
 //!
 //! Run with: cargo test --test ws_bus_test
 //! Requires: REDIS_URL environment variable (defaults to redis://localhost:6379)
-//! and TEST_DATABASE_URL for the shutdown test (defaults to the local test database)
 
 use fred::prelude::*;
 use fred::types::Builder;
-use multitenancy_chat_api::repositories::ParticipantRepository;
 use multitenancy_chat_api::services::PresenceService;
 use multitenancy_chat_api::ws::{
     broadcast_dialog_archived, register_connection, release_presence, Connections,
 };
-use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -47,6 +44,10 @@ async fn start_pod() -> Connections {
 
 fn conns_key(user_id: &str) -> String {
     format!("presence:conns:{}", user_id)
+}
+
+fn online_key(user_id: &str) -> String {
+    format!("online:{}", user_id)
 }
 
 /// Overwrite a connection's expiry timestamp, e.g. to make it already expired.
@@ -257,28 +258,40 @@ async fn expired_connection_does_not_keep_user_online_when_last_tab_closes() {
 }
 
 #[tokio::test]
-async fn stopping_pod_releases_presence_of_its_connections() {
-    let db_url = std::env::var("TEST_DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/mtchat_test".into());
-    let participants =
-        ParticipantRepository::new(PgPoolOptions::new().connect_lazy(&db_url).unwrap());
+async fn stopping_pod_releases_its_connections_without_taking_users_offline() {
+    let redis = redis_pool().await;
     let pod_a = start_pod().await;
     let presence_a = PresenceService::new(redis_pool().await);
-    let presence_b = PresenceService::new(redis_pool().await);
+    let presence_b = PresenceService::new(redis.clone());
     let only_on_a = Uuid::new_v4().to_string();
     let on_both = Uuid::new_v4().to_string();
+    let mut conns_on_a = Vec::new();
     for user_id in [&only_on_a, &on_both] {
         let conn = Uuid::new_v4();
         let (tx, _rx) = mpsc::channel::<String>(10);
         register_connection(&pod_a, user_id, conn, tx);
         presence_a.connect(user_id, conn).await.unwrap();
+        conns_on_a.push((user_id.clone(), conn));
     }
     presence_b.connect(&on_both, Uuid::new_v4()).await.unwrap();
 
-    release_presence(&pod_a, &presence_a, &participants).await;
+    release_presence(&pod_a, &presence_a).await;
 
-    assert!(!presence_b.is_online(&only_on_a).await.unwrap());
-    assert!(presence_b.is_online(&on_both).await.unwrap());
+    for (user_id, conn) in &conns_on_a {
+        let score: Option<f64> = redis
+            .zscore(conns_key(user_id), conn.to_string())
+            .await
+            .unwrap();
+        assert!(score.is_none(), "connection of the stopped pod left behind");
+    }
+    // The user's client is expected to reconnect elsewhere within the short TTL.
+    let ttl: i64 = redis.ttl(online_key(&only_on_a)).await.unwrap();
+    assert!((1..=30).contains(&ttl), "unexpected online TTL {}", ttl);
+    let ttl: i64 = redis.ttl(online_key(&on_both)).await.unwrap();
+    assert!(
+        ttl > 30,
+        "user with a connection on another pod lost the TTL"
+    );
     assert_eq!(
         presence_b
             .connect(&only_on_a, Uuid::new_v4())
@@ -286,4 +299,6 @@ async fn stopping_pod_releases_presence_of_its_connections() {
             .unwrap(),
         Some(true)
     );
+    let ttl: i64 = redis.ttl(online_key(&only_on_a)).await.unwrap();
+    assert!(ttl > 30, "reconnect did not extend the online flag");
 }
