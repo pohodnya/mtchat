@@ -8,7 +8,7 @@
 use axum::extract::ws::{Message, WebSocket};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use fred::clients::{Pool, SubscriberClient};
+use fred::clients::{Client, SubscriberClient};
 use fred::interfaces::{ClientLike, EventInterface, PubsubInterface};
 use fred::types::config::Options;
 use futures::{FutureExt, SinkExt, StreamExt};
@@ -42,7 +42,7 @@ const NOT_CONNECTED_WARN_INTERVAL: Duration = Duration::from_secs(10);
 /// replica restart produce a presence update per dialog participant.
 const PUBLISH_QUEUE_CAPACITY: usize = 8192;
 
-/// How many queued events are sent to Redis in one pipeline.
+/// How many queued events are taken from the queue in one batch.
 const PUBLISH_BATCH_LIMIT: usize = 256;
 
 /// How often the subscriber re-sends SUBSCRIBE in case re-subscribing after a
@@ -64,7 +64,7 @@ enum Outgoing {
 }
 
 enum PublishError {
-    /// No pooled Redis connection is up, nothing was sent.
+    /// The publisher's Redis connection is down, nothing was sent.
     NotConnected,
     /// Publishing stopped at the first failure, the rest of the batch was not sent.
     Failed {
@@ -109,7 +109,7 @@ impl Default for Connections {
 
 /// Which replicas an event is delivered on.
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Reach {
+pub enum Reach {
     AllReplicas,
     /// Used when Redis failed and other replicas may know better, e.g. that
     /// the user still has a tab connected to them.
@@ -125,8 +125,9 @@ pub struct BusMessage {
 }
 
 impl Connections {
-    /// Connections that also publish every event to the other replicas.
-    pub fn with_redis(publisher: Arc<Pool>) -> Self {
+    /// Connections that also publish every event to the other replicas,
+    /// through a client used for nothing else.
+    pub fn with_redis(publisher: Client) -> Self {
         Self::with_publisher(PUBLISH_QUEUE_CAPACITY, move |payloads| {
             let publisher = publisher.clone();
             async move { publish_in_order(&publisher, payloads).await }
@@ -305,16 +306,18 @@ impl Connections {
     }
 }
 
-/// Publishes the events one by one on a single connected client, so they keep
-/// their order. Each publish is bounded by fred's own timeout, not an outer one:
-/// fred marks a command that timed out and never writes it after a reconnect
-/// (`basic_request_response` in fred's `utils.rs`, checked in `write_command`
-/// and `retry_buffer`), while a dropped future would leave it buffered, to be
-/// published late and out of order. A pipeline is not used for the same reason:
-/// fred does not mark pipelined commands on timeout. `fail_fast` makes a command
-/// fail instead of waiting in the buffer when the connection drops.
-async fn publish_in_order(pool: &Pool, payloads: Vec<String>) -> Result<(), PublishError> {
-    let client = pool.next_connected();
+/// Publishes the events one by one on the publisher's own connection, so they
+/// keep their order: Redis runs the commands of one connection in order, so a
+/// publish that timed out but was already written to the socket still runs
+/// before the next one. A pooled client would not do: the next batch could go
+/// to another connection and overtake it. Each publish is bounded by fred's
+/// own timeout, not an outer one: fred marks a command that timed out and never
+/// writes it after a reconnect (`basic_request_response` in fred's `utils.rs`,
+/// checked in `write_command` and `retry_buffer`), while a dropped future would
+/// leave it buffered, to be published late. A pipeline is not used for the same
+/// reason: fred does not mark pipelined commands on timeout. `fail_fast` makes
+/// a command fail instead of waiting in the buffer when the connection drops.
+async fn publish_in_order(client: &Client, payloads: Vec<String>) -> Result<(), PublishError> {
     if !client.is_connected() {
         return Err(PublishError::NotConnected);
     }
@@ -417,8 +420,8 @@ async fn run_publisher<F, Fut>(
 /// online flag for a short TTL instead.
 pub async fn release_presence(connections: &Connections, presence: &PresenceService) {
     connections.closing.store(true, Ordering::SeqCst);
-    // Taken before the wait, so connections that close meanwhile, and skip
-    // their own cleanup because the replica is closing, are released too.
+    // Taken before the wait; connections that close meanwhile also release
+    // themselves in `close_connection`, a repeated release is harmless.
     let local: Vec<(String, Vec<Uuid>)> = connections
         .local
         .iter()
@@ -649,23 +652,39 @@ pub async fn handle_socket(
         }
     }
 
-    // Cleanup: the user stays online while other connections remain on any replica
-    let last_local = unregister_connection(&connections, &user_id, conn_id);
-    let offline_reach = if connections.is_closing() {
-        None
-    } else {
-        let disconnected = presence.disconnect(&user_id, conn_id).await;
-        if let Err(e) = &disconnected {
-            tracing::warn!("Failed to set user {} offline: {}", user_id, e);
-        }
-        offline_reach(disconnected, last_local)
-    };
-    if let Some(reach) = offline_reach {
+    if let Some(reach) = close_connection(&connections, &presence, &user_id, conn_id).await {
         broadcast_presence(&connections, &participants, &user_id, false, reach).await;
     }
 
     send_task.abort();
     tracing::info!("WebSocket disconnected: {} ({})", user_id, conn_id);
+}
+
+/// Cleanup of a closed connection: the user stays online while other
+/// connections remain on any replica. Returns where to send the offline
+/// update, if anywhere.
+pub async fn close_connection(
+    connections: &Connections,
+    presence: &PresenceService,
+    user_id: &str,
+    conn_id: Uuid,
+) -> Option<Reach> {
+    let last_local = unregister_connection(connections, user_id, conn_id);
+    if connections.is_closing() {
+        // Released here without an offline update, as `release_presence`
+        // does: the connection may have left before its snapshot. Its own
+        // connect and refresh ran in this task and have finished, so no
+        // in-flight wait is needed, and a repeated release is harmless.
+        if let Err(e) = presence.release(user_id, conn_id).await {
+            tracing::warn!("Failed to release presence of user {}: {}", user_id, e);
+        }
+        return None;
+    }
+    let disconnected = presence.disconnect(user_id, conn_id).await;
+    if let Err(e) = &disconnected {
+        tracing::warn!("Failed to set user {} offline: {}", user_id, e);
+    }
+    offline_reach(disconnected, last_local)
 }
 
 /// Where to send the offline update after a connection closed, if anywhere.
@@ -1161,11 +1180,9 @@ mod tests {
 
     #[tokio::test]
     async fn nothing_is_published_without_a_connected_redis_client() {
-        let pool = fred::types::Builder::default_centralized()
-            .build_pool(2)
-            .unwrap();
+        let client = fred::types::Builder::default_centralized().build().unwrap();
 
-        let result = publish_in_order(&pool, vec!["event".to_string()]).await;
+        let result = publish_in_order(&client, vec!["event".to_string()]).await;
 
         assert!(matches!(result, Err(PublishError::NotConnected)));
     }

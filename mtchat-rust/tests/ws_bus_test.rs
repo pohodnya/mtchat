@@ -10,7 +10,7 @@ use fred::prelude::*;
 use fred::types::Builder;
 use multitenancy_chat_api::services::PresenceService;
 use multitenancy_chat_api::ws::{
-    broadcast_dialog_archived, register_connection, release_presence, Connections,
+    broadcast_dialog_archived, close_connection, register_connection, release_presence, Connections,
 };
 use std::sync::Arc;
 use std::time::Duration;
@@ -31,7 +31,11 @@ async fn redis_pool() -> Arc<Pool> {
 }
 
 async fn start_pod() -> Connections {
-    let connections = Connections::with_redis(redis_pool().await);
+    let publisher = Builder::from_config(redis_config())
+        .build()
+        .expect("Failed to create Redis publisher");
+    publisher.init().await.expect("Failed to connect to Redis");
+    let connections = Connections::with_redis(publisher);
     let subscriber = Builder::from_config(redis_config())
         .build_subscriber_client()
         .expect("Failed to create Redis subscriber");
@@ -301,4 +305,28 @@ async fn stopping_pod_releases_its_connections_without_taking_users_offline() {
     );
     let ttl: i64 = redis.ttl(online_key(&only_on_a)).await.unwrap();
     assert!(ttl > 30, "reconnect did not extend the online flag");
+}
+
+#[tokio::test]
+async fn connection_closed_while_pod_stops_releases_its_presence() {
+    let redis = redis_pool().await;
+    let pod = start_pod().await;
+    let presence = PresenceService::new(redis.clone());
+    let user_id = Uuid::new_v4().to_string();
+    let conn = Uuid::new_v4();
+    presence.connect(&user_id, conn).await.unwrap();
+    // The connection is not registered locally, as if it was unregistered
+    // just before the release took its snapshot.
+    release_presence(&pod, &presence).await;
+
+    let offline_reach = close_connection(&pod, &presence, &user_id, conn).await;
+
+    assert_eq!(offline_reach, None);
+    let score: Option<f64> = redis
+        .zscore(conns_key(&user_id), conn.to_string())
+        .await
+        .unwrap();
+    assert!(score.is_none(), "closed connection left in presence");
+    let ttl: i64 = redis.ttl(online_key(&user_id)).await.unwrap();
+    assert!((1..=30).contains(&ttl), "unexpected online TTL {}", ttl);
 }

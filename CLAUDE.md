@@ -557,7 +557,9 @@ docker compose up -d
 - **Graceful shutdown**: on SIGTERM/SIGINT the pod stops refreshing presence, waits 4s
   for presence scripts already in flight (so their ZADD cannot land after the release;
   skipped when the pod has no connections), then removes its connections from the sorted sets (`ws::release_presence`,
-  `PresenceService::release`) and flushes the publish queue (5s). The release is capped
+  `PresenceService::release`) and flushes the publish queue (5s). A connection that
+  closes once the shutdown has started is released by its own cleanup
+  (`ws::close_connection`), so it is not lost if it left before the snapshot was taken. The release is capped
   at 15s overall; the chart sets `api.terminationGracePeriodSeconds: 45`. No offline
   update is sent on shutdown: clients reconnect to another pod within seconds, and
   offline followed by online made every user of the pod blink on each deploy. A user
@@ -567,16 +569,19 @@ docker compose up -d
 - **Publishing off the request path**: `broadcast_*` deliver locally and enqueue the
   bus message (bounded queue, 8192, sized for presence storms after a pod restart) for
   one background publisher task, which takes everything queued so far (up to 256) and
-  publishes it one by one on a single connected pooled client, keeping the order; a
-  full queue drops the event with a warning. Each publish has fred's own 2s timeout
-  and `fail_fast`, with no outer timeout: fred drops a single command that timed out
-  instead of sending it after a reconnect, but not a pipelined one or one whose future
-  was dropped, which would publish stale events late and out of order. The batch stops
-  at the first failure; with no connected client it is skipped (warning at most every
-  10s). Skipped and unpublished events are counted as dropped. A
+  publishes it one by one on a dedicated Redis client (configured like the pool, not
+  part of it); a full queue drops the event with a warning. Each publish has fred's own
+  2s timeout and `fail_fast`, with no outer timeout: a command that timed out or hit a
+  reconnect before it was written to the socket is never sent; one already written may
+  still run. Events go over one connection, which Redis serves in order, so they keep
+  their order even then; a pipeline or a dropped future would leave the command buffered,
+  to be published after a reconnect. The batch stops at the first failure; with the
+  client not connected it is skipped (warning at most every 10s). Skipped and
+  unpublished events are counted as dropped (a timed-out event may still have been
+  delivered). A
   panic while publishing costs one batch, not the task (`catch_unwind`); if the task is
   gone anyway, dropped events are counted and an error is logged once. The Redis pool
-  now has a reconnect policy, as the subscriber does. Pool and subscriber use fred's
+  now has a reconnect policy, as the subscriber does. Pool, publisher and subscriber use fred's
   `default_command_timeout` (2s) and `max_command_buffer_len` (10000), so single
   commands that timed out while Redis was down are dropped instead of being sent
   after the reconnect. The subscriber re-sends SUBSCRIBE every 30s (a no-op in Redis when
@@ -595,7 +600,7 @@ docker compose up -d
   `tests/ws_bus_test.rs` (two pods on one Redis: cross-pod delivery, exactly-once with
   tabs on both pods, presence on two pods, crashed-pod expiry, refresh of live and
   expired connections, expired member vs. offline, shutdown release without offline:
-  short TTL on `online:`); publisher order, batching, panic recovery, stopped
+  short TTL on `online:`, release of a connection closed during shutdown); publisher order, batching, panic recovery, stopped
   publisher, skipped/unpublished events counted as dropped, no publishing without a
   connected client, no in-flight wait on shutdown without connections, queue overflow
   and local-only offline on Redis failure in unit tests.

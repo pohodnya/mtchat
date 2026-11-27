@@ -29,8 +29,9 @@ use multitenancy_chat_api::ws::{self, Connections};
 /// While Redis is down fred buffers commands and sends them after reconnecting.
 /// A single command that hit this timeout is dropped from the buffer instead of
 /// being sent late, e.g. a stale presence script; a full buffer fails new
-/// commands at once. Pipelined commands and commands whose future was dropped
-/// by an outer timeout are not dropped, so the code avoids both.
+/// commands at once. Only a command not yet written to the socket is dropped;
+/// pipelined commands and commands whose future was dropped by an outer
+/// timeout are not, so the code avoids both.
 const REDIS_COMMAND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 const _: () =
     assert!(REDIS_COMMAND_TIMEOUT.as_millis() + 500 <= PRESENCE_SCRIPT_TIMEOUT.as_millis());
@@ -114,7 +115,8 @@ async fn main() {
         Ok(url) => {
             tracing::info!("Connecting to Redis...");
             let config = Config::from_url(&url).expect("Failed to parse REDIS_URL");
-            let pool = Builder::from_config(config.clone())
+            let mut builder = Builder::from_config(config.clone());
+            builder
                 // Enable TCP keepalive so the OS probes idle connections and
                 // detects silently-dropped sockets (NAT/firewall idle timeout)
                 // before they are handed out from the pool and hang on the next
@@ -134,13 +136,21 @@ async fn main() {
                 .with_performance_config(|p| p.default_command_timeout = REDIS_COMMAND_TIMEOUT)
                 // Without a policy fred never reconnects, and every command
                 // fails until restart after Redis restarts or the network blips.
-                .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
-                .build_pool(5)
-                .expect("Failed to create Redis pool");
+                .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2));
+            let pool = builder.build_pool(5).expect("Failed to create Redis pool");
             pool.init().await.expect("Failed to connect to Redis");
             tracing::info!("Redis connected, presence tracking enabled");
 
             let redis_pool = Arc::new(pool);
+
+            // WebSocket events are published on a connection of their own,
+            // configured like the pool: Redis runs one connection's commands
+            // in order, pooled connections would let events overtake each other.
+            let publisher = builder.build().expect("Failed to create Redis publisher");
+            publisher
+                .init()
+                .await
+                .expect("Failed to connect to Redis publisher");
 
             // A dedicated connection for receiving WebSocket events published
             // by other API replicas; it reconnects and re-subscribes on its own.
@@ -164,7 +174,7 @@ async fn main() {
                 .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
                 .build_subscriber_client()
                 .expect("Failed to create Redis subscriber");
-            let connections = Connections::with_redis(redis_pool.clone());
+            let connections = Connections::with_redis(publisher);
             connections
                 .start_subscriber(subscriber)
                 .await
