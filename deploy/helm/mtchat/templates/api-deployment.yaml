@@ -10,7 +10,7 @@ Redis; without it every replica sees only its own connections.
 {{- end }}
 {{- $hasRedis := or .Values.redis.enabled .Values.redis.external.host .Values.secret.REDIS_URL .Values.existingSecret $redisUrlInEnv }}
 {{- if and $multipleReplicas (not $hasRedis) }}
-{{- fail "More than one API replica requires Redis: set redis.enabled=true, redis.external.host or secret.REDIS_URL, or run a single replica (api.replicaCount=1, api.autoscaling.maxReplicas=1)" }}
+{{- fail "More than one API replica requires Redis: set redis.enabled=true, redis.external.host, secret.REDIS_URL, existingSecret (with REDIS_URL in it) or REDIS_URL in api.extraEnv, or run a single replica (api.replicaCount=1, api.autoscaling.maxReplicas=1)" }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment

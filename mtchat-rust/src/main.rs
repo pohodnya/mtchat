@@ -20,14 +20,20 @@ use multitenancy_chat_api::jobs::{
     start_workers, JobContext, JobProducer, NotificationJob, WorkerConfig,
 };
 use multitenancy_chat_api::middleware;
-use multitenancy_chat_api::services::{PresenceService, S3Config, S3Service};
+use multitenancy_chat_api::services::{
+    PresenceService, S3Config, S3Service, PRESENCE_SCRIPT_TIMEOUT,
+};
 use multitenancy_chat_api::webhooks::{WebhookConfig, WebhookSender};
 use multitenancy_chat_api::ws::{self, Connections};
 
 /// While Redis is down fred buffers commands and sends them after reconnecting.
-/// A command that timed out is dropped from the buffer instead of being sent
-/// late, e.g. a stale presence script; a full buffer fails new commands at once.
+/// A single command that hit this timeout is dropped from the buffer instead of
+/// being sent late, e.g. a stale presence script; a full buffer fails new
+/// commands at once. Pipelined commands and commands whose future was dropped
+/// by an outer timeout are not dropped, so the code avoids both.
 const REDIS_COMMAND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+const _: () =
+    assert!(REDIS_COMMAND_TIMEOUT.as_millis() + 500 <= PRESENCE_SCRIPT_TIMEOUT.as_millis());
 const REDIS_COMMAND_BUFFER_LEN: usize = 10_000;
 
 /// Keeps the shutdown, publish queue flush included, well inside the pod's

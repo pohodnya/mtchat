@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use fred::clients::{Pool, SubscriberClient};
 use fred::interfaces::{ClientLike, EventInterface, PubsubInterface};
+use fred::types::config::Options;
 use futures::{FutureExt, SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ use std::future::Future;
 use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::{mpsc, oneshot};
@@ -32,6 +33,9 @@ pub type ConnectionTx = mpsc::Sender<String>;
 pub const EVENTS_CHANNEL: &str = "mtchat:ws:events";
 
 const PUBLISH_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// How often a batch skipped because Redis is not connected is logged.
+const NOT_CONNECTED_WARN_INTERVAL: Duration = Duration::from_secs(10);
 
 /// Events waiting to be published to the other replicas; when Redis stalls
 /// and the queue fills up, newer events are dropped. Reconnect storms after a
@@ -52,11 +56,21 @@ const RELEASE_CONCURRENCY: usize = 32;
 /// it was set may still run on other pooled connections; their ZADD must not
 /// land after the release, or the connection stays in the set until it expires.
 const IN_FLIGHT_SCRIPTS_WAIT: Duration = Duration::from_secs(4);
-const _: () = assert!(IN_FLIGHT_SCRIPTS_WAIT.as_secs() >= 2 * PRESENCE_SCRIPT_TIMEOUT.as_secs());
+const _: () = assert!(IN_FLIGHT_SCRIPTS_WAIT.as_millis() > PRESENCE_SCRIPT_TIMEOUT.as_millis());
 
 enum Outgoing {
     Event(String),
     Flush(oneshot::Sender<()>),
+}
+
+enum PublishError {
+    /// No pooled Redis connection is up, nothing was sent.
+    NotConnected,
+    /// Publishing stopped at the first failure, the rest of the batch was not sent.
+    Failed {
+        unpublished: usize,
+        error: fred::error::Error,
+    },
 }
 
 /// WebSocket connections of this process plus, when Redis is configured,
@@ -114,16 +128,8 @@ impl Connections {
     /// Connections that also publish every event to the other replicas.
     pub fn with_redis(publisher: Arc<Pool>) -> Self {
         Self::with_publisher(PUBLISH_QUEUE_CAPACITY, move |payloads| {
-            let pipeline = publisher.next().pipeline();
-            async move {
-                for payload in payloads {
-                    pipeline
-                        .publish::<(), _, _>(EVENTS_CHANNEL, payload)
-                        .await?;
-                }
-                pipeline.all::<fred::types::Value>().await?;
-                Ok(())
-            }
+            let publisher = publisher.clone();
+            async move { publish_in_order(&publisher, payloads).await }
         })
     }
 
@@ -132,14 +138,19 @@ impl Connections {
     fn with_publisher<F, Fut>(capacity: usize, publish: F) -> Self
     where
         F: Fn(Vec<String>) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = Result<(), fred::error::Error>> + Send + 'static,
+        Fut: Future<Output = Result<(), PublishError>> + Send + 'static,
     {
         let (queue, outgoing) = mpsc::channel(capacity);
-        tokio::spawn(run_publisher(outgoing, publish));
-        Self {
+        let connections = Self {
             publisher: Some(queue),
             ..Self::default()
-        }
+        };
+        tokio::spawn(run_publisher(
+            outgoing,
+            publish,
+            connections.dropped.clone(),
+        ));
+        connections
     }
 
     /// Deliver an event to the recipients' connections on every replica.
@@ -294,12 +305,46 @@ impl Connections {
     }
 }
 
+/// Publishes the events one by one on a single connected client, so they keep
+/// their order. Each publish is bounded by fred's own timeout, not an outer one:
+/// fred marks a command that timed out and never writes it after a reconnect
+/// (`basic_request_response` in fred's `utils.rs`, checked in `write_command`
+/// and `retry_buffer`), while a dropped future would leave it buffered, to be
+/// published late and out of order. A pipeline is not used for the same reason:
+/// fred does not mark pipelined commands on timeout. `fail_fast` makes a command
+/// fail instead of waiting in the buffer when the connection drops.
+async fn publish_in_order(pool: &Pool, payloads: Vec<String>) -> Result<(), PublishError> {
+    let client = pool.next_connected();
+    if !client.is_connected() {
+        return Err(PublishError::NotConnected);
+    }
+    let client = client.with_options(&Options {
+        timeout: Some(PUBLISH_TIMEOUT),
+        fail_fast: true,
+        ..Default::default()
+    });
+    let count = payloads.len();
+    for (published, payload) in payloads.into_iter().enumerate() {
+        if let Err(error) = client.publish::<(), _, _>(EVENTS_CHANNEL, payload).await {
+            return Err(PublishError::Failed {
+                unpublished: count - published,
+                error,
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Publishes queued events in order, everything queued so far in one batch.
-async fn run_publisher<F, Fut>(mut outgoing: mpsc::Receiver<Outgoing>, publish: F)
-where
+async fn run_publisher<F, Fut>(
+    mut outgoing: mpsc::Receiver<Outgoing>,
+    publish: F,
+    dropped: Arc<AtomicU64>,
+) where
     F: Fn(Vec<String>) -> Fut,
-    Fut: Future<Output = Result<(), fred::error::Error>>,
+    Fut: Future<Output = Result<(), PublishError>>,
 {
+    let mut not_connected_warned_at: Option<Instant> = None;
     while let Some(item) = outgoing.recv().await {
         let mut batch = Vec::new();
         let mut flushed = None;
@@ -321,21 +366,33 @@ where
             let count = batch.len();
             // A panic must cost one batch, not the task: with the task gone
             // every later event would only be delivered locally.
-            let publishing = AssertUnwindSafe(async {
-                tokio::time::timeout(PUBLISH_TIMEOUT, publish(batch)).await
-            })
-            .catch_unwind();
+            let publishing = AssertUnwindSafe(async { publish(batch).await }).catch_unwind();
             match publishing.await {
-                Ok(Ok(Ok(()))) => {}
-                Ok(Ok(Err(e))) => tracing::warn!(
-                    "Failed to publish {} WebSocket events, other replicas will miss them: {}",
-                    count,
-                    e
-                ),
-                Ok(Err(_)) => tracing::warn!(
-                    "Publishing {} WebSocket events timed out, other replicas may miss them",
-                    count
-                ),
+                Ok(Ok(())) => {}
+                Ok(Err(PublishError::NotConnected)) => {
+                    let dropped = dropped.fetch_add(count as u64, Ordering::Relaxed) + count as u64;
+                    if not_connected_warned_at
+                        .map_or(true, |at| at.elapsed() >= NOT_CONNECTED_WARN_INTERVAL)
+                    {
+                        not_connected_warned_at = Some(Instant::now());
+                        tracing::warn!(
+                            "Redis is not connected, other replicas will miss {} WebSocket events ({} dropped so far)",
+                            count,
+                            dropped
+                        );
+                    }
+                }
+                Ok(Err(PublishError::Failed { unpublished, error })) => {
+                    let dropped = dropped.fetch_add(unpublished as u64, Ordering::Relaxed)
+                        + unpublished as u64;
+                    tracing::warn!(
+                        "Failed to publish {} of {} WebSocket events, other replicas will miss them ({} dropped so far): {}",
+                        unpublished,
+                        count,
+                        dropped,
+                        error
+                    );
+                }
                 Err(_) => tracing::error!(
                     "Publishing {} WebSocket events panicked, other replicas will miss them",
                     count
@@ -367,7 +424,9 @@ pub async fn release_presence(connections: &Connections, presence: &PresenceServ
         .iter()
         .map(|entry| (entry.key().clone(), entry.value().keys().copied().collect()))
         .collect();
-    if presence.is_configured() {
+    // With an empty snapshot there is nothing to release and nothing to wait
+    // for: a connection registered after `closing` was set skips presence.
+    if presence.is_configured() && !local.is_empty() {
         tokio::time::sleep(IN_FLIGHT_SCRIPTS_WAIT).await;
     }
 
@@ -982,14 +1041,20 @@ mod tests {
             .collect()
     }
 
+    // On the single-threaded test runtime the publisher runs only when the test
+    // yields: it takes the first event alone and the rest queue up behind it,
+    // so the events go out in several batches.
     #[tokio::test]
     async fn queued_events_are_published_in_order() {
         let published = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let batches = Arc::new(AtomicU64::new(0));
         let remaining = Arc::new(AtomicU64::new(10));
         let sink = published.clone();
-        // Earlier events take longer to publish, so concurrent publishing would reorder them.
+        let batch_count = batches.clone();
+        // Earlier batches take longer to publish, so concurrent publishing would reorder them.
         let connections = Connections::with_publisher(16, move |payloads| {
             let sink = sink.clone();
+            batch_count.fetch_add(1, Ordering::SeqCst);
             let delay = remaining.fetch_sub(1, Ordering::SeqCst);
             async move {
                 tokio::time::sleep(Duration::from_millis(delay * 5)).await;
@@ -1004,9 +1069,11 @@ mod tests {
                 dialog_id: dialog_id.parse().unwrap(),
             };
             broadcast_to_users(&connections, &event, &["user".to_string()]).await;
+            tokio::task::yield_now().await;
         }
         connections.flush_publisher(Duration::from_secs(5)).await;
 
+        assert!(batches.load(Ordering::SeqCst) > 1);
         assert_eq!(published_dialog_ids(&published.lock().unwrap()), dialog_ids);
     }
 
@@ -1090,6 +1157,61 @@ mod tests {
         assert!(connections.publisher_closed.load(Ordering::Relaxed));
         assert!(rx.try_recv().is_ok());
         assert!(rx.try_recv().is_ok());
+    }
+
+    #[tokio::test]
+    async fn nothing_is_published_without_a_connected_redis_client() {
+        let pool = fred::types::Builder::default_centralized()
+            .build_pool(2)
+            .unwrap();
+
+        let result = publish_in_order(&pool, vec!["event".to_string()]).await;
+
+        assert!(matches!(result, Err(PublishError::NotConnected)));
+    }
+
+    #[tokio::test]
+    async fn skipped_and_unpublished_events_are_counted_as_dropped() {
+        let calls = Arc::new(AtomicU64::new(0));
+        let connections = Connections::with_publisher(16, move |payloads: Vec<String>| {
+            let call = calls.fetch_add(1, Ordering::SeqCst);
+            async move {
+                match call {
+                    0 => Err(PublishError::NotConnected),
+                    _ => Err(PublishError::Failed {
+                        unpublished: payloads.len() - 1,
+                        error: fred::error::Error::new(
+                            fred::error::ErrorKind::Timeout,
+                            "timed out",
+                        ),
+                    }),
+                }
+            }
+        });
+
+        broadcast_to_users(&connections, &deleted_event(), &["user".to_string()]).await;
+        connections.flush_publisher(Duration::from_secs(5)).await;
+        for _ in 0..3 {
+            broadcast_to_users(&connections, &deleted_event(), &["user".to_string()]).await;
+        }
+        connections.flush_publisher(Duration::from_secs(5)).await;
+
+        assert_eq!(connections.dropped.load(Ordering::Relaxed), 1 + 2);
+    }
+
+    #[tokio::test]
+    async fn stopping_without_connections_does_not_wait_for_scripts() {
+        let pool = fred::types::Builder::default_centralized()
+            .build_pool(1)
+            .unwrap();
+        let presence = PresenceService::new(Arc::new(pool));
+        let connections = Connections::default();
+
+        let release = release_presence(&connections, &presence);
+
+        assert!(tokio::time::timeout(Duration::from_secs(1), release)
+            .await
+            .is_ok());
     }
 
     #[tokio::test]

@@ -25,7 +25,12 @@ const ONLINE_TTL: i64 = 120;
 /// refreshes the flag, otherwise the user goes offline when it expires.
 const RELEASED_ONLINE_TTL: i64 = 30;
 
-pub const SCRIPT_TIMEOUT: Duration = Duration::from_secs(2);
+/// Outer cap on a presence script, kept well above fred's command timeout
+/// (`REDIS_COMMAND_TIMEOUT` in main.rs) so fred's fires first: fred marks a
+/// command that timed out and never sends it after a reconnect, while a future
+/// dropped by this cap leaves the command buffered, to run later and leave a
+/// phantom connection in the set.
+pub const SCRIPT_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Adds or refreshes a connection and keeps the user online. Returns the
 /// number of live connections before the call, the refreshed one included

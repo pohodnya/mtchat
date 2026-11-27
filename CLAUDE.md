@@ -544,8 +544,10 @@ docker compose up -d
 - **Presence across replicas**: connections are tracked in the sorted set
   `presence:conns:<user>` (member = connection id, score = expiry, TTL 120s refreshed on
   ping, so throttled background tabs keep it) by Lua scripts
-  (`PresenceService::connect/refresh/disconnect`, fred feature `i-scripts`, 2s timeout
-  with fallback to local tracking). Scripts count only live members. `online:<user>` is
+  (`PresenceService::connect/refresh/disconnect`, fred feature `i-scripts`, fred's 2s
+  command timeout under a 3s outer cap, with fallback to local tracking; the cap stays
+  above fred's timeout, otherwise a script cut off by it would stay in fred's buffer
+  and run after a reconnect). Scripts count only live members. `online:<user>` is
   removed and `presence.update(online=false)` sent only when no connection is left on
   any pod; connections of a crashed pod expire by score. A ping whose connection had
   expired while the user had no other one sends `presence.update(online=true)` again.
@@ -553,8 +555,8 @@ docker compose up -d
   back to local tracking and is delivered only on this pod, not published to the bus:
   the user may still have a tab on another pod.
 - **Graceful shutdown**: on SIGTERM/SIGINT the pod stops refreshing presence, waits 4s
-  for presence scripts already in flight (so their ZADD cannot land after the release),
-  then removes its connections from the sorted sets (`ws::release_presence`,
+  for presence scripts already in flight (so their ZADD cannot land after the release;
+  skipped when the pod has no connections), then removes its connections from the sorted sets (`ws::release_presence`,
   `PresenceService::release`) and flushes the publish queue (5s). The release is capped
   at 15s overall; the chart sets `api.terminationGracePeriodSeconds: 45`. No offline
   update is sent on shutdown: clients reconnect to another pod within seconds, and
@@ -564,14 +566,20 @@ docker compose up -d
   clients get no `presence.update(online=false)` for users who left during a deploy.
 - **Publishing off the request path**: `broadcast_*` deliver locally and enqueue the
   bus message (bounded queue, 8192, sized for presence storms after a pod restart) for
-  one background publisher task, which sends everything queued so far (up to 256) in
-  one pipeline and keeps the order; a full queue drops the event with a warning. A
+  one background publisher task, which takes everything queued so far (up to 256) and
+  publishes it one by one on a single connected pooled client, keeping the order; a
+  full queue drops the event with a warning. Each publish has fred's own 2s timeout
+  and `fail_fast`, with no outer timeout: fred drops a single command that timed out
+  instead of sending it after a reconnect, but not a pipelined one or one whose future
+  was dropped, which would publish stale events late and out of order. The batch stops
+  at the first failure; with no connected client it is skipped (warning at most every
+  10s). Skipped and unpublished events are counted as dropped. A
   panic while publishing costs one batch, not the task (`catch_unwind`); if the task is
   gone anyway, dropped events are counted and an error is logged once. The Redis pool
   now has a reconnect policy, as the subscriber does. Pool and subscriber use fred's
-  `default_command_timeout` (2s) and `max_command_buffer_len` (10000), so commands
-  that timed out while Redis was down are dropped instead of being sent after the
-  reconnect. The subscriber re-sends SUBSCRIBE every 30s (a no-op in Redis when
+  `default_command_timeout` (2s) and `max_command_buffer_len` (10000), so single
+  commands that timed out while Redis was down are dropped instead of being sent
+  after the reconnect. The subscriber re-sends SUBSCRIBE every 30s (a no-op in Redis when
   subscribed), since fred re-subscribes only on reconnect and its tracked channels
   reflect the client's intent, not the server's state.
 - **Limits**: delivery between pods is at-most-once (events are lost during a
@@ -588,7 +596,9 @@ docker compose up -d
   tabs on both pods, presence on two pods, crashed-pod expiry, refresh of live and
   expired connections, expired member vs. offline, shutdown release without offline:
   short TTL on `online:`); publisher order, batching, panic recovery, stopped
-  publisher, queue overflow and local-only offline on Redis failure in unit tests.
+  publisher, skipped/unpublished events counted as dropped, no publishing without a
+  connected client, no in-flight wait on shutdown without connections, queue overflow
+  and local-only offline on Redis failure in unit tests.
 
 ### 2026-11-23 - Scoped Unread Count, Shared SDK Client, Manual Archive Events
 - **`GET /api/v1/unread` honours `X-Scope-Config`**: with the header only the
