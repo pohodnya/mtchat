@@ -43,6 +43,8 @@ This adds:
 
 To use external PostgreSQL, Redis, or S3 instead of bundled services, remove the corresponding service from `docker-compose.yml` and update the environment variables in `.env`.
 
+An external Redis with ACL must allow pub/sub on the `mtchat:ws:events` channel, see [Redis ACL](#redis-acl).
+
 ## Helm Chart (Kubernetes)
 
 ### Quick Start
@@ -106,6 +108,21 @@ refuses to render more than one replica (`api.replicaCount`, or
 `api.autoscaling.maxReplicas` with autoscaling) without Redis: set
 `redis.enabled`, `redis.external.host`, `secret.REDIS_URL`, `existingSecret`
 or `REDIS_URL` in `api.extraEnv`.
+
+#### Redis ACL
+
+At startup the API subscribes to the Redis channel `mtchat:ws:events` and then
+publishes to it. If the Redis user may not do that, the pod fails at startup
+with `NOPERM` and goes into CrashLoop. For an external Redis with ACL the user
+needs access to keys, the pub/sub commands (`SUBSCRIBE`, `PUBLISH`),
+`EVAL`/`EVALSHA` and the channel `&mtchat:ws:events` (or `&*`). Redis 7 defaults
+to `acl-pubsub-default resetchannels`, so `~* +@all` alone is not enough:
+
+```
+ACL SETUSER mtchat on >password ~* &mtchat:ws:events +@all
+```
+
+The bundled Redis (`redis.enabled`) runs without ACL and is not affected.
 
 On SIGTERM an API pod releases the online status of its WebSocket connections
 (at most 15 s) and publishes the queued events to the other replicas (at most

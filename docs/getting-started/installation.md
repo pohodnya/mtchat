@@ -30,7 +30,7 @@ MTChat works with only PostgreSQL. Other services are optional:
 | Service | Required | What it enables |
 |---------|----------|-----------------|
 | PostgreSQL | **Yes** | Core data storage |
-| Redis | No | Online status, job queue, smart notifications, auto-archive |
+| Redis | No (yes with more than one API replica) | Online status, job queue, smart notifications, auto-archive, WebSocket events between API replicas |
 | MinIO / S3 | No | File attachments (upload/download) |
 | Webhook URL | No | Outgoing event notifications to your backend |
 

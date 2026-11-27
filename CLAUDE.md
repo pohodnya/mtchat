@@ -593,6 +593,14 @@ docker compose up -d
 - **Redis is required for more than one API replica** (docs: configuration,
   architecture, deploy README); the Helm chart fails to render several replicas
   without Redis.
+- **Redis ACL must allow pub/sub**: the API SUBSCRIBEs to and PUBLISHes on
+  `mtchat:ws:events`; a Redis user without `&mtchat:ws:events` (or `&*`), pub/sub
+  and `EVAL`/`EVALSHA` makes the pod fail at startup with `NOPERM` (Redis 7 defaults
+  to `acl-pubsub-default resetchannels`). The bundled Redis has no ACL (docs:
+  configuration, deploy README).
+- **Breaking (intended)**: `helm upgrade` stops rendering for configurations with
+  more than one API replica and no Redis; such setups delivered events only within
+  one pod and must add Redis.
 - **Rolling update from 0.5.0**: old pods know only `online:<user>` and no bus, so while
   both versions run online status is temporarily inaccurate and events are shared only
   between new pods; rolling back to 0.5.0 is safe (see deploy README).

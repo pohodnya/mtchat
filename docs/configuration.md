@@ -51,6 +51,21 @@ Only a standalone Redis (optionally with replicas/Sentinel) is supported. The
 presence Lua scripts touch two keys that hash to different slots, so Redis
 Cluster is not supported.
 
+**Redis ACL.** At startup the API subscribes to `mtchat:ws:events` and later
+publishes to it. A Redis user without access to that channel makes the API
+fail at startup with `NOPERM` (CrashLoop in Kubernetes). The user needs access
+to keys, the pub/sub commands (`SUBSCRIBE`, `PUBLISH`), `EVAL`/`EVALSHA`, and
+the channel `&mtchat:ws:events` (or `&*`). Redis 7 defaults to
+`acl-pubsub-default resetchannels`, so a user created with `~* +@all` but
+without a channel pattern cannot subscribe:
+
+```
+ACL SETUSER mtchat on >password ~* &mtchat:ws:events +@all
+```
+
+The bundled Redis of the Helm chart and docker compose has no ACL and is not
+affected.
+
 ## S3 / MinIO (Optional)
 
 Enables file attachment uploads and downloads.

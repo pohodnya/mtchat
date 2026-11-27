@@ -356,7 +356,7 @@ Authenticated with a JWT bearer token when `JWT_AUTH_ENABLED=true`, or with the 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | No | local PostgreSQL URL | PostgreSQL connection string; set explicitly outside local development |
-| `REDIS_URL` | No | -- | Redis URL (enables presence, jobs) |
+| `REDIS_URL` | No | -- | Redis URL (enables presence, jobs; also the WebSocket event bus between API replicas, required with more than one replica). An ACL user needs pub/sub on `mtchat:ws:events`, see [configuration](docs/configuration.md#redis-optional) |
 | `ADMIN_API_TOKEN` | No | -- | Management API auth token |
 | `JWT_AUTH_ENABLED` | No | `false` | Enable JWT authentication for Chat API |
 | `JWT_SECRET` | No | -- | HS256 secret, required when JWT auth is enabled (unless `JWT_SECRETS` is set) |

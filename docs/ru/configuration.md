@@ -49,6 +49,21 @@ MTChat настраивается через переменные окружен
 Lua-скрипты presence работают с двумя ключами из разных слотов, поэтому Redis
 Cluster не поддерживается.
 
+**Redis ACL.** При старте API подписывается на канал `mtchat:ws:events`, а затем
+публикует в него. Если у пользователя Redis нет доступа к этому каналу, API
+падает на старте с `NOPERM` (в Kubernetes — CrashLoop). Пользователю нужны
+доступ к ключам, команды pub/sub (`SUBSCRIBE`, `PUBLISH`), `EVAL`/`EVALSHA` и
+канал `&mtchat:ws:events` (или `&*`). В Redis 7 по умолчанию
+`acl-pubsub-default resetchannels`, поэтому пользователь, созданный с
+`~* +@all` без шаблона каналов, подписаться не сможет:
+
+```
+ACL SETUSER mtchat on >password ~* &mtchat:ws:events +@all
+```
+
+Встроенный Redis из Helm-чарта и docker compose работает без ACL, его это не
+затрагивает.
+
 ## S3 / MinIO (опционально)
 
 Включает загрузку и скачивание файловых вложений.
