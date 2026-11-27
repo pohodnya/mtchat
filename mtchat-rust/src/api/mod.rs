@@ -12,7 +12,6 @@ pub mod ws_handler;
 
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
-use dashmap::DashMap;
 use serde::Serialize;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -54,6 +53,7 @@ impl AppState {
         s3: S3Service,
         presence: PresenceService,
         jobs: JobProducer,
+        connections: ws::Connections,
     ) -> Self {
         Self {
             dialogs: Arc::new(DialogRepository::new(db.clone())),
@@ -61,7 +61,7 @@ impl AppState {
             scopes: Arc::new(AccessScopeRepository::new(db.clone())),
             messages: Arc::new(MessageRepository::new(db.clone())),
             attachments: Arc::new(AttachmentRepository::new(db.clone())),
-            connections: Arc::new(DashMap::new()),
+            connections,
             db,
             s3: Arc::new(s3),
             presence: Arc::new(presence),

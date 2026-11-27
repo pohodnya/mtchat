@@ -20,8 +20,26 @@ use multitenancy_chat_api::jobs::{
     start_workers, JobContext, JobProducer, NotificationJob, WorkerConfig,
 };
 use multitenancy_chat_api::middleware;
-use multitenancy_chat_api::services::{PresenceService, S3Config, S3Service};
+use multitenancy_chat_api::services::{
+    PresenceService, S3Config, S3Service, PRESENCE_SCRIPT_TIMEOUT,
+};
 use multitenancy_chat_api::webhooks::{WebhookConfig, WebhookSender};
+use multitenancy_chat_api::ws::{self, Connections};
+
+/// While Redis is down fred buffers commands and sends them after reconnecting.
+/// A single command that hit this timeout is dropped from the buffer instead of
+/// being sent late, e.g. a stale presence script; a full buffer fails new
+/// commands at once. Only a command not yet written to the socket is dropped;
+/// pipelined commands and commands whose future was dropped by an outer
+/// timeout are not, so the code avoids both.
+const REDIS_COMMAND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+const _: () =
+    assert!(REDIS_COMMAND_TIMEOUT.as_millis() + 500 <= PRESENCE_SCRIPT_TIMEOUT.as_millis());
+const REDIS_COMMAND_BUFFER_LEN: usize = 10_000;
+
+/// Keeps the shutdown, publish queue flush included, well inside the pod's
+/// termination grace period (`api.terminationGracePeriodSeconds` in the chart).
+const PRESENCE_RELEASE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 
 #[tokio::main]
 async fn main() {
@@ -93,11 +111,12 @@ async fn main() {
     };
 
     // Initialize Redis, presence service, and job queue
-    let (presence, jobs, redis_pool) = match env::var("REDIS_URL") {
+    let (presence, jobs, connections, redis_pool) = match env::var("REDIS_URL") {
         Ok(url) => {
             tracing::info!("Connecting to Redis...");
             let config = Config::from_url(&url).expect("Failed to parse REDIS_URL");
-            let pool = Builder::from_config(config)
+            let mut builder = Builder::from_config(config.clone());
+            builder
                 // Enable TCP keepalive so the OS probes idle connections and
                 // detects silently-dropped sockets (NAT/firewall idle timeout)
                 // before they are handed out from the pool and hang on the next
@@ -112,13 +131,55 @@ async fn main() {
                         ),
                         ..Default::default()
                     };
+                    c.max_command_buffer_len = REDIS_COMMAND_BUFFER_LEN;
                 })
-                .build_pool(5)
-                .expect("Failed to create Redis pool");
+                .with_performance_config(|p| p.default_command_timeout = REDIS_COMMAND_TIMEOUT)
+                // Without a policy fred never reconnects, and every command
+                // fails until restart after Redis restarts or the network blips.
+                .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2));
+            let pool = builder.build_pool(5).expect("Failed to create Redis pool");
             pool.init().await.expect("Failed to connect to Redis");
             tracing::info!("Redis connected, presence tracking enabled");
 
             let redis_pool = Arc::new(pool);
+
+            // WebSocket events are published on a connection of their own,
+            // configured like the pool: Redis runs one connection's commands
+            // in order, pooled connections would let events overtake each other.
+            let publisher = builder.build().expect("Failed to create Redis publisher");
+            publisher
+                .init()
+                .await
+                .expect("Failed to connect to Redis publisher");
+
+            // A dedicated connection for receiving WebSocket events published
+            // by other API replicas; it reconnects and re-subscribes on its own.
+            let subscriber = Builder::from_config(config)
+                .with_connection_config(|c| {
+                    c.tcp = fred::types::config::TcpConfig {
+                        keepalive: Some(
+                            socket2::TcpKeepalive::new()
+                                .with_time(std::time::Duration::from_secs(60))
+                                .with_interval(std::time::Duration::from_secs(10)),
+                        ),
+                        ..Default::default()
+                    };
+                    c.max_command_buffer_len = REDIS_COMMAND_BUFFER_LEN;
+                })
+                .with_performance_config(|p| {
+                    // fred's default of 32 buffered messages drops events under bursts
+                    p.broadcast_channel_capacity = 4096;
+                    p.default_command_timeout = REDIS_COMMAND_TIMEOUT;
+                })
+                .set_policy(ReconnectPolicy::new_exponential(0, 100, 30_000, 2))
+                .build_subscriber_client()
+                .expect("Failed to create Redis subscriber");
+            let connections = Connections::with_redis(publisher);
+            connections
+                .start_subscriber(subscriber)
+                .await
+                .expect("Failed to subscribe to WebSocket events in Redis");
+            tracing::info!("WebSocket events are shared between replicas via Redis");
 
             // Initialize job producer
             let worker_config = WorkerConfig::from_env();
@@ -138,6 +199,7 @@ async fn main() {
             (
                 PresenceService::new(redis_pool.clone()),
                 jobs,
+                connections,
                 Some((redis_pool, notification_storage, worker_config)),
             )
         }
@@ -145,11 +207,23 @@ async fn main() {
             tracing::info!(
                 "Redis disabled (REDIS_URL not set), presence tracking and job queue disabled"
             );
-            (PresenceService::noop(), JobProducer::noop(), None)
+            (
+                PresenceService::noop(),
+                JobProducer::noop(),
+                Connections::default(),
+                None,
+            )
         }
     };
 
-    let state = AppState::new(db.clone(), webhooks.clone(), s3, presence, jobs);
+    let state = AppState::new(
+        db.clone(),
+        webhooks.clone(),
+        s3,
+        presence,
+        jobs,
+        connections,
+    );
 
     let cors_config = CorsConfig::from_env();
     tracing::info!(
@@ -302,5 +376,45 @@ async fn main() {
     tracing::info!("Starting server on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let shutdown_state = state.clone();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            shutdown_signal().await;
+            tracing::info!("Shutting down, releasing presence of WebSocket connections");
+            let release =
+                ws::release_presence(&shutdown_state.connections, &shutdown_state.presence);
+            if tokio::time::timeout(PRESENCE_RELEASE_TIMEOUT, release)
+                .await
+                .is_err()
+            {
+                tracing::warn!(
+                    "Releasing presence timed out, the remaining connections expire on their own"
+                );
+            }
+        })
+        .await
+        .unwrap();
+    state
+        .connections
+        .flush_publisher(std::time::Duration::from_secs(5))
+        .await;
+    tracing::info!("Server stopped");
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to listen for Ctrl+C");
+    };
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("Failed to listen for SIGTERM")
+            .recv()
+            .await;
+    };
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }

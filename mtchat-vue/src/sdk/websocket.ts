@@ -46,7 +46,7 @@ export class MTChatWebSocket {
       // Apply defaults after spread: explicit undefined from callers must not override defaults
       reconnect: options.reconnect ?? true,
       reconnectInterval: options.reconnectInterval ?? 3000,
-      heartbeatInterval: options.heartbeatInterval ?? 30000, // 30 seconds, backend TTL is 60s
+      heartbeatInterval: options.heartbeatInterval ?? 30000, // 30 seconds, backend TTL is 120s
     }
 
     // Build WebSocket URL with appropriate auth params

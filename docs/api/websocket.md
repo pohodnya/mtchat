@@ -28,9 +28,10 @@ Upon successful connection, the server sends a `connected` event and sets the us
 
 1. Client connects with `token` (JWT mode) or `user_id` (legacy mode)
 2. Server validates auth and registers the connection, setting the user online
-3. Server broadcasts `presence.update` to other users in shared dialogs
-4. Client sends `ping` messages every 30 seconds to maintain presence
-5. On disconnect, server removes the connection and broadcasts offline status
+3. If this is the user's first connection across all API replicas, server broadcasts `presence.update` (online) to other users in shared dialogs
+4. Client sends `ping` messages every 30 seconds to maintain presence; each connection's presence has a 120-second TTL, extended by every ping
+5. On disconnect, server removes the connection; offline status is broadcast only when the user's last connection on all replicas has closed
+6. When an API replica stops gracefully (e.g. during a deploy), no offline status is broadcast: clients reconnect to another replica, and if a user does not reconnect, their online status expires by itself in about 30 seconds
 
 ## Server Events
 
@@ -191,7 +192,7 @@ Messages sent from the client to the server. The backend currently accepts only 
 
 ### ping
 
-Heartbeat message. Should be sent every 30 seconds to maintain online status (60-second TTL).
+Heartbeat message. Should be sent every 30 seconds to maintain online status (120-second TTL, which covers pings throttled in background tabs).
 
 ```json
 {

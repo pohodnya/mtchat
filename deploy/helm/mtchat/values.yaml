@@ -42,6 +42,12 @@ api:
   # Additional environment variables
   extraEnv: []
 
+  # Time the pod gets to stop after SIGTERM. Shutdown takes up to ~20s:
+  # releasing the online status of WebSocket connections (at most 15s,
+  # after a few seconds' wait for in-flight Redis scripts), then flushing
+  # queued events to the other replicas (at most 5s).
+  terminationGracePeriodSeconds: 45
+
 # -- Ingress
 ingress:
   enabled: false

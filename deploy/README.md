@@ -43,6 +43,8 @@ This adds:
 
 To use external PostgreSQL, Redis, or S3 instead of bundled services, remove the corresponding service from `docker-compose.yml` and update the environment variables in `.env`.
 
+An external Redis with ACL must allow pub/sub on the `mtchat:ws:events` channel, see [Redis ACL](#redis-acl).
+
 ## Helm Chart (Kubernetes)
 
 ### Quick Start
@@ -97,6 +99,49 @@ helm install mtchat ./helm/mtchat \
   --set api.autoscaling.minReplicas=2 \
   --set api.autoscaling.maxReplicas=10
 ```
+
+More than one API replica requires Redis: WebSocket events and online status are
+shared between replicas through it (see `docs/guide/architecture.md`). Use a
+standalone Redis — Redis Cluster is not supported. Event delivery between
+replicas is at-most-once; clients restore the state on reconnect. The chart
+refuses to render more than one replica (`api.replicaCount`, or
+`api.autoscaling.maxReplicas` with autoscaling) without Redis: set
+`redis.enabled`, `redis.external.host`, `secret.REDIS_URL`, `existingSecret`
+or `REDIS_URL` in `api.extraEnv`.
+
+#### Redis ACL
+
+At startup the API subscribes to the Redis channel `mtchat:ws:events` and then
+publishes to it. If the Redis user may not do that, the pod fails at startup
+with `NOPERM` and goes into CrashLoop. For an external Redis with ACL the user
+needs access to keys, the pub/sub commands (`SUBSCRIBE`, `PUBLISH`),
+`EVAL`/`EVALSHA` and the channel `&mtchat:ws:events` (or `&*`). Redis 7 defaults
+to `acl-pubsub-default resetchannels`, so `~* +@all` alone is not enough:
+
+```
+ACL SETUSER mtchat on >password ~* &mtchat:ws:events +@all
+```
+
+The bundled Redis (`redis.enabled`) runs without ACL and is not affected.
+
+On SIGTERM an API pod releases the online status of its WebSocket connections
+(at most 15 s) and publishes the queued events to the other replicas (at most
+5 s). `api.terminationGracePeriodSeconds` (default 45) leaves room for that;
+keep it above 20 s with a margin, or the pod may be killed before queued events go out.
+
+#### Upgrading from 0.5.0 (rolling update)
+
+Pods of 0.5.0 track online status only in `online:<user>` (set on ping,
+removed when the user's last tab on that pod closes) and do not use the
+`mtchat:ws:events` channel. While old and new pods run side by side:
+
+- online status is temporarily inaccurate: an old pod may mark a user offline
+  while they still have a tab on a new pod (and the reverse); it settles once
+  every pod runs the new version and clients send their next ping;
+- events are shared only between new pods: a user connected to an old pod
+  misses events produced on other pods, as before the upgrade;
+- rolling back to 0.5.0 is safe: the new keys (`presence:conns:<user>`) expire
+  within 120 s and the channel is simply not used.
 
 ### Using a Values File
 

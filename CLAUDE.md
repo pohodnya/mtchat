@@ -530,6 +530,89 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-11-27 - WebSocket Events Across API Replicas
+- **Cross-replica delivery**: WebSocket connections live in the memory of one pod,
+  so an event produced by a request on another pod never reached them. `ws::Connections`
+  is now a struct (local registry + optional Redis publisher); `broadcast_*` deliver to
+  local connections directly and publish `{ origin, user_ids, event_json }` to the Redis
+  channel `mtchat:ws:events`. Every pod subscribes at startup (`Connections::start_subscriber`,
+  dedicated `SubscriberClient` with reconnect, re-subscribe and error/reconnect logging)
+  and delivers foreign messages to its local recipients; its own messages (`origin` =
+  pod id) are skipped, so nobody gets an event twice and local delivery does not depend
+  on Redis. Without `REDIS_URL` delivery is local only, as before. `broadcast_*`
+  signatures unchanged; `AppState::new` takes `connections`.
+- **Presence across replicas**: connections are tracked in the sorted set
+  `presence:conns:<user>` (member = connection id, score = expiry, TTL 120s refreshed on
+  ping, so throttled background tabs keep it) by Lua scripts
+  (`PresenceService::connect/refresh/disconnect`, fred feature `i-scripts`, fred's 2s
+  command timeout under a 3s outer cap, with fallback to local tracking; the cap stays
+  above fred's timeout, otherwise a script cut off by it would stay in fred's buffer
+  and run after a reconnect). Scripts count only live members. `online:<user>` is
+  removed and `presence.update(online=false)` sent only when no connection is left on
+  any pod; connections of a crashed pod expire by score. A ping whose connection had
+  expired while the user had no other one sends `presence.update(online=true)` again.
+  When the disconnect script fails (Redis error or timeout), the offline update falls
+  back to local tracking and is delivered only on this pod, not published to the bus:
+  the user may still have a tab on another pod.
+- **Graceful shutdown**: on SIGTERM/SIGINT the pod stops refreshing presence, waits 4s
+  for presence scripts already in flight (so their ZADD cannot land after the release;
+  skipped when the pod has no connections), then removes its connections from the sorted sets (`ws::release_presence`,
+  `PresenceService::release`) and flushes the publish queue (5s). A connection that
+  closes once the shutdown has started is released by its own cleanup
+  (`ws::close_connection`), so it is not lost if it left before the snapshot was taken. The release is capped
+  at 15s overall; the chart sets `api.terminationGracePeriodSeconds: 45`. No offline
+  update is sent on shutdown: clients reconnect to another pod within seconds, and
+  offline followed by online made every user of the pod blink on each deploy. A user
+  left with no connection keeps `online:<user>` for 30s; a reconnect extends it,
+  otherwise it expires and REST shows the user offline. **Known limitation**: connected
+  clients get no `presence.update(online=false)` for users who left during a deploy.
+- **Publishing off the request path**: `broadcast_*` deliver locally and enqueue the
+  bus message (bounded queue, 8192, sized for presence storms after a pod restart) for
+  one background publisher task, which takes everything queued so far (up to 256) and
+  publishes it one by one on a dedicated Redis client (configured like the pool, not
+  part of it); a full queue drops the event with a warning. Each publish has fred's own
+  2s timeout and `fail_fast`, with no outer timeout: a command that timed out or hit a
+  reconnect before it was written to the socket is never sent; one already written may
+  still run. Events go over one connection, which Redis serves in order, so they keep
+  their order even then; a pipeline or a dropped future would leave the command buffered,
+  to be published after a reconnect. The batch stops at the first failure; with the
+  client not connected it is skipped (warning at most every 10s). Skipped and
+  unpublished events are counted as dropped (a timed-out event may still have been
+  delivered). A
+  panic while publishing costs one batch, not the task (`catch_unwind`); if the task is
+  gone anyway, dropped events are counted and an error is logged once. The Redis pool
+  now has a reconnect policy, as the subscriber does. Pool, publisher and subscriber use fred's
+  `default_command_timeout` (2s) and `max_command_buffer_len` (10000), so single
+  commands that timed out while Redis was down are dropped instead of being sent
+  after the reconnect. The subscriber re-sends SUBSCRIBE every 30s (a no-op in Redis when
+  subscribed), since fred re-subscribes only on reconnect and its tracked channels
+  reflect the client's intent, not the server's state.
+- **Limits**: delivery between pods is at-most-once (events are lost during a
+  subscription reconnect or buffer overflow; clients resync on reconnect), and only a
+  standalone Redis is supported (presence scripts use keys in different slots).
+- **Redis is required for more than one API replica** (docs: configuration,
+  architecture, deploy README); the Helm chart fails to render several replicas
+  without Redis.
+- **Redis ACL must allow pub/sub**: the API SUBSCRIBEs to and PUBLISHes on
+  `mtchat:ws:events`; a Redis user without `&mtchat:ws:events` (or `&*`), pub/sub
+  and `EVAL`/`EVALSHA` makes the pod fail at startup with `NOPERM` (Redis 7 defaults
+  to `acl-pubsub-default resetchannels`). The bundled Redis has no ACL (docs:
+  configuration, deploy README).
+- **Breaking (intended)**: `helm upgrade` stops rendering for configurations with
+  more than one API replica and no Redis; such setups delivered events only within
+  one pod and must add Redis.
+- **Rolling update from 0.5.0**: old pods know only `online:<user>` and no bus, so while
+  both versions run online status is temporarily inaccurate and events are shared only
+  between new pods; rolling back to 0.5.0 is safe (see deploy README).
+- Tests: unit (bus message JSON, delivery from bus, no duplicates) and
+  `tests/ws_bus_test.rs` (two pods on one Redis: cross-pod delivery, exactly-once with
+  tabs on both pods, presence on two pods, crashed-pod expiry, refresh of live and
+  expired connections, expired member vs. offline, shutdown release without offline:
+  short TTL on `online:`, release of a connection closed during shutdown); publisher order, batching, panic recovery, stopped
+  publisher, skipped/unpublished events counted as dropped, no publishing without a
+  connected client, no in-flight wait on shutdown without connections, queue overflow
+  and local-only offline on Redis failure in unit tests.
+
 ### 2026-11-23 - Scoped Unread Count, Shared SDK Client, Manual Archive Events
 - **`GET /api/v1/unread` honours `X-Scope-Config`**: with the header only the
   dialogs of that scope are summed, the same set as `GET /dialogs?type=participating`;
