@@ -191,7 +191,7 @@ Messages sent from the client to the server. The backend currently accepts only 
 
 ### ping
 
-Heartbeat message. Should be sent every 30 seconds to maintain online status (60-second TTL).
+Heartbeat message. Should be sent every 30 seconds to maintain online status (120-second TTL, which covers pings throttled in background tabs).
 
 ```json
 {

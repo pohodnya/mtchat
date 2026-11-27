@@ -36,6 +36,21 @@ Enables online presence, background job queue, and smart notifications.
 
 If not set, online status, job queue, and auto-archive features are disabled.
 
+**Redis is required when the API runs in more than one replica.** WebSocket
+connections live in the memory of the replica that accepted them; events
+(`message.*`, `participant.*`, `dialog.*`, `presence.update`) are forwarded to
+the other replicas through the Redis pub/sub channel `mtchat:ws:events`, and
+online status counts connections across all replicas. Without Redis only a
+single replica delivers events correctly.
+
+Delivery between replicas is at-most-once: events published while a replica's
+subscription is reconnecting, or dropped because a publish or receive buffer
+overflowed, are lost; clients restore the state on reconnect or page reload.
+
+Only a standalone Redis (optionally with replicas/Sentinel) is supported. The
+presence Lua scripts touch two keys that hash to different slots, so Redis
+Cluster is not supported.
+
 ## S3 / MinIO (Optional)
 
 Enables file attachment uploads and downloads.

@@ -104,6 +104,10 @@ MTChat uses WebSocket for real-time updates:
 
 The Vue SDK maintains a persistent WebSocket connection with automatic reconnection and heartbeat (30-second ping interval).
 
+With several API replicas, a user's tabs may be connected to different replicas. Each replica delivers an event to its own connections directly and publishes it to the Redis channel `mtchat:ws:events`; the other replicas deliver it to their connections of the listed recipients. A user goes offline only when no connection is left on any replica. A replica that stops gracefully (SIGTERM/SIGINT) releases its connections and sends offline updates; connections of a crashed replica expire after 120 seconds. Running more than one replica therefore requires a standalone Redis (Redis Cluster is not supported).
+
+Delivery between replicas is at-most-once: events published while a replica's subscription is reconnecting, or dropped on a buffer overflow, are lost, and clients restore the state on reconnect or page reload.
+
 ## Background Jobs
 
 MTChat uses **apalis** with a Redis backend for background task processing:

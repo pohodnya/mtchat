@@ -530,6 +530,43 @@ docker compose up -d
 
 ## Changelog
 
+### 2026-11-27 - WebSocket Events Across API Replicas
+- **Cross-replica delivery**: WebSocket connections live in the memory of one pod,
+  so an event produced by a request on another pod never reached them. `ws::Connections`
+  is now a struct (local registry + optional Redis publisher); `broadcast_*` deliver to
+  local connections directly and publish `{ origin, user_ids, event_json }` to the Redis
+  channel `mtchat:ws:events`. Every pod subscribes at startup (`Connections::start_subscriber`,
+  dedicated `SubscriberClient` with reconnect, re-subscribe and error/reconnect logging)
+  and delivers foreign messages to its local recipients; its own messages (`origin` =
+  pod id) are skipped, so nobody gets an event twice and local delivery does not depend
+  on Redis. Without `REDIS_URL` delivery is local only, as before. `broadcast_*`
+  signatures unchanged; `AppState::new` takes `connections`.
+- **Presence across replicas**: connections are tracked in the sorted set
+  `presence:conns:<user>` (member = connection id, score = expiry, TTL 120s refreshed on
+  ping, so throttled background tabs keep it) by Lua scripts
+  (`PresenceService::connect/refresh/disconnect`, fred feature `i-scripts`, 2s timeout
+  with fallback to local tracking). Scripts count only live members. `online:<user>` is
+  removed and `presence.update(online=false)` sent only when no connection is left on
+  any pod; connections of a crashed pod expire by score. A ping whose connection had
+  expired while the user had no other one sends `presence.update(online=true)` again.
+- **Graceful shutdown**: on SIGTERM/SIGINT the pod releases the presence of its
+  connections (`ws::release_presence`, offline updates for users left with no
+  connection), stops refreshing them and flushes the publish queue.
+- **Publishing off the request path**: `broadcast_*` deliver locally and enqueue the
+  bus message (bounded queue, 1024) for one background publisher task, which keeps the
+  order; a full queue drops the event with a warning. The Redis pool now has a
+  reconnect policy, as the subscriber does.
+- **Limits**: delivery between pods is at-most-once (events are lost during a
+  subscription reconnect or buffer overflow; clients resync on reconnect), and only a
+  standalone Redis is supported (presence scripts use keys in different slots).
+- **Redis is required for more than one API replica** (docs: configuration,
+  architecture, deploy README).
+- Tests: unit (bus message JSON, delivery from bus, no duplicates) and
+  `tests/ws_bus_test.rs` (two pods on one Redis: cross-pod delivery, exactly-once with
+  tabs on both pods, presence on two pods, crashed-pod expiry, refresh of live and
+  expired connections, expired member vs. offline, shutdown release); publisher order
+  and queue overflow in unit tests.
+
 ### 2026-11-23 - Scoped Unread Count, Shared SDK Client, Manual Archive Events
 - **`GET /api/v1/unread` honours `X-Scope-Config`**: with the header only the
   dialogs of that scope are summed, the same set as `GET /dialogs?type=participating`;

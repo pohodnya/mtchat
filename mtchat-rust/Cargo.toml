@@ -22,7 +22,7 @@ futures = "0.3"
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "migrate"] }
 
 # Redis
-fred = { version = "10", features = ["subscriber-client", "enable-rustls-ring"] }
+fred = { version = "10", features = ["subscriber-client", "enable-rustls-ring", "i-scripts"] }
 redis = { version = "0.32", features = ["tokio-rustls-comp"] }
 # Pinned to match fred's socket2 (0.5.x) for the TcpKeepalive type used in the
 # Redis pool connection config. Type identity is version-specific, so keep in sync.

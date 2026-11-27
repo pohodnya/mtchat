@@ -98,6 +98,11 @@ helm install mtchat ./helm/mtchat \
   --set api.autoscaling.maxReplicas=10
 ```
 
+More than one API replica requires Redis: WebSocket events and online status are
+shared between replicas through it (see `docs/guide/architecture.md`). Use a
+standalone Redis — Redis Cluster is not supported. Event delivery between
+replicas is at-most-once; clients restore the state on reconnect.
+
 ### Using a Values File
 
 ```bash
